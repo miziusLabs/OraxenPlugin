@@ -42,10 +42,7 @@ public class BackpackCosmeticManager {
         // Remove existing backpack first
         hideBackpack(player);
 
-        // Generate a unique entity ID for the armor stand
-        int entityId = NMSHandlers.getHandler().getNextEntityId();
-
-        BackpackData data = new BackpackData(entityId, mechanic, displayItem);
+        BackpackData data = createBackpackData(mechanic, displayItem);
         activeBackpacks.put(playerId, data);
 
         // Spawn the backpack for all nearby players
@@ -294,7 +291,11 @@ public class BackpackCosmeticManager {
         NMSHandlers.getHandler().sendMountPacket(viewer, owner.getEntityId(), passengerIds);
     }
 
-    private int[] getMergedPassengerIds(Player owner, int backpackEntityId) {
+    BackpackData createBackpackData(BackpackCosmeticMechanic mechanic, ItemStack displayItem) {
+        return new BackpackData(NMSHandlers.getHandler().getNextEntityId(), mechanic, displayItem);
+    }
+
+    int[] getMergedPassengerIds(Entity owner, int backpackEntityId) {
         Set<Integer> passengerIds = new LinkedHashSet<>();
         for (Entity passenger : owner.getPassengers()) {
             passengerIds.add(passenger.getEntityId());
@@ -302,6 +303,42 @@ public class BackpackCosmeticManager {
         passengerIds.add(backpackEntityId);
 
         return passengerIds.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    void updateBackpackViewer(Player viewer, BackpackData data, Location location,
+                              int vehicleId, float yaw, int[] passengerIds) {
+        if (!viewer.isOnline() || !isWithinViewDistance(viewer, location, data.getMechanic().getViewDistance())) {
+            removeBackpackViewer(viewer, data);
+            return;
+        }
+
+        boolean spawned = data.getViewers().add(viewer.getUniqueId());
+        if (spawned) {
+            NMSHandlers.getHandler().spawnBackpackArmorStand(
+                    viewer, data.getEntityId(), location, data.getDisplayItem(), data.getMechanic().isSmallArmorStand());
+        }
+
+        sendBackpackMount(viewer, data, vehicleId, yaw, passengerIds, spawned);
+    }
+
+    void sendBackpackMount(Player viewer, BackpackData data, int vehicleId,
+                           float yaw, int[] passengerIds, boolean resync) {
+        NMSHandlers.getHandler().sendMountPacket(viewer, vehicleId, passengerIds);
+        NMSHandlers.getHandler().sendEntityHeadRotation(viewer, data.getEntityId(), yaw);
+
+        if (resync) {
+            SchedulerUtil.runForEntityLater(viewer, 1L, () -> {
+                if (viewer.isOnline() && data.getViewers().contains(viewer.getUniqueId())) {
+                    NMSHandlers.getHandler().sendMountPacket(viewer, vehicleId, passengerIds);
+                }
+            });
+        }
+    }
+
+    void removeBackpackViewer(Player viewer, BackpackData data) {
+        if (data.getViewers().remove(viewer.getUniqueId())) {
+            NMSHandlers.getHandler().sendEntityDestroy(viewer, data.getEntityId());
+        }
     }
 
     private void destroyBackpackForViewers(BackpackData data) {
@@ -314,9 +351,24 @@ public class BackpackCosmeticManager {
         data.getViewers().clear();
     }
 
+    void scheduleBackpackDestroyForViewers(BackpackData data) {
+        for (UUID viewerId : data.getViewers()) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer != null && viewer.isOnline()) {
+                SchedulerUtil.runForEntity(viewer,
+                        () -> NMSHandlers.getHandler().sendEntityDestroy(viewer, data.getEntityId()));
+            }
+        }
+        data.getViewers().clear();
+    }
+
     private boolean isWithinViewDistance(Player viewer, Player target, int viewDistance) {
+        return isWithinViewDistance(viewer, target.getLocation(), viewDistance);
+    }
+
+    private boolean isWithinViewDistance(Player viewer, Location target, int viewDistance) {
         if (!viewer.getWorld().equals(target.getWorld())) return false;
-        return viewer.getLocation().distanceSquared(target.getLocation()) <= viewDistance * viewDistance;
+        return viewer.getLocation().distanceSquared(target) <= (double) viewDistance * viewDistance;
     }
 
     /**

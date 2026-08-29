@@ -3,7 +3,6 @@ package io.th0rgal.oraxen.mechanics.provided.cosmetic.backpack;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
-import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import org.bukkit.Bukkit;
@@ -29,7 +28,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.Method;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -45,7 +43,7 @@ public class BackpackCosmeticListener implements Listener {
     private final BackpackCosmeticManager manager;
     private final Set<UUID> hiddenForMovement = ConcurrentHashMap.newKeySet();
     private final Map<UUID, BackpackCosmeticMechanic> hiddenMovementMechanics = new ConcurrentHashMap<>();
-    private final Map<UUID, StandDisplayData> armorStandDisplays = new ConcurrentHashMap<>();
+    private final Map<UUID, BackpackCosmeticManager.BackpackData> armorStandDisplays = new ConcurrentHashMap<>();
     private final Map<UUID, SchedulerUtil.ScheduledTask> armorStandViewerTasks = new ConcurrentHashMap<>();
 
     // Movement thresholds to reduce unnecessary updates
@@ -79,10 +77,11 @@ public class BackpackCosmeticListener implements Listener {
 
         SchedulerUtil.ScheduledTask task = armorStandViewerTasks.remove(playerId);
         if (task != null) task.cancel();
-        for (StandDisplayData data : armorStandDisplays.values()) {
-            data.viewers.remove(playerId);
-            if (data.viewers.isEmpty()) {
-                armorStandDisplays.remove(data.standId, data);
+        for (Map.Entry<UUID, BackpackCosmeticManager.BackpackData> entry : armorStandDisplays.entrySet()) {
+            BackpackCosmeticManager.BackpackData data = entry.getValue();
+            data.getViewers().remove(playerId);
+            if (data.getViewers().isEmpty()) {
+                armorStandDisplays.remove(entry.getKey(), data);
             }
         }
     }
@@ -253,23 +252,23 @@ public class BackpackCosmeticListener implements Listener {
     private void handleArmorStandMountChange(Entity vehicle) {
         if (!factory.isArmorStandEnabled() || !(vehicle instanceof ArmorStand stand)) return;
 
-        StandDisplayData data = armorStandDisplays.get(stand.getUniqueId());
+        BackpackCosmeticManager.BackpackData data = armorStandDisplays.get(stand.getUniqueId());
         if (data == null) return;
 
         SchedulerUtil.runForEntity(stand, () -> {
             if (armorStandDisplays.get(stand.getUniqueId()) != data || !stand.isValid()) return;
 
-            int[] passengerIds = getMergedPassengerIds(stand, data.entityId);
+            int[] passengerIds = manager.getMergedPassengerIds(stand, data.getEntityId());
             int vehicleId = stand.getEntityId();
             float yaw = stand.getYaw();
-            for (UUID viewerId : data.viewers) {
+            for (UUID viewerId : data.getViewers()) {
                 Player viewer = Bukkit.getPlayer(viewerId);
                 if (viewer == null) continue;
 
                 SchedulerUtil.runForEntity(viewer, () -> {
-                    if (viewer.isOnline() && data.viewers.contains(viewerId)
-                            && armorStandDisplays.get(data.standId) == data) {
-                        sendArmorStandMount(viewer, data, vehicleId, yaw, passengerIds, false);
+                    if (viewer.isOnline() && data.getViewers().contains(viewerId)
+                            && armorStandDisplays.get(stand.getUniqueId()) == data) {
+                        manager.sendBackpackMount(viewer, data, vehicleId, yaw, passengerIds, false);
                     }
                 });
             }
@@ -553,9 +552,9 @@ public class BackpackCosmeticListener implements Listener {
             }
         }
 
-        for (StandDisplayData data : armorStandDisplays.values()) {
-            if (!nearbyStandIds.contains(data.standId)) {
-                removeArmorStandViewer(viewer, data);
+        for (Map.Entry<UUID, BackpackCosmeticManager.BackpackData> entry : armorStandDisplays.entrySet()) {
+            if (!nearbyStandIds.contains(entry.getKey())) {
+                removeArmorStandViewer(viewer, entry.getKey(), entry.getValue());
             }
         }
     }
@@ -574,85 +573,38 @@ public class BackpackCosmeticListener implements Listener {
                 return;
             }
 
-            StandDisplayData data = ensureArmorStandDisplay(stand, mechanic, chestItem);
+            BackpackCosmeticManager.BackpackData data = ensureArmorStandDisplay(stand, mechanic, chestItem);
             Location location = stand.getLocation().clone();
             int vehicleId = stand.getEntityId();
             float yaw = stand.getYaw();
-            int[] passengerIds = getMergedPassengerIds(stand, data.entityId);
+            int[] passengerIds = manager.getMergedPassengerIds(stand, data.getEntityId());
 
-            SchedulerUtil.runForEntity(viewer, () -> updateArmorStandViewer(
-                    viewer, data, location, vehicleId, yaw, passengerIds));
+            SchedulerUtil.runForEntity(viewer, () -> {
+                if (armorStandDisplays.get(stand.getUniqueId()) != data) return;
+                manager.updateBackpackViewer(viewer, data, location, vehicleId, yaw, passengerIds);
+                if (data.getViewers().isEmpty()) armorStandDisplays.remove(stand.getUniqueId(), data);
+            });
         }, () -> removeArmorStandDisplay(stand.getUniqueId()));
     }
 
-    private StandDisplayData ensureArmorStandDisplay(ArmorStand stand,
-                                                       BackpackCosmeticMechanic mechanic,
-                                                       ItemStack displayItem) {
+    private BackpackCosmeticManager.BackpackData ensureArmorStandDisplay(ArmorStand stand,
+                                                                          BackpackCosmeticMechanic mechanic,
+                                                                          ItemStack displayItem) {
         UUID standId = stand.getUniqueId();
-        StandDisplayData data = armorStandDisplays.get(standId);
-        if (data != null && data.mechanic == mechanic && displayItem.isSimilar(data.displayItem)) {
+        BackpackCosmeticManager.BackpackData data = armorStandDisplays.get(standId);
+        if (data != null && data.getMechanic() == mechanic && displayItem.isSimilar(data.getDisplayItem())) {
             return data;
         }
 
         removeArmorStandDisplay(standId);
-        data = new StandDisplayData(standId, NMSHandlers.getHandler().getNextEntityId(), mechanic,
-                displayItem.clone());
+        data = manager.createBackpackData(mechanic, displayItem.clone());
         armorStandDisplays.put(standId, data);
         return data;
     }
 
-    private void updateArmorStandViewer(Player viewer, StandDisplayData data, Location standLocation,
-                                        int vehicleId, float yaw, int[] passengerIds) {
-        if (!viewer.isOnline() || armorStandDisplays.get(data.standId) != data) return;
-
-        boolean inRange = viewer.getWorld().equals(standLocation.getWorld())
-                && viewer.getLocation().distanceSquared(standLocation)
-                <= (double) data.mechanic.getViewDistance() * data.mechanic.getViewDistance();
-        if (!inRange) {
-            removeArmorStandViewer(viewer, data);
-            return;
-        }
-
-        boolean spawned = data.viewers.add(viewer.getUniqueId());
-        if (spawned) {
-            NMSHandlers.getHandler().spawnBackpackArmorStand(
-                    viewer, data.entityId, standLocation, data.displayItem, data.mechanic.isSmallArmorStand());
-        }
-
-        sendArmorStandMount(viewer, data, vehicleId, yaw, passengerIds, spawned);
-    }
-
-    private void sendArmorStandMount(Player viewer, StandDisplayData data, int vehicleId,
-                                     float yaw, int[] passengerIds, boolean resync) {
-        NMSHandlers.getHandler().sendMountPacket(viewer, vehicleId, passengerIds);
-        NMSHandlers.getHandler().sendEntityHeadRotation(viewer, data.entityId, yaw);
-
-        if (resync) {
-            SchedulerUtil.runForEntityLater(viewer, 1L, () -> {
-                if (viewer.isOnline() && data.viewers.contains(viewer.getUniqueId())
-                        && armorStandDisplays.get(data.standId) == data) {
-                    NMSHandlers.getHandler().sendMountPacket(viewer, vehicleId, passengerIds);
-                }
-            });
-        }
-    }
-
-    private int[] getMergedPassengerIds(ArmorStand stand, int displayEntityId) {
-        Set<Integer> passengerIds = new LinkedHashSet<>();
-        for (Entity passenger : stand.getPassengers()) {
-            passengerIds.add(passenger.getEntityId());
-        }
-        passengerIds.add(displayEntityId);
-        return passengerIds.stream().mapToInt(Integer::intValue).toArray();
-    }
-
-    private void removeArmorStandViewer(Player viewer, StandDisplayData data) {
-        if (data.viewers.remove(viewer.getUniqueId())) {
-            NMSHandlers.getHandler().sendEntityDestroy(viewer, data.entityId);
-            if (data.viewers.isEmpty()) {
-                armorStandDisplays.remove(data.standId, data);
-            }
-        }
+    private void removeArmorStandViewer(Player viewer, UUID standId, BackpackCosmeticManager.BackpackData data) {
+        manager.removeBackpackViewer(viewer, data);
+        if (data.getViewers().isEmpty()) armorStandDisplays.remove(standId, data);
     }
 
     private void checkArmorStandDisplay(ArmorStand stand) {
@@ -672,20 +624,9 @@ public class BackpackCosmeticListener implements Listener {
     }
 
     private void removeArmorStandDisplay(UUID standId) {
-        StandDisplayData data = armorStandDisplays.remove(standId);
+        BackpackCosmeticManager.BackpackData data = armorStandDisplays.remove(standId);
         if (data == null) return;
-        destroyArmorStandDisplay(data);
-    }
-
-    private void destroyArmorStandDisplay(StandDisplayData data) {
-        for (UUID viewerId : data.viewers) {
-            Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer == null) continue;
-
-            SchedulerUtil.runForEntity(viewer,
-                    () -> NMSHandlers.getHandler().sendEntityDestroy(viewer, data.entityId));
-        }
-        data.viewers.clear();
+        manager.scheduleBackpackDestroyForViewers(data);
     }
 
     void cleanupArmorStandDisplays() {
@@ -694,25 +635,7 @@ public class BackpackCosmeticListener implements Listener {
         }
         armorStandViewerTasks.clear();
 
-        for (StandDisplayData data : armorStandDisplays.values()) {
-            destroyArmorStandDisplay(data);
-        }
+        armorStandDisplays.values().forEach(manager::scheduleBackpackDestroyForViewers);
         armorStandDisplays.clear();
-    }
-
-    private static final class StandDisplayData {
-        private final UUID standId;
-        private final int entityId;
-        private final BackpackCosmeticMechanic mechanic;
-        private final ItemStack displayItem;
-        private final Set<UUID> viewers = ConcurrentHashMap.newKeySet();
-
-        private StandDisplayData(UUID standId, int entityId, BackpackCosmeticMechanic mechanic,
-                                 ItemStack displayItem) {
-            this.standId = standId;
-            this.entityId = entityId;
-            this.mechanic = mechanic;
-            this.displayItem = displayItem;
-        }
     }
 }
