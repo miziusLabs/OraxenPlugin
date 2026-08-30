@@ -96,6 +96,10 @@ public abstract class RecipeBuilder {
         return inventoryTitle;
     }
 
+    public boolean matchesInventory(Inventory inventory) {
+        return this.inventory == inventory;
+    }
+
     public Player getPlayer() {
         return player;
     }
