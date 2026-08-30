@@ -6,6 +6,7 @@ import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.chorusblock.ChorusBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.NoteBlockMechanic;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
 import io.th0rgal.oraxen.utils.inventories.PickItemUtils;
 import org.bukkit.block.Block;
@@ -33,7 +34,7 @@ public class CustomBlockPickItemListener implements Listener {
             case NOTE_BLOCK -> getNoteBlockItemId(block);
             case TRIPWIRE -> getStringBlockItemId(block);
             case CHORUS_PLANT -> getChorusBlockItemId(block);
-            default -> null;
+            default -> getShapedBlockItemId(block);
         };
         return itemId == null ? null : OraxenItems.getItemById(itemId);
     }
@@ -56,6 +57,11 @@ public class CustomBlockPickItemListener implements Listener {
 
     private String getChorusBlockItemId(Block block) {
         ChorusBlockMechanic mechanic = OraxenBlocks.getChorusMechanic(block);
+        return mechanic == null ? null : mechanic.getItemID();
+    }
+
+    private String getShapedBlockItemId(Block block) {
+        ShapedBlockMechanic mechanic = OraxenBlocks.getShapedMechanic(block);
         return mechanic == null ? null : mechanic.getItemID();
     }
 }
