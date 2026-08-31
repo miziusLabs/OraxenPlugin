@@ -14,7 +14,12 @@ public class GrindstoneBuilder extends WorkstationBuilder {
 
     @Override
     Inventory createInventory(Player player, Component inventoryTitle) {
-        return Bukkit.createInventory(player, InventoryType.GRINDSTONE, inventoryTitle);
+        // Paper opens custom grindstone inventories through a separate native GrindstoneMenu.
+        // Its visible slots are not backed by the Inventory returned here and vanilla grindstone
+        // slot predicates would also reject otherwise valid custom recipe ingredients. A hopper
+        // gives us unrestricted, directly-backed authoring slots; slots 0-2 map to base,
+        // addition and result, while the builder listener keeps the remaining slots unused.
+        return Bukkit.createInventory(player, InventoryType.HOPPER, inventoryTitle);
     }
 
     public void setExperience(int experience) {
