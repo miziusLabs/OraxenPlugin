@@ -26,7 +26,7 @@ public class CustomBlockPickItemListener implements Listener {
         if (item == null || item.getType().isAir()) return;
 
         event.setCancelled(true);
-        PickItemUtils.pickItem(event.getPlayer(), item, event.getTargetSlot());
+        PickItemUtils.pickItem(event.getPlayer(), item);
     }
 
     private ItemBuilder getPickedItem(Block block) {

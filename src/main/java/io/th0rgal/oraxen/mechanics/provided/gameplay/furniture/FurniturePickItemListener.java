@@ -29,6 +29,6 @@ public class FurniturePickItemListener implements Listener {
         ItemBuilder itemBuilder = OraxenItems.getItemById(mechanic.getItemID());
         if (itemBuilder == null) return;
 
-        PickItemUtils.pickItem(event.getPlayer(), itemBuilder.build(), event.getTargetSlot());
+        PickItemUtils.pickItem(event.getPlayer(), itemBuilder.build());
     }
 }
