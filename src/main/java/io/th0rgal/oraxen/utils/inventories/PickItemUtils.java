@@ -10,11 +10,12 @@ public final class PickItemUtils {
     private PickItemUtils() {
     }
 
-    public static void pickItem(Player player, ItemStack item, int targetSlot) {
+    public static void pickItem(Player player, ItemStack item) {
         if (item == null || item.getType().isAir()) return;
 
         PlayerInventory inventory = player.getInventory();
         int sourceSlot = findMatchingSlot(inventory, item);
+        int targetSlot = isHotbarSlot(sourceSlot) ? sourceSlot : findSuitableHotbarSlot(inventory);
         if (sourceSlot >= 0) {
             if (sourceSlot != targetSlot) {
                 ItemStack targetItem = inventory.getItem(targetSlot);
@@ -35,6 +36,27 @@ public final class PickItemUtils {
 
         inventory.setItem(targetSlot, item);
         inventory.setHeldItemSlot(targetSlot);
+    }
+
+    static int findSuitableHotbarSlot(PlayerInventory inventory) {
+        int selectedSlot = inventory.getHeldItemSlot();
+        for (int offset = 0; offset < 9; offset++) {
+            int slot = (selectedSlot + offset) % 9;
+            ItemStack candidate = inventory.getItem(slot);
+            if (candidate == null || candidate.getType().isAir()) return slot;
+        }
+
+        for (int offset = 0; offset < 9; offset++) {
+            int slot = (selectedSlot + offset) % 9;
+            ItemStack candidate = inventory.getItem(slot);
+            if (candidate == null || candidate.getEnchantments().isEmpty()) return slot;
+        }
+
+        return selectedSlot;
+    }
+
+    private static boolean isHotbarSlot(int slot) {
+        return slot >= 0 && slot < 9;
     }
 
     private static int findMatchingSlot(PlayerInventory inventory, ItemStack item) {
