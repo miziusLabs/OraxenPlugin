@@ -292,7 +292,7 @@ public class BackpackCosmeticManager {
     }
 
     BackpackData createBackpackData(BackpackCosmeticMechanic mechanic, ItemStack displayItem) {
-        return new BackpackData(NMSHandlers.getHandler().getNextEntityId(), mechanic, displayItem);
+        return new BackpackData(Bukkit.getUnsafe().nextEntityId(), mechanic, displayItem);
     }
 
     int[] getMergedPassengerIds(Entity owner, int backpackEntityId) {
