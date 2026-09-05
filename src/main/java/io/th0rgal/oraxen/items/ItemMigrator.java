@@ -100,8 +100,8 @@ public final class ItemMigrator {
             configUpdated = true;
             blockConfigMigrated = true;
             if (OraxenPlugin.get() != null)
-                Logs.logWarning("Item " + section.getName() + " uses legacy Mechanics." + legacyMechanicID
-                        + "; it has been migrated to Mechanics.block.");
+                Logs.logWarning("Item " + section.getName() + " uses legacy mechanics." + legacyMechanicID
+                        + "; it has been migrated to mechanics.block.");
             return;
         }
     }

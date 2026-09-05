@@ -1178,9 +1178,9 @@ public class ItemBuilder {
                         yamlConfiguration.set(itemId + ".ItemFlags",
                                 this.itemFlags.stream().map(ItemFlag::name).toList());
                     if (hasEquippableComponent()) {
-                        yamlConfiguration.set(itemId + ".Components.equippable.slot",
+                        yamlConfiguration.set(itemId + ".components.equippable.slot",
                                 this.equippableComponent.getSlot().name());
-                        yamlConfiguration.set(itemId + ".Components.equippable.model",
+                        yamlConfiguration.set(itemId + ".components.equippable.model",
                                 this.equippableComponent.getModel().toString());
                     }
                     try {
