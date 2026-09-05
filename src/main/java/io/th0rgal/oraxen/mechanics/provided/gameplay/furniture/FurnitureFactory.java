@@ -14,6 +14,7 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.text.FurnitureTex
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.text.FurnitureTextPacketBridge;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.text.FurnitureTextRegistry;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
+import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
@@ -49,6 +50,8 @@ public class FurnitureFactory extends MechanicFactory {
                 new JukeboxListener(),
                 new FurnitureTextLoadListener()
         );
+        if (VersionUtil.atOrAbove("1.21.5"))
+            MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new FurniturePickItemListener());
         evolvingFurnitures = false;
         instance = this;
         FurniturePacketDispatcher.init();

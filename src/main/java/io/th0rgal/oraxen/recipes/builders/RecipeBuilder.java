@@ -33,7 +33,10 @@ public abstract class RecipeBuilder {
     protected RecipeBuilder(Player player, String builderName) {
         this.player = player;
         this.builderName = builderName;
-        this.inventoryTitle = player.getName() + " " + builderName + " builder";
+        this.inventoryTitle = switch (builderName) {
+            case "shaped", "shapeless" -> "Recipe builder";
+            default -> Character.toUpperCase(builderName.charAt(0)) + builderName.substring(1) + " builder";
+        };
         UUID playerId = player.getUniqueId();
         RecipeBuilder existingBuilder = MAP.get(playerId);
         inventory = existingBuilder != null && existingBuilder.builderName.equals(builderName)
@@ -94,6 +97,10 @@ public abstract class RecipeBuilder {
 
     public String getInventoryTitle() {
         return inventoryTitle;
+    }
+
+    public boolean matchesInventory(Inventory inventory) {
+        return this.inventory == inventory;
     }
 
     public Player getPlayer() {

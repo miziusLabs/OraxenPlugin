@@ -25,7 +25,7 @@ public final class ItemMechanics {
     }
 
     public void apply(final ItemBuilder item, final ConfigurationSection mergedSection) {
-        final ConfigurationSection mechanicsSection = OraxenYaml.getConfigurationSection(mergedSection, "Mechanics");
+        final ConfigurationSection mechanicsSection = mergedSection.getConfigurationSection("mechanics");
         if (mechanicsSection == null)
             return;
 
@@ -36,8 +36,8 @@ public final class ItemMechanics {
             final MechanicFactory factory = MechanicsManager.getMechanicFactory(mechanicID);
             if (factory == null) {
                 if (LEGACY_BLOCK_MECHANIC_IDS.contains(mechanicID.toLowerCase(Locale.ROOT)))
-                    Logs.logWarning("Item " + section.getName() + " uses legacy Mechanics." + mechanicID
-                            + "; migrate it to Mechanics.block or this mechanic will be ignored.");
+                    Logs.logWarning("Item " + section.getName() + " uses legacy mechanics." + mechanicID
+                            + "; migrate it to mechanics.block or this mechanic will be ignored.");
                 continue;
             }
 
