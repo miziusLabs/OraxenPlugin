@@ -19,6 +19,7 @@ import io.th0rgal.oraxen.packets.ProtocolLibAdapter;
 import io.th0rgal.oraxen.hud.HudManager;
 import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.CustomBlockPickItemListener;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.pack.dispatch.PackLoadingManager;
@@ -133,6 +134,9 @@ public class OraxenPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new BreakerSystem(), this);
         if (CustomBlockMiningListener.isSupported()) {
             Bukkit.getPluginManager().registerEvents(new CustomBlockMiningListener(), this);
+        }
+        if (VersionUtil.atOrAbove("1.21.5")) {
+            Bukkit.getPluginManager().registerEvents(new CustomBlockPickItemListener(), this);
         }
         NMSHandlers.setup();
 

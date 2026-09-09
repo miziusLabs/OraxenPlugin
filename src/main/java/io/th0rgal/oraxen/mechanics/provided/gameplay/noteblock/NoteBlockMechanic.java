@@ -14,6 +14,7 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.farmblock.FarmBlo
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.logstrip.LogStripping;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.storage.StorageMechanic;
 import io.th0rgal.oraxen.utils.actions.ClickAction;
+import io.th0rgal.oraxen.utils.OraxenYaml;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import org.bukkit.Material;
@@ -131,7 +132,7 @@ public class NoteBlockMechanic extends Mechanic {
         if (model != null)
             return model;
         // use the itemstack model if block model isn't set
-        return section.getString("Pack.model");
+        return OraxenYaml.getString(section, "pack.model");
     }
 
     public int getCustomVariation() {

@@ -794,7 +794,9 @@ public class ConfigsManager {
                 ConfigurationSection itemSection = configuration.getConfigurationSection(key);
                 if (itemSection == null)
                     continue;
-                ConfigurationSection packSection = OraxenYaml.getConfigurationSection(itemSection, "Pack");
+                ItemMigrator migrator = new ItemMigrator(itemSection);
+                fileChanged |= migrator.configUpdated();
+                ConfigurationSection packSection = itemSection.getConfigurationSection("pack");
                 Material material = OraxenYaml.getMaterial(itemSection.getString("material", ""));
                 if (packSection == null || material == null)
                     continue;
@@ -852,7 +854,7 @@ public class ConfigsManager {
                 if (itemSection == null || !itemSection.isBoolean("template")) continue;
 
                 ItemMigrator migrator = new ItemMigrator(itemSection);
-                ConfigurationSection mechanicsSection = OraxenYaml.getConfigurationSection(itemSection, "Mechanics");
+                ConfigurationSection mechanicsSection = itemSection.getConfigurationSection("mechanics");
                 if (mechanicsSection != null) migrator.migrateLegacyBlockMechanics(mechanicsSection);
                 configUpdated |= migrator.configUpdated();
                 blockConfigMigrated |= migrator.blockConfigMigrated();

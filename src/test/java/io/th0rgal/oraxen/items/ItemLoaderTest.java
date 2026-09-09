@@ -50,6 +50,43 @@ class ItemLoaderTest {
     }
 
     @Test
+    void migratesCapitalizedItemSectionsToLowercase() throws Exception {
+        YamlConfiguration config = new YamlConfiguration();
+        config.loadFromString("""
+                test_item:
+                  Mechanics:
+                    example: true
+                  Components:
+                    another-example: true
+                  Pack:
+                    model: test_item
+                """);
+
+        ConfigurationSection itemSection = config.getConfigurationSection("test_item");
+        assertNotNull(itemSection);
+
+        ItemMigrator migrator = new ItemMigrator(itemSection);
+
+        assertFalse(itemSection.contains("Mechanics"));
+        assertFalse(itemSection.contains("Components"));
+        assertFalse(itemSection.contains("Pack"));
+        assertTrue(itemSection.contains("mechanics"));
+        assertTrue(itemSection.contains("components"));
+        assertTrue(itemSection.contains("pack"));
+        assertTrue(itemSection.getBoolean("mechanics.example"));
+        assertTrue(itemSection.getBoolean("components.another-example"));
+        assertEquals("test_item", itemSection.getString("pack.model"));
+        String saved = config.saveToString();
+        assertTrue(saved.contains("mechanics:"));
+        assertTrue(saved.contains("components:"));
+        assertTrue(saved.contains("pack:"));
+        assertFalse(saved.contains("Mechanics:"));
+        assertFalse(saved.contains("Components:"));
+        assertFalse(saved.contains("Pack:"));
+        assertTrue(migrator.configUpdated());
+    }
+
+    @Test
     void templateChildrenDoNotInheritTheTemplateCustomModelData() throws Exception {
         YamlConfiguration config = new YamlConfiguration();
         config.loadFromString("""

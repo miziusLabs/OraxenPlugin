@@ -58,6 +58,9 @@ public class RecipesCommand {
                 .withSubcommand(getCampfireBuilderCommand())
                 .withSubcommand(getSmokingBuilderCommand())
                 .withSubcommand(getStonecuttingBuilderCommand())
+                .withSubcommand(getSmithingBuilderCommand())
+                .withSubcommand(getAnvilBuilderCommand())
+                .withSubcommand(getGrindstoneBuilderCommand())
                 .executes((sender, args) -> {
                     if (sender instanceof Player player) {
                         final RecipeBuilder recipe = RecipeBuilder.get(player.getUniqueId());
@@ -177,6 +180,50 @@ public class RecipesCommand {
                     if (sender instanceof Player player) {
                         final RecipeBuilder recipe = RecipeBuilder.get(player.getUniqueId());
                         (recipe != null ? recipe : new StonecuttingBuilder(player)).open();
+                    } else
+                        Message.NOT_PLAYER.send(sender);
+                });
+    }
+
+    private OraxenCommand getSmithingBuilderCommand() {
+        return new OraxenCommand("smithing")
+                .withPermission("oraxen.command.recipes.builder")
+                .executes((sender, args) -> {
+                    if (sender instanceof Player player) {
+                        final RecipeBuilder recipe = RecipeBuilder.get(player.getUniqueId());
+                        (recipe != null ? recipe : new SmithingBuilder(player)).open();
+                    } else
+                        Message.NOT_PLAYER.send(sender);
+                });
+    }
+
+    private OraxenCommand getAnvilBuilderCommand() {
+        return new OraxenCommand("anvil")
+                .withPermission("oraxen.command.recipes.builder")
+                .withArguments(new IntegerArgument("experience_cost"))
+                .executes((sender, args) -> {
+                    if (sender instanceof Player player) {
+                        RecipeBuilder recipe = RecipeBuilder.get(player.getUniqueId());
+                        recipe = recipe != null ? recipe : new AnvilBuilder(player);
+                        if (recipe instanceof AnvilBuilder anvil)
+                            anvil.setExperienceCost((Integer) args.get("experience_cost"));
+                        recipe.open();
+                    } else
+                        Message.NOT_PLAYER.send(sender);
+                });
+    }
+
+    private OraxenCommand getGrindstoneBuilderCommand() {
+        return new OraxenCommand("grindstone")
+                .withPermission("oraxen.command.recipes.builder")
+                .withArguments(new IntegerArgument("experience"))
+                .executes((sender, args) -> {
+                    if (sender instanceof Player player) {
+                        RecipeBuilder recipe = RecipeBuilder.get(player.getUniqueId());
+                        recipe = recipe != null ? recipe : new GrindstoneBuilder(player);
+                        if (recipe instanceof GrindstoneBuilder grindstone)
+                            grindstone.setExperience((Integer) args.get("experience"));
+                        recipe.open();
                     } else
                         Message.NOT_PLAYER.send(sender);
                 });

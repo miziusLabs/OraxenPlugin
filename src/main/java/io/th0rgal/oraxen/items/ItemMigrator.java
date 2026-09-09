@@ -5,6 +5,7 @@ import io.th0rgal.oraxen.utils.OraxenYaml;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.configuration.ConfigurationSection;
 
+import java.util.Locale;
 import java.util.Map;
 
 public final class ItemMigrator {
@@ -22,6 +23,48 @@ public final class ItemMigrator {
 
     public ItemMigrator(final ConfigurationSection section) {
         this.section = section;
+        migrateUppercaseSections();
+    }
+
+    /**
+     * Migrates the item-level sections that historically used capitalized names
+     * to their lowercase canonical names.
+     */
+    public void migrateUppercaseSections() {
+        if (section == null)
+            return;
+
+        for (final String key : section.getKeys(false).toArray(String[]::new)) {
+            final String lowercaseKey = key.toLowerCase(Locale.ROOT);
+            if (key.equals(lowercaseKey))
+                continue;
+            if (!switch (lowercaseKey) {
+                case "mechanics", "pack", "components" -> true;
+                default -> false;
+            })
+                continue;
+
+            final Object value = section.get(key);
+            final Object existingValue = section.get(lowercaseKey);
+            if (value instanceof ConfigurationSection sourceSection) {
+                final ConfigurationSection targetSection;
+                if (existingValue instanceof ConfigurationSection existingSection) {
+                    targetSection = existingSection;
+                } else {
+                    if (existingValue != null)
+                        section.set(lowercaseKey, null);
+                    targetSection = section.createSection(lowercaseKey);
+                }
+                OraxenYaml.copyConfigurationSection(sourceSection, targetSection);
+                OraxenYaml.invalidateKeyCache(targetSection);
+            } else if (existingValue == null) {
+                section.set(lowercaseKey, value);
+            }
+
+            section.set(key, null);
+            OraxenYaml.invalidateKeyCache(section);
+            configUpdated = true;
+        }
     }
 
     public void recordLegacyNameMigration(final boolean migrated) {
@@ -57,8 +100,8 @@ public final class ItemMigrator {
             configUpdated = true;
             blockConfigMigrated = true;
             if (OraxenPlugin.get() != null)
-                Logs.logWarning("Item " + section.getName() + " uses legacy Mechanics." + legacyMechanicID
-                        + "; it has been migrated to Mechanics.block.");
+                Logs.logWarning("Item " + section.getName() + " uses legacy mechanics." + legacyMechanicID
+                        + "; it has been migrated to mechanics.block.");
             return;
         }
     }

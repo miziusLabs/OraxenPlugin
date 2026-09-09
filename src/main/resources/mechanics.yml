@@ -94,6 +94,8 @@ aura:
 # Cosmetic backpacks displayed on player's back using packet-based armor stands
 backpack_cosmetic:
   enabled: true
+  armor_stand_enabled: true
+  armor_stand_range: 128
 
 hat:
   enabled: true
