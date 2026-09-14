@@ -185,4 +185,23 @@ class ItemLoaderTest {
         assertTrue(migrator.configUpdated());
         assertTrue(migrator.blockConfigMigrated());
     }
+    @Test
+    void derivesTridentMaterialAndPackMetadataWithoutAddingPackConfiguration() throws Exception {
+        YamlConfiguration config = new YamlConfiguration();
+        ConfigurationSection section = config.createSection("custom_trident");
+        section.set("mechanics.trident.appearance.model", "tridents/oraxen_trident");
+        ItemLoader loader = new ItemLoader(section);
+        Field type = ItemLoader.class.getDeclaredField("type");
+        type.setAccessible(true);
+        assertEquals(org.bukkit.Material.TRIDENT, type.get(loader));
+        Field metaField = ItemLoader.class.getDeclaredField("oraxenMeta");
+        metaField.setAccessible(true);
+        OraxenMeta meta = (OraxenMeta) metaField.get(loader);
+        assertTrue(meta.isCustomTrident());
+        assertTrue(meta.hasPackInfos());
+        assertFalse(meta.shouldGenerateModel());
+        assertEquals("tridents/oraxen_trident", meta.getModelName());
+        assertFalse(section.contains("pack"));
+    }
+
 }

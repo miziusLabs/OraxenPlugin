@@ -7801,6 +7801,62 @@
         }
       }
     },
+    "trident": {
+      "category": "combat",
+      "description": "Custom trident models and sounds with vanilla projectile behavior",
+      "_source": "factory",
+      "properties": {
+        "sounds": {
+          "type": "object",
+          "properties": {
+            "throw": {
+              "type": "string",
+              "description": "Sound played on throw"
+            },
+            "hit": {
+              "type": "string",
+              "description": "Sound played on entity impact"
+            },
+            "hit-ground": {
+              "type": "string",
+              "description": "Block impact sound; defaults to sounds.hit"
+            },
+            "return": {
+              "type": "string",
+              "description": "Pickup sound; defaults to sounds.throw"
+            }
+          }
+        },
+        "appearance": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string",
+              "description": "Handheld and charging model"
+            },
+            "thrown-model": {
+              "type": "string",
+              "description": "Thrown model"
+            },
+            "transform": {
+              "type": "string",
+              "default": "NONE",
+              "enum": [
+                "NONE",
+                "THIRDPERSON_LEFTHAND",
+                "THIRDPERSON_RIGHTHAND",
+                "FIRSTPERSON_LEFTHAND",
+                "FIRSTPERSON_RIGHTHAND",
+                "HEAD",
+                "GUI",
+                "GROUND",
+                "FIXED"
+              ]
+            }
+          }
+        }
+      }
+    },
     "spear_lunge": {
       "category": "combat",
       "description": "Enables a charge-and-lunge attack with model swapping for spears",

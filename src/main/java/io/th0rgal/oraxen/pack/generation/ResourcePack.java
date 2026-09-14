@@ -1,6 +1,8 @@
 package io.th0rgal.oraxen.pack.generation;
 
 import com.google.gson.*;
+import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.mechanics.provided.combat.trident.TridentMechanicFactory;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.api.events.OraxenPackGeneratedEvent;
@@ -455,6 +457,8 @@ public class ResourcePack {
 
     private void generateAsyncSafeItemAssets() {
         final Map<Material, Map<String, ItemBuilder>> texturedItems = extractTexturedItems();
+        if (MechanicsManager.getMechanicFactory("trident") instanceof TridentMechanicFactory tridents)
+            tridents.addDisplayItems(texturedItems);
         generateItemAppearanceAssets(texturedItems);
     }
 
@@ -977,6 +981,12 @@ public class ResourcePack {
                     .split("/");
             writeStringToVirtual("assets/minecraft/models/" + vanillaModelPath[0], vanillaModelPath[1],
                     predicatesGenerator.toJSON().toString());
+            if (entryMaterial == Material.TRIDENT && texturedItemsEntry.getValue().values().stream()
+                    .anyMatch(item -> item.getOraxenMeta().isCustomTrident())) {
+                writeStringToVirtual("assets/minecraft/models/item", "trident_in_hand.json",
+                        TridentModelGenerator.inHandModel(texturedItemsEntry.getValue().values().stream()
+                                .map(ItemBuilder::getOraxenMeta).toList()).toString());
+            }
         }
     }
 

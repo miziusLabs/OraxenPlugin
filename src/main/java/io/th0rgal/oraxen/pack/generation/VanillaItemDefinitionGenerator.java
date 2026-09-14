@@ -392,6 +392,7 @@ public class VanillaItemDefinitionGenerator {
     }
 
     private JsonObject createTridentItemModel(JsonObject baseModel, OraxenMeta meta) {
+        if (meta.isCustomTrident()) return baseModel;
         JsonObject selectModel = createDisplayContextSelect(baseModel);
 
         String inHandModel = meta.getModelName();

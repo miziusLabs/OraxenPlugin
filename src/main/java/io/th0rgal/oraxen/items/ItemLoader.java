@@ -48,15 +48,25 @@ public final class ItemLoader {
         Material material = OraxenYaml.getMaterial(section.getString("material", ""));
         if (material == null)
             material = usesTemplate() ? templateItem.type : Material.PAPER;
-        type = material;
+        final ConfigurationSection mergedSection = mergeWithTemplateSection();
+        final ConfigurationSection tridentSection = mergedSection.getConfigurationSection("mechanics.trident");
+        type = tridentSection != null ? Material.TRIDENT : material;
 
         // Each item gets its own OraxenMeta: templates are merged in by value, never shared
         // by reference, so sibling items cannot overwrite each other's pack info.
         oraxenMeta = new OraxenMeta();
-        final ConfigurationSection mergedSection = mergeWithTemplateSection();
-        final ConfigurationSection mergedPackSection = mergedSection != null
+        oraxenMeta.setCustomTrident(tridentSection != null);
+        ConfigurationSection mergedPackSection = mergedSection != null
                 ? mergedSection.getConfigurationSection("pack")
                 : null;
+        if (tridentSection != null && tridentSection.isString("appearance.model")) {
+            // Derive pack metadata without rewriting the user's mechanic configuration.
+            ConfigurationSection tridentPack = new YamlConfiguration();
+            if (mergedPackSection != null) OraxenYaml.copyConfigurationSection(mergedPackSection, tridentPack);
+            tridentPack.set("model", tridentSection.getString("appearance.model"));
+            tridentPack.set("generate_model", false);
+            mergedPackSection = tridentPack;
+        }
         if (mergedPackSection != null)
             oraxenMeta.setPackInfos(mergedPackSection);
 

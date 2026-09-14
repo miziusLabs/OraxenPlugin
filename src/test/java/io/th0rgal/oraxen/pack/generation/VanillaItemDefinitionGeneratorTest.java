@@ -171,4 +171,15 @@ class VanillaItemDefinitionGeneratorTest {
         return item;
     }
 
+    @Test
+    void customTridentUsesGeometryInsteadOfVanillaSpecialRenderer() {
+        ItemBuilder item = customItem("custom_trident", 1000, "tridents/oraxen_trident");
+        item.getOraxenMeta().setCustomTrident(true);
+        JsonObject root = generator(Material.TRIDENT, List.of(item), true, false).toJSON();
+        JsonObject customModel = root.getAsJsonObject("model").getAsJsonArray("cases")
+                .get(0).getAsJsonObject().getAsJsonObject("model");
+        assertEquals("minecraft:model", customModel.get("type").getAsString());
+        assertEquals("tridents/oraxen_trident", customModel.get("model").getAsString());
+    }
+
 }

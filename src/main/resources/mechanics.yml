@@ -133,6 +133,9 @@ knockback_strike:
 spear_lunge:
   enabled: true
 
+trident:
+  enabled: true
+
 
 # FARMING
 

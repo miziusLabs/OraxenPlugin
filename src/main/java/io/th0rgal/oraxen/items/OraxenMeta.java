@@ -14,6 +14,8 @@ import java.util.Map;
 
 public class OraxenMeta {
 
+    private boolean customTrident;
+
     private Integer customModelData;
     private String modelName;
     private String guiModel;
@@ -61,6 +63,14 @@ public class OraxenMeta {
 
     public boolean isExcludedFromCommands() {
         return excludedFromCommands;
+    }
+
+    public boolean isCustomTrident() {
+        return customTrident;
+    }
+
+    public void setCustomTrident(boolean customTrident) {
+        this.customTrident = customTrident;
     }
 
     public void setPackInfos(ConfigurationSection section) {
