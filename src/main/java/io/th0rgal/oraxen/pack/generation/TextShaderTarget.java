@@ -19,6 +19,8 @@ public record TextShaderTarget(int packFormat, MinecraftVersion minecraftVersion
     public static final int PACK_FORMAT_26 = 84;
     /** Pack format for 26.2+ (text shaders renamed to core/text and variants use defines) */
     public static final int PACK_FORMAT_26_2 = 88;
+    /** Pack format for 26.3+ (ShaderC, explicit locations and order-independent transparency) */
+    public static final int PACK_FORMAT_26_3 = 97;
 
     public static TextShaderTarget current() {
         return new TextShaderTarget(ResourcePackFormatUtil.getCurrentResourcePackFormat(),
@@ -50,6 +52,10 @@ public record TextShaderTarget(int packFormat, MinecraftVersion minecraftVersion
 
     boolean usesUnifiedTextShader() {
         return packFormat >= PACK_FORMAT_26_2;
+    }
+
+    boolean usesShaderC() {
+        return packFormat >= PACK_FORMAT_26_3;
     }
 
     public String displayName() {
