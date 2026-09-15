@@ -66,7 +66,7 @@ Pack:
     # Additional readable ZIP after pack generation events, before obfuscation. Never uploaded or sent to players.
     # Relative paths use the server working directory. Set to "" to disable; parent directories are created.
     # Choose a location outside plugins/Oraxen/pack to avoid importing the export on later generations.
-    unprotected-location: ./.output/unprotected.zip
+    unprotected-location: ./plugins/Oraxen/.output/unprotected.zip
 
     # If true, Oraxen will not create or modify pack.mcmeta.
     # The file at plugins/Oraxen/pack/pack.mcmeta will be included in the final pack exactly as provided.
