@@ -139,6 +139,11 @@ public class OraxenPlugin extends JavaPlugin {
             Bukkit.getPluginManager().registerEvents(new CustomBlockPickItemListener(), this);
         }
         NMSHandlers.setup();
+        // Bootstrap only registers paintings on 1.21.3+. 1.21.2 (and any
+        // bootstrap miss) injects them into the live registry here, matching
+        // the jukebox fallback below.
+        if (CustomPaintingRegistry.supportsCustomPaintings())
+            reloadCustomPaintings();
 
         // Auto-update Paper config for block updates (noteblock, tripwire, chorus)
         var updatedSettings = PaperConfigUpdater.ensureAllBlockUpdatesDisabled();
@@ -239,6 +244,7 @@ public class OraxenPlugin extends JavaPlugin {
         configsManager = new ConfigsManager(this);
         configsManager.validatesConfig();
         resourceManager = new ResourcesManager(this);
+        Settings.invalidateCache();
     }
 
     private void initializeSoundManager() {
