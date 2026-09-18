@@ -266,10 +266,13 @@ public class NoteBlockMechanicListener implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || placedAgainst == null || item == null || hand == null)
             return;
         if (OraxenBlocks.isOraxenNoteBlock(placedAgainst) || OraxenBlocks.isOraxenNoteBlock(item)) return;
-        if (!item.getType().isBlock() || BlockHelpers.isReplaceable(placedAgainst.getType())) return;
-        if (!event.getPlayer().isSneaking() && BlockHelpers.isInteractable(placedAgainst)) return;
+        if (!item.getType().isBlock()) return;
+        if (!event.getPlayer().isSneaking() && BlockHelpers.isInteractable(placedAgainst)
+                && !BlockHelpers.isReplaceable(placedAgainst.getType())) return;
 
-        final Block target = placedAgainst.getRelative(event.getBlockFace());
+        final Block target = BlockHelpers.isReplaceable(placedAgainst.getType())
+                ? placedAgainst
+                : placedAgainst.getRelative(event.getBlockFace());
         if (!BlockHelpers.isReplaceable(target.getType())) return;
         if (!AdjacentNoteBlockUpdateHelper.hasCustomVerticalNeighbor(target)) return;
 
@@ -305,7 +308,11 @@ public class NoteBlockMechanicListener implements Listener {
         }
 
         BlockData data = NoteBlockMechanicFactory.createNoteBlockData(customVariation);
+        Block target = BlockHelpers.isReplaceable(placedAgainst.getType())
+                ? placedAgainst
+                : placedAgainst.getRelative(face);
         makePlayerPlaceBlock(player, event.getHand(), event.getItem(), placedAgainst, face, data);
+        finishAdjacentBlockChange(player, target, placedAgainst.getLocation());
     }
 
     // If block is not a custom block, play the correct sound according to the below block or default
@@ -553,9 +560,11 @@ public class NoteBlockMechanicListener implements Listener {
 
     private void finishAdjacentBlockChange(final Player player, final Block changedBlock, final Location packetBlock) {
         if (!AdjacentNoteBlockUpdateHelper.hasCustomVerticalNeighbor(changedBlock)) return;
-        player.sendBlockChange(changedBlock.getLocation(), changedBlock.getBlockData());
-        AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(changedBlock, player);
-        NMSHandlers.getHandler().acknowledgeBlockChanges(player, packetBlock, true);
+        SchedulerUtil.runOnOwningThread(player, () -> {
+            player.sendBlockChange(changedBlock.getLocation(), changedBlock.getBlockData());
+            AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(changedBlock, player);
+            NMSHandlers.getHandler().acknowledgeBlockChanges(player, packetBlock, true);
+        });
     }
 
     private boolean isUnsupportedBlockAboveNoteBlock(Material material) {

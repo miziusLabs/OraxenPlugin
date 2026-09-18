@@ -527,10 +527,19 @@ public class ItemUpdater implements Listener {
 
         ItemStack newItem = nmsHandler.copyItemNBTTags(oldItem, newItemBuilder.build());
         newItem.setAmount(oldItem.getAmount());
-        Object deathProtectionComponent = VersionUtil.atOrAbove("1.21.2")
-                ? Optional.ofNullable(nmsHandler.deathProtectionComponent(newItem))
-                        .orElseGet(() -> nmsHandler.deathProtectionComponent(oldItem))
-                : null;
+        boolean clearDeathProtection = false;
+        Object deathProtectionComponent = null;
+        if (VersionUtil.atOrAbove("1.21.2")) {
+            if (newItemBuilder.hasDeathProtectionComponent()) {
+                deathProtectionComponent = Optional.ofNullable(nmsHandler.deathProtectionComponent(newItem))
+                        .orElseGet(newItemBuilder::getDeathProtectionComponent);
+            } else {
+                // Keep the material default (totems) and never copy a removed YAML component
+                // from the old stack.
+                deathProtectionComponent = nmsHandler.deathProtectionComponent(new ItemStack(newItem.getType()));
+                clearDeathProtection = deathProtectionComponent == null;
+            }
+        }
 
         ItemUtils.editItemMeta(newItem, itemMeta -> {
             ItemMeta oldMeta = oldItem.getItemMeta();
@@ -685,6 +694,7 @@ public class ItemUpdater implements Listener {
         nmsHandler.consumableComponent(newItem, Optional.ofNullable(nmsHandler.consumableComponent(newItem))
                 .orElse(nmsHandler.consumableComponent(oldItem)));
 
+        if (clearDeathProtection) return nmsHandler.removeDeathProtectionComponent(newItem);
         return deathProtectionComponent != null
                 ? nmsHandler.deathProtectionComponent(newItem, deathProtectionComponent)
                 : newItem;
