@@ -294,7 +294,7 @@ Misc:
   add_recipes_to_book: true
 
   # This will hide the red numbers on the side of scoreboards
-  # (requires a packet adapter such as ProtocolLib or PacketEvents on 26.x and above)
+  # Uses Oraxen's native packet handling on supported Paper versions
   hide_scoreboard_numbers: false
   # This will hide the background of scoreboards (1.21.6 through 1.21.7 only)
   hide_scoreboard_background: false
