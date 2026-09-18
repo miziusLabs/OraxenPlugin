@@ -7,6 +7,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class VersionUtilTest {
 
     @Test
+    void snapshotParsingDoesNotRequireAnInitializedPacketAdapter() {
+        assertDoesNotThrow(() -> new MinecraftVersion("25w03a"));
+    }
+
+    @Test
     void mojangVersionNamespaceOrdersAfterLegacy121Versions() {
         assertFalse(new MinecraftVersion("1.21.11").isAtLeast(new MinecraftVersion("26.1.2")));
         assertTrue(new MinecraftVersion("26.1.2").isAtLeast(new MinecraftVersion("1.21.11")));

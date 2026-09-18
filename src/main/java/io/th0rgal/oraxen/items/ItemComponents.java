@@ -47,7 +47,7 @@ public final class ItemComponents {
         else if (section.contains("displayname"))
             applyItemName(item, section, "displayname");
 
-        final ConfigurationSection components = OraxenYaml.getConfigurationSection(section, "Components");
+        final ConfigurationSection components = section.getConfigurationSection("components");
         applyRemainingComponents(item, components);
     }
 

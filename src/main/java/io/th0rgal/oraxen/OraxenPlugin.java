@@ -13,12 +13,14 @@ import io.th0rgal.oraxen.configs.SettingsUpdater;
 import io.th0rgal.oraxen.fonts.FontManager;
 import io.th0rgal.oraxen.hopper.OraxenHopper;
 import io.th0rgal.oraxen.introduction.IntroductionGuide;
+import io.th0rgal.oraxen.packets.NativePacketAdapter;
 import io.th0rgal.oraxen.packets.PacketAdapter;
 import io.th0rgal.oraxen.packets.PacketEventsAdapter;
 import io.th0rgal.oraxen.packets.ProtocolLibAdapter;
 import io.th0rgal.oraxen.hud.HudManager;
 import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.CustomBlockPickItemListener;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.pack.dispatch.PackLoadingManager;
@@ -119,6 +121,9 @@ public class OraxenPlugin extends JavaPlugin {
         if (CustomBlockMiningListener.isSupported()) {
             Bukkit.getPluginManager().registerEvents(new CustomBlockMiningListener(), this);
         }
+        if (VersionUtil.atOrAbove("1.21.5")) {
+            Bukkit.getPluginManager().registerEvents(new CustomBlockPickItemListener(), this);
+        }
         NMSHandlers.setup();
         // Bootstrap only registers paintings on 1.21.3+. 1.21.2 (and any
         // bootstrap miss) injects them into the live registry here, matching
@@ -172,7 +177,11 @@ public class OraxenPlugin extends JavaPlugin {
     }
 
     private void initializePacketAdapter() {
-        if (PacketAdapter.isProtocolLibEnabled()) {
+        NativePacketAdapter nativeAdapter = new NativePacketAdapter();
+        if (nativeAdapter.isEnabled()) {
+            if (Settings.DEBUG.toBool()) Logs.logInfo("Using native packet handling.");
+            packetAdapter = nativeAdapter;
+        } else if (PacketAdapter.isProtocolLibEnabled()) {
             if (Settings.DEBUG.toBool()) Logs.logInfo("ProtocolLib is enabled, using ProtocolLibAdapter.");
             packetAdapter = new ProtocolLibAdapter();
         } else if (PacketAdapter.isPacketEventsEnabled()) {
@@ -210,6 +219,7 @@ public class OraxenPlugin extends JavaPlugin {
         if (configsManager == null) {
             HandlerList.unregisterAll(this);
             OraxenCommand.unregisterAll();
+            NMSHandlers.shutdown();
             return;
         }
 
@@ -225,6 +235,7 @@ public class OraxenPlugin extends JavaPlugin {
         CompatibilitiesManager.disableCompatibilities();
         OraxenCommand.unregisterAll();
         Message.PLUGIN_UNLOADED.log();
+        NMSHandlers.shutdown();
     }
 
     private void cleanupRuntimeResources() {

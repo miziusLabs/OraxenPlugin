@@ -20,6 +20,22 @@ public interface NMSHandler {
         return null;
     }
 
+    default boolean supportsNativePacketHandling() {
+        return false;
+    }
+
+    default void formatInventoryTitles(boolean enabled) {
+    }
+
+    default void formatTitles(boolean enabled) {
+    }
+
+    default void hideScoreboardNumbers(boolean enabled) {
+    }
+
+    default void shutdown() {
+    }
+
     boolean noteblockUpdatesDisabled();
 
     boolean tripwireUpdatesDisabled();

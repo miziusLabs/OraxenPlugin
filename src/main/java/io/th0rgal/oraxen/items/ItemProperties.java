@@ -92,7 +92,7 @@ public final class ItemProperties {
 
     private void applyArmorStandModelProperties(ConfigurationSection section) {
         oraxenMeta.setArmorStandHeadScale(null);
-        ConfigurationSection mechanicsSection = OraxenYaml.getConfigurationSection(section, "Mechanics");
+        ConfigurationSection mechanicsSection = section.getConfigurationSection("mechanics");
         if (mechanicsSection == null) return;
         ConfigurationSection furnitureSection = OraxenYaml.getConfigurationSection(mechanicsSection, "furniture");
         if (furnitureSection == null) return;
@@ -285,7 +285,7 @@ public final class ItemProperties {
             migrator.markConfigUpdated();
 
         if (!Settings.DISABLE_AUTOMATIC_MODEL_DATA.toBool()) {
-            Optional.ofNullable(OraxenYaml.getConfigurationSection(section, "Pack"))
+            Optional.ofNullable(section.getConfigurationSection("pack"))
                     .ifPresent(packSection -> {
                         packSection.set("custom_model_data", customModelData);
                         OraxenYaml.invalidateKeyCache(packSection);
