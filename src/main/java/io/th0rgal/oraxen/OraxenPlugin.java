@@ -13,6 +13,7 @@ import io.th0rgal.oraxen.configs.SettingsUpdater;
 import io.th0rgal.oraxen.fonts.FontManager;
 import io.th0rgal.oraxen.hopper.OraxenHopper;
 import io.th0rgal.oraxen.introduction.IntroductionGuide;
+import io.th0rgal.oraxen.packets.NativePacketAdapter;
 import io.th0rgal.oraxen.packets.PacketAdapter;
 import io.th0rgal.oraxen.packets.PacketEventsAdapter;
 import io.th0rgal.oraxen.packets.ProtocolLibAdapter;
@@ -176,7 +177,11 @@ public class OraxenPlugin extends JavaPlugin {
     }
 
     private void initializePacketAdapter() {
-        if (PacketAdapter.isProtocolLibEnabled()) {
+        NativePacketAdapter nativeAdapter = new NativePacketAdapter();
+        if (nativeAdapter.isEnabled()) {
+            if (Settings.DEBUG.toBool()) Logs.logInfo("Using native packet handling.");
+            packetAdapter = nativeAdapter;
+        } else if (PacketAdapter.isProtocolLibEnabled()) {
             if (Settings.DEBUG.toBool()) Logs.logInfo("ProtocolLib is enabled, using ProtocolLibAdapter.");
             packetAdapter = new ProtocolLibAdapter();
         } else if (PacketAdapter.isPacketEventsEnabled()) {

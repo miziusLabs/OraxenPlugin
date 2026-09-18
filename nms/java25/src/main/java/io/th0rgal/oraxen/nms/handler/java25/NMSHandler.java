@@ -89,12 +89,14 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     private final Listener packDispatchListener;
+    private final PacketHandler packetHandler;
     private static final Map<io.netty.channel.Channel, Deque<PendingBlockChange>> pendingBlockChanges = new ConcurrentHashMap<>();
 
     private record PendingBlockChange(int sequence, int x, int y, int z, boolean placement) {
     }
 
     public NMSHandler() {
+        this.packetHandler = new PacketHandler();
         // Paper exposed the configuration/reconfiguration events used by the pre-join
         // dispatcher starting with 1.21.7. Do not load that listener earlier: its class
         // references APIs that do not exist on 1.21.2 through 1.21.6.
@@ -193,6 +195,26 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     @Override
     public Listener packDispatchListener() {
         return packDispatchListener;
+    }
+
+    @Override
+    public boolean supportsNativePacketHandling() {
+        return true;
+    }
+
+    @Override
+    public void formatInventoryTitles(boolean enabled) {
+        packetHandler.formatInventoryTitles(enabled);
+    }
+
+    @Override
+    public void formatTitles(boolean enabled) {
+        packetHandler.formatTitles(enabled);
+    }
+
+    @Override
+    public void hideScoreboardNumbers(boolean enabled) {
+        packetHandler.hideScoreboardNumbers(enabled);
     }
 
     @Override
