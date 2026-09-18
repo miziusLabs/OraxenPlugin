@@ -218,6 +218,11 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     @Override
+    public void shutdown() {
+        packetHandler.shutdown();
+    }
+
+    @Override
     public boolean tripwireUpdatesDisabled() {
         return GlobalConfiguration.get().blockUpdates.disableTripwireUpdates;
     }

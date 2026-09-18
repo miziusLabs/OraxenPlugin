@@ -68,6 +68,15 @@ public class NMSHandlers {
         }
     }
 
+    public static void shutdown() {
+        if (handler != null) {
+            handler.shutdown();
+        }
+        handler = null;
+        version = null;
+        packDispatchListenerRegistered = false;
+    }
+
     public static boolean hasPackDispatchListener() {
         return packDispatchListenerRegistered;
     }
