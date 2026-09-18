@@ -33,6 +33,9 @@ public interface NMSHandler {
     default void hideScoreboardNumbers(boolean enabled) {
     }
 
+    default void shutdown() {
+    }
+
     boolean noteblockUpdatesDisabled();
 
     boolean tripwireUpdatesDisabled();

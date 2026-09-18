@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.nms.handler.java21;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -19,24 +20,42 @@ import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
+import org.bukkit.craftbukkit.entity.CraftPlayer;
 
 final class PacketHandler {
 
+    private final NamespacedKey key;
     private volatile boolean formatInventoryTitles;
     private volatile boolean formatTitles;
     private volatile boolean hideScoreboardNumbers;
 
     PacketHandler() {
-        NamespacedKey key = new NamespacedKey(OraxenPlugin.get(), "packet_formatting");
-        if (ChannelInitializeListenerHolder.hasListener(key)) return;
-        ChannelInitializeListenerHolder.addListener(key, channel -> channel.pipeline().addBefore(
-                "packet_handler", key.asString(), new ChannelDuplexHandler() {
-                    @Override
-                    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
-                        ctx.write(transform(msg), promise);
-                    }
-                }));
+        key = new NamespacedKey(OraxenPlugin.get(), "packet_formatting");
+        ChannelInitializeListenerHolder.removeListener(key);
+        ChannelInitializeListenerHolder.addListener(key, this::install);
+        for (var player : Bukkit.getOnlinePlayers())
+            install(((CraftPlayer) player).getHandle().connection.connection.channel);
+    }
+
+    private void install(Channel channel) {
+        var pipeline = channel.pipeline();
+        if (pipeline.get(key.asString()) != null) pipeline.remove(key.asString());
+        pipeline.addBefore("packet_handler", key.asString(), new ChannelDuplexHandler() {
+            @Override
+            public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+                ctx.write(transform(msg), promise);
+            }
+        });
+    }
+
+    void shutdown() {
+        ChannelInitializeListenerHolder.removeListener(key);
+        for (var player : Bukkit.getOnlinePlayers()) {
+            Channel channel = ((CraftPlayer) player).getHandle().connection.connection.channel;
+            if (channel.pipeline().get(key.asString()) != null) channel.pipeline().remove(key.asString());
+        }
     }
 
     void formatInventoryTitles(boolean enabled) {

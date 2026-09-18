@@ -219,6 +219,7 @@ public class OraxenPlugin extends JavaPlugin {
         if (configsManager == null) {
             HandlerList.unregisterAll(this);
             OraxenCommand.unregisterAll();
+            NMSHandlers.shutdown();
             return;
         }
 
@@ -234,6 +235,7 @@ public class OraxenPlugin extends JavaPlugin {
         CompatibilitiesManager.disableCompatibilities();
         OraxenCommand.unregisterAll();
         Message.PLUGIN_UNLOADED.log();
+        NMSHandlers.shutdown();
     }
 
     private void cleanupRuntimeResources() {
