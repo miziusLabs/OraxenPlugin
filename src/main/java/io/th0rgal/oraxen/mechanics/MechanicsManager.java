@@ -127,8 +127,7 @@ public class MechanicsManager {
         registerFactory("bottledexp", BottledExpMechanicFactory::new);
         registerFactory("harvesting", HarvestingMechanicFactory::new);
         registerFactory("watering", WateringMechanicFactory::new);
-        if (CompatibilitiesManager.hasPlugin("ProtocolLib"))
-            registerFactory("bedrockbreak", BedrockBreakMechanicFactory::new);
+        registerFactory("bedrockbreak", BedrockBreakMechanicFactory::new);
 
         SchedulerUtil.runTask(() -> new OraxenNativeMechanicsRegisteredEvent().callEvent());
     }
