@@ -1,7 +1,6 @@
 package io.th0rgal.oraxen.commands;
 
 import io.th0rgal.oraxen.OraxenPlugin;
-import io.th0rgal.oraxen.packets.NativePacketAdapter;
 import io.th0rgal.oraxen.packets.PacketAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
@@ -15,13 +14,11 @@ public class ReportCommand {
                 // Get Oraxen version
                 String oraxenVersion = OraxenPlugin.get().getPluginMeta().getVersion();
 
-                // Get Protocol Library version
                 PacketAdapter packetAdapter = OraxenPlugin.get().getPacketAdapter();
                 Plugin protocolPlugin = packetAdapter.getPlugin();
-                String protocolLibVersion = packetAdapter instanceof NativePacketAdapter
-                    ? "Native"
-                    : protocolPlugin != null ? protocolPlugin.getName() + "-" + protocolPlugin.getPluginMeta().getVersion()
-                    : "Not installed";
+                String packetBackend = packetAdapter.backendName();
+                if (protocolPlugin != null)
+                    packetBackend += "-" + protocolPlugin.getPluginMeta().getVersion();
 
                 // Get server info
                 String serverSoftware = Bukkit.getName();
@@ -38,7 +35,7 @@ public class ReportCommand {
                         ### System Report
                         **Plugin Versions:**
                         - Oraxen: %s
-                        - ProtocolAPI: %s
+                        - Packet Backend: %s
                         
                         **Server Information:**
                         - Software: %s
@@ -50,7 +47,7 @@ public class ReportCommand {
                         - Architecture: %s
                         """,
                     oraxenVersion,
-                    protocolLibVersion,
+                    packetBackend,
                     serverSoftware,
                     serverVersion,
                     osName,

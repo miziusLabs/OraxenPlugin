@@ -153,7 +153,7 @@ class TextShaderGenerator {
             TextShaderTarget target = TextShaderTarget.current();
             if (target.isAtLeast("26")) {
                 Logs.logWarning("Shader-based scoreboard number hiding is not supported on 26.x+.");
-                Logs.logWarning("Use a packet adapter (ProtocolLib or PacketEvents) on Paper 1.20.3+ instead.");
+                Logs.logWarning("Packet-based scoreboard number hiding is unavailable on this server.");
                 if (!textShadersGenerated) {
                     ResourcePack.deleteFileFromVirtualAndDisk("assets/minecraft/shaders/core/", "rendertype_text.json");
                     ResourcePack.deleteFileFromVirtualAndDisk("assets/minecraft/shaders/core/", "rendertype_text.vsh");
