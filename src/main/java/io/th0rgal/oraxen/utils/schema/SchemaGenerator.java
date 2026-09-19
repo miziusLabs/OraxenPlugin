@@ -772,7 +772,7 @@ public class SchemaGenerator {
         addMechanicIfAbsent(mechanics, "watering", "farming", "Waters farmland", Map.of());
         addMechanicIfAbsent(mechanics, "bottledexp", "farming", "Stores experience in bottles", Map.of());
 
-        addMechanicIfAbsent(mechanics, "bedrockbreak", "farming", "Allows breaking bedrock (requires ProtocolLib)",
+        addMechanicIfAbsent(mechanics, "bedrockbreak", "farming", "Allows breaking bedrock",
                 Map.of(
                         "delay", prop("integer", "Break delay in ticks", 0, null),
                         "probability", prop("number", "Chance to break (0-1)", 0, 1.0)));

@@ -16,7 +16,6 @@ import io.th0rgal.oraxen.introduction.IntroductionGuide;
 import io.th0rgal.oraxen.packets.NativePacketAdapter;
 import io.th0rgal.oraxen.packets.PacketAdapter;
 import io.th0rgal.oraxen.packets.PacketEventsAdapter;
-import io.th0rgal.oraxen.packets.ProtocolLibAdapter;
 import io.th0rgal.oraxen.hud.HudManager;
 import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
@@ -181,16 +180,15 @@ public class OraxenPlugin extends JavaPlugin {
         if (nativeAdapter.isEnabled()) {
             if (Settings.DEBUG.toBool()) Logs.logInfo("Using native packet handling.");
             packetAdapter = nativeAdapter;
-        } else if (PacketAdapter.isProtocolLibEnabled()) {
-            if (Settings.DEBUG.toBool()) Logs.logInfo("ProtocolLib is enabled, using ProtocolLibAdapter.");
-            packetAdapter = new ProtocolLibAdapter();
-        } else if (PacketAdapter.isPacketEventsEnabled()) {
-            if (Settings.DEBUG.toBool()) Logs.logInfo("PacketEvents is enabled, using PacketEventsAdapter.");
+        } else if (!VersionUtil.atOrAbove("1.21.2") && PacketAdapter.isPacketEventsEnabled()) {
+            if (Settings.DEBUG.toBool()) Logs.logInfo("Using PacketEvents for legacy packet handling.");
             packetAdapter = new PacketEventsAdapter();
         } else {
-            Logs.logWarning("Neither ProtocolLib nor PacketEvents is enabled, using EmptyAdapter.");
+            if (VersionUtil.atOrAbove("1.21.2"))
+                Logs.logWarning("Native packet handling is unavailable, packet features will be disabled.");
+            else
+                Logs.logWarning("PacketEvents is unavailable, legacy packet features will be disabled.");
             packetAdapter = new PacketAdapter.EmptyAdapter();
-            Message.MISSING_PROTOCOLLIB.log();
         }
         packetAdapter.whenEnabled(adapter -> {
             if (Settings.FORMAT_INVENTORY_TITLES.toBool())

@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.nms.handler.java21;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.papermc.paper.adventure.PaperAdventure;
 import io.papermc.paper.configuration.GlobalConfiguration;
 import io.papermc.paper.network.ChannelInitializeListenerHolder;
 import io.th0rgal.oraxen.OraxenPlugin;
@@ -76,6 +77,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
+import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
@@ -1068,6 +1070,50 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
         ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(entityIds);
         connection.send(destroyPacket);
+    }
+
+    @Override
+    public void spawnTextDisplay(Player viewer, int entityId, UUID uuid, Location location) {
+        ServerPlayer serverPlayer = ((CraftPlayer) viewer).getHandle();
+        Connection connection = serverPlayer.connection.connection;
+        connection.send(new ClientboundAddEntityPacket(
+                entityId,
+                uuid,
+                location.getX(), location.getY(), location.getZ(),
+                location.getPitch(), location.getYaw(),
+                getEntityType("minecraft:text_display"),
+                0,
+                Vec3.ZERO,
+                0.0
+        ));
+    }
+
+    @Override
+    public void sendTextDisplayMetadata(Player viewer, int entityId, net.kyori.adventure.text.Component text,
+                                        Vector3f scale, byte billboard, float viewRange, int lineWidth,
+                                        int backgroundArgb, byte textOpacity, byte flags) {
+        ServerPlayer serverPlayer = ((CraftPlayer) viewer).getHandle();
+        Connection connection = serverPlayer.connection.connection;
+        List<SynchedEntityData.DataValue<?>> metadata = new ArrayList<>(9);
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(5, EntityDataSerializers.BOOLEAN), true));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(12, EntityDataSerializers.VECTOR3), scale));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(15, EntityDataSerializers.BYTE), billboard));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(17, EntityDataSerializers.FLOAT), viewRange));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(23, EntityDataSerializers.COMPONENT), PaperAdventure.asVanilla(text)));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(24, EntityDataSerializers.INT), lineWidth));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(25, EntityDataSerializers.INT), backgroundArgb));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(26, EntityDataSerializers.BYTE), textOpacity));
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(27, EntityDataSerializers.BYTE), flags));
+        connection.send(new ClientboundSetEntityDataPacket(entityId, metadata));
     }
 
     @Override
