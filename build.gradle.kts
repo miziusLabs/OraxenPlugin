@@ -233,9 +233,6 @@ tasks {
     }
 
     runServer {
-        downloadPlugins {
-            hangar("ProtocolLib", "5.4.0")
-        }
         minecraftVersion(runServerVersion)
         jvmArgs("-Dcom.mojang.eula.agree=true")
     }
@@ -327,7 +324,6 @@ paper {
     // classpath, since Paper plugins use isolated classloaders and can only access
     // classes of plugins declared here.
     val optionalHooks = listOf(
-        "ProtocolLib",
         "packetevents",
         "LightAPI", "PlaceholderAPI", "MythicMobs", "MMOItems", "MythicCrucible",
         "CrateReloaded", "ItemBridge", "WorldEdit", "FastAsyncWorldEdit", "WorldGuard", "Towny",

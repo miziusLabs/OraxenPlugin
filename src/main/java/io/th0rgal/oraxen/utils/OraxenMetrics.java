@@ -5,7 +5,6 @@ import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
-import io.th0rgal.oraxen.packets.NativePacketAdapter;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.AdvancedPie;
 import org.bstats.charts.DrilldownPie;
@@ -155,12 +154,8 @@ public class OraxenMetrics {
 
         // Packet handling
         Map<String, Integer> packets = new HashMap<>();
-        if (OraxenPlugin.get().getPacketAdapter() instanceof NativePacketAdapter)
-            packets.put("Native", 1);
-        if (CompatibilitiesManager.hasPlugin("ProtocolLib"))
-            packets.put("ProtocolLib", 1);
-        if (CompatibilitiesManager.hasPlugin("packetevents"))
-            packets.put("PacketEvents", 1);
+        String packetBackend = OraxenPlugin.get().getPacketAdapter().backendName();
+        if (!packetBackend.equals("Disabled")) packets.put(packetBackend, 1);
         if (!packets.isEmpty())
             categories.put("Packet Handling", packets);
 
