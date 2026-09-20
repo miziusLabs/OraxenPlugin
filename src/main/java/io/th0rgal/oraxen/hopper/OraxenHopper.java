@@ -21,7 +21,6 @@ import java.util.regex.Pattern;
  */
 public final class OraxenHopper {
 
-    private static final String PACKETEVENTS_VERSION_RANGE = ">=2.7.0 <=2.13.0";
     private static boolean downloadComplete = false;
     private static boolean requiresRestart = false;
     private static boolean enabled = true;
@@ -61,17 +60,16 @@ public final class OraxenHopper {
                 // Primary source: Modrinth (auto-detects platform for correct spigot/paper variant)
                 deps.require(Dependency.modrinth("packetevents")
                     .name("PacketEvents")
-                    .versionRange(PACKETEVENTS_VERSION_RANGE)
+                    .minVersion("2.7.0")
                     .updatePolicy(UpdatePolicy.MINOR)
                     .onFailure(FailurePolicy.WARN_SKIP)
                     .build());
 
-                // Fallback source: GitHub releases. GitHub has no Minecraft-version metadata, so keep
-                // it inside a range whose newest release is known to support every legacy Oraxen target.
+                // Fallback source: GitHub releases
                 String packetEventsPattern = "*-spigot-*.jar"; // Works for all platforms
                 deps.require(Dependency.github("retrooper/packetevents")
                     .name("PacketEvents")
-                    .versionRange(PACKETEVENTS_VERSION_RANGE)
+                    .minVersion("2.7.0")
                     .assetPattern(packetEventsPattern)
                     .updatePolicy(UpdatePolicy.MINOR)
                     .onFailure(FailurePolicy.WARN_SKIP)
