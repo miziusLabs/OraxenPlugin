@@ -180,8 +180,13 @@ public class OraxenPlugin extends JavaPlugin {
         if (nativeAdapter.isEnabled()) {
             if (Settings.DEBUG.toBool()) Logs.logInfo("Using native packet handling.");
             packetAdapter = nativeAdapter;
-        } else if (!VersionUtil.atOrAbove("1.21.2") && PacketAdapter.isPacketEventsEnabled()) {
-            if (Settings.DEBUG.toBool()) Logs.logInfo("Using PacketEvents for legacy packet handling.");
+        } else if (PacketAdapter.isPacketEventsEnabled()) {
+            if (Settings.DEBUG.toBool()) {
+                if (VersionUtil.atOrAbove("1.21.2"))
+                    Logs.logInfo("Native packet handling is unavailable, falling back to PacketEvents.");
+                else
+                    Logs.logInfo("Using PacketEvents for legacy packet handling.");
+            }
             packetAdapter = new PacketEventsAdapter();
         } else {
             if (VersionUtil.atOrAbove("1.21.2"))

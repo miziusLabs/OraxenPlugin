@@ -73,8 +73,9 @@ public final class FurnitureTextPacketBridge {
         register();
         Entity baseEntity = Bukkit.getEntity(entry.getBaseUuid());
         if (baseEntity == null) return;
-        for (Player viewer : trackedViewers(entry, baseEntity)) {
-            sendTextEntry(entry, viewer, true);
+        TrackedViewers trackedViewers = trackedViewers(baseEntity);
+        for (Player viewer : trackedViewers.viewers()) {
+            SchedulerUtil.runOnOwningThread(viewer, () -> sendTextEntry(entry, viewer, trackedViewers.exact()));
         }
     }
 
@@ -82,11 +83,17 @@ public final class FurnitureTextPacketBridge {
         if (entry == null) return;
         for (UUID viewerId : entry.getViewers()) {
             Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer == null || !viewer.isOnline()) {
+            if (viewer == null) {
                 entry.removeViewer(viewerId);
                 continue;
             }
-            sendTextMetadata(entry, viewer, true, -1L);
+            SchedulerUtil.runOnOwningThread(viewer, () -> {
+                if (!viewer.isOnline()) {
+                    entry.removeViewer(viewerId);
+                    return;
+                }
+                sendTextMetadata(entry, viewer, true, -1L);
+            });
         }
     }
 
@@ -106,8 +113,10 @@ public final class FurnitureTextPacketBridge {
         if (entry == null) return;
         for (UUID viewerId : entry.getViewers()) {
             Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer == null || !viewer.isOnline()) continue;
-            destroyTextEntry(entry, viewer);
+            if (viewer == null) continue;
+            SchedulerUtil.runOnOwningThread(viewer, () -> {
+                if (viewer.isOnline()) destroyTextEntry(entry, viewer);
+            });
         }
     }
 
@@ -174,16 +183,26 @@ public final class FurnitureTextPacketBridge {
             if (!entry.needsRefresh() || !entry.shouldRefresh(currentTick)) continue;
             for (UUID viewerId : entry.getViewers()) {
                 Player viewer = Bukkit.getPlayer(viewerId);
-                if (viewer == null || !viewer.isOnline()) {
+                if (viewer == null) {
                     entry.removeViewer(viewerId);
                     continue;
                 }
-                sendTextMetadata(entry, viewer, false, currentTick);
+                UUID baseUuid = entry.getBaseUuid();
+                int baseEntityId = entry.getBaseEntityId();
+                SchedulerUtil.runForEntity(viewer, () -> {
+                    if (!viewer.isOnline()) {
+                        entry.removeViewer(viewerId);
+                        return;
+                    }
+                    FurnitureTextEntry current = FurnitureTextRegistry.byUuid(baseUuid);
+                    if (current == null || current.getBaseEntityId() != baseEntityId) return;
+                    sendTextMetadata(current, viewer, false, currentTick);
+                });
             }
         }
     }
 
-    private static List<Player> trackedViewers(FurnitureTextEntry entry, Entity baseEntity) {
+    private static TrackedViewers trackedViewers(Entity baseEntity) {
         try {
             Object tracked = Entity.class.getMethod("getTrackedBy").invoke(baseEntity);
             if (tracked instanceof Collection<?> collection) {
@@ -191,16 +210,12 @@ public final class FurnitureTextPacketBridge {
                 for (Object candidate : collection) {
                     if (candidate instanceof Player player) viewers.add(player);
                 }
-                if (!viewers.isEmpty()) return viewers;
+                if (!viewers.isEmpty()) return new TrackedViewers(viewers, true);
             }
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | LinkageError ignored) {
         }
 
-        List<Player> viewers = new ArrayList<>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (isWithinRange(entry, player)) viewers.add(player);
-        }
-        return viewers;
+        return new TrackedViewers(new ArrayList<>(Bukkit.getOnlinePlayers()), false);
     }
 
     static boolean isWithinRange(FurnitureTextEntry entry, Player viewer) {
@@ -276,7 +291,7 @@ public final class FurnitureTextPacketBridge {
             FurnitureTextEntry entry = FurnitureTextRegistry.byUuid(event.getEntity().getUniqueId());
             if (entry == null) return;
             Player viewer = event.getPlayer();
-            destroyTextEntry(entry, viewer);
+            SchedulerUtil.runOnOwningThread(viewer, () -> destroyTextEntry(entry, viewer));
             entry.removeViewer(viewer.getUniqueId());
         }
 
@@ -284,5 +299,8 @@ public final class FurnitureTextPacketBridge {
         public void onQuit(PlayerQuitEvent event) {
             FurnitureTextRegistry.removeViewer(event.getPlayer().getUniqueId());
         }
+    }
+
+    private record TrackedViewers(List<Player> viewers, boolean exact) {
     }
 }
