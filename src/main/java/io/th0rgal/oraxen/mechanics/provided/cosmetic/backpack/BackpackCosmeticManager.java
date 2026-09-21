@@ -1,9 +1,11 @@
 package io.th0rgal.oraxen.mechanics.provided.cosmetic.backpack;
 
 import io.th0rgal.oraxen.nms.NMSHandlers;
+import io.th0rgal.oraxen.utils.EntityUtils;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -42,7 +44,7 @@ public class BackpackCosmeticManager {
         // Remove existing backpack first
         hideBackpack(player);
 
-        BackpackData data = createBackpackData(mechanic, displayItem);
+        BackpackData data = createBackpackData(player.getWorld(), mechanic, displayItem);
         activeBackpacks.put(playerId, data);
 
         // Spawn the backpack for all nearby players
@@ -291,8 +293,8 @@ public class BackpackCosmeticManager {
         NMSHandlers.getHandler().sendMountPacket(viewer, owner.getEntityId(), passengerIds);
     }
 
-    BackpackData createBackpackData(BackpackCosmeticMechanic mechanic, ItemStack displayItem) {
-        return new BackpackData(Bukkit.getUnsafe().nextEntityId(), mechanic, displayItem);
+    BackpackData createBackpackData(World world, BackpackCosmeticMechanic mechanic, ItemStack displayItem) {
+        return new BackpackData(EntityUtils.nextEntityId(world), mechanic, displayItem);
     }
 
     int[] getMergedPassengerIds(Entity owner, int backpackEntityId) {

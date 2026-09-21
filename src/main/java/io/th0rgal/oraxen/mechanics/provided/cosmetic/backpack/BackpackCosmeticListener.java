@@ -597,7 +597,7 @@ public class BackpackCosmeticListener implements Listener {
         }
 
         removeArmorStandDisplay(standId);
-        data = manager.createBackpackData(mechanic, displayItem.clone());
+        data = manager.createBackpackData(stand.getWorld(), mechanic, displayItem.clone());
         armorStandDisplays.put(standId, data);
         return data;
     }
