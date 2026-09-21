@@ -23,6 +23,7 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.CustomBlockPickItemListener
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.pack.dispatch.PackLoadingManager;
+import io.th0rgal.oraxen.pack.generation.LegacyDatapackCleaner;
 import io.th0rgal.oraxen.pack.generation.PackVersionManager;
 import io.th0rgal.oraxen.paintings.CustomPainting;
 import io.th0rgal.oraxen.paintings.CustomPaintingListener;
@@ -124,6 +125,8 @@ public class OraxenPlugin extends JavaPlugin {
             Bukkit.getPluginManager().registerEvents(new CustomBlockPickItemListener(), this);
         }
         NMSHandlers.setup();
+        if (VersionUtil.atOrAbove("1.21.2"))
+            LegacyDatapackCleaner.clearReplacedDatapacks();
         // Bootstrap only registers paintings on 1.21.3+. 1.21.2 (and any
         // bootstrap miss) injects them into the live registry here, matching
         // the jukebox fallback below.
