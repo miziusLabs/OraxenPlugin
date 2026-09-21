@@ -10,6 +10,7 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.NoteBlockMechanicFactory;
 import io.th0rgal.oraxen.utils.BlockHelpers;
+import io.th0rgal.oraxen.utils.MinecraftVersion;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.logs.Logs;
@@ -91,6 +92,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     private final Listener packDispatchListener;
+    private final boolean is263OrAbove;
     private final PacketHandler packetHandler;
     private static final Map<io.netty.channel.Channel, Deque<PendingBlockChange>> pendingBlockChanges = new ConcurrentHashMap<>();
 
@@ -98,6 +100,11 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     public NMSHandler() {
+        MinecraftVersion version = MinecraftVersion.getCurrentVersion();
+        if (version.getMajor() == 1 && version.getMinor() >= 26) {
+            version = new MinecraftVersion(version.getMinor(), version.getBuild(), 0);
+        }
+        this.is263OrAbove = version.isAtLeast(new MinecraftVersion("26.3"));
         this.packetHandler = new PacketHandler();
         // Paper exposed the configuration/reconfiguration events used by the pre-join
         // dispatcher starting with 1.21.7. Do not load that listener earlier: its class
@@ -115,7 +122,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                         @Override
                         public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
                             if (msg instanceof ClientboundUpdateTagsPacket updateTagsPacket) {
-                                Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload> tags = new HashMap<>(updateTagsPacket.getTags());
+                                Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload> tags = new HashMap<>(getPacketTags(updateTagsPacket));
                                 if (payload != null
                                         && NoteBlockMechanicFactory.isEnabled()
                                         && NoteBlockMechanicFactory.getInstance().removeMineableTag())
@@ -324,6 +331,34 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         double d = 5.0D;
         Vec3 vec32 = vec3.add((double) l * d, (double) k * d, (double) n * d);
         return world.clip(new ClipContext(vec3, vec32, ClipContext.Block.OUTLINE, fluidHandling, player));
+    }
+
+    @SuppressWarnings("unchecked") // The renamed accessor retains the same Map key/value types.
+    private Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload> getPacketTags(
+            ClientboundUpdateTagsPacket packet) {
+        if (is263OrAbove) {
+            // 26.3 renamed getTags() to the record accessor tags().
+            try {
+                return (Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload>)
+                        ClientboundUpdateTagsPacket.class.getMethod("tags").invoke(packet);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to read 26.3 packet tags", e);
+            }
+        }
+        return packet.getTags();
+    }
+
+    private TeleportRandomlyConsumeEffect createTeleportRandomlyEffect(float diameter) {
+        if (is263OrAbove) {
+            try {
+                // Match Paper's default for the new directional-particles flag.
+                return TeleportRandomlyConsumeEffect.class.getConstructor(float.class, boolean.class)
+                        .newInstance(diameter, true);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to create 26.3 teleport effect", e);
+            }
+        }
+        return new TeleportRandomlyConsumeEffect(diameter);
     }
 
     private TagNetworkSerialization.NetworkPayload createPayload() {
@@ -559,7 +594,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                     case "clear_all_effects" -> consumable.onConsume(new ClearAllStatusEffectsConsumeEffect());
                     case "teleport_randomly" -> {
                         float diameter = parseFloatValue(effectSection.get("diameter"), 16f, "teleport_randomly.diameter");
-                        consumable.onConsume(new TeleportRandomlyConsumeEffect(diameter));
+                        consumable.onConsume(createTeleportRandomlyEffect(diameter));
                     }
                     case "play_sound" -> handlePlaySound(consumable, effectSection, template);
                     default -> Logs.logWarning("Invalid ConsumeEffect-Type " + type);
@@ -591,7 +626,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                 case "teleport_randomly" -> {
                     float diameter = parseFloatValue(effectSection.get("diameter"), 16f,
                             "death_protection.teleport_randomly.diameter");
-                    effects.add(new TeleportRandomlyConsumeEffect(diameter));
+                    effects.add(createTeleportRandomlyEffect(diameter));
                 }
                 case "play_sound" -> {
                     String soundId = Optional.ofNullable(effectSection.get("sound"))
@@ -835,6 +870,17 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     private ItemStack asBukkitCopy(net.minecraft.world.item.ItemStack nmsItem) {
+        if (is263OrAbove) {
+            // 26.3 removed asCraftMirror and changed asBukkitCopy's parameter type.
+            // Mirror a copied stack to preserve independent Bukkit copy semantics.
+            try {
+                return ItemStack.class.cast(CraftItemStack.class
+                        .getMethod("asBukkitMirror", net.minecraft.world.item.ItemStack.class)
+                        .invoke(null, nmsItem.copy()));
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to copy 26.3 item stack", e);
+            }
+        }
         if (VersionUtil.atOrAbove("26.2")) {
             // Paper 26.2 made CraftItemStack#asBukkitCopy private. asCraftMirror is still
             // public and returns a Bukkit ItemStack view, so mirror a copied NMS stack to
