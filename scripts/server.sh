@@ -177,6 +177,7 @@ find_oraxen_jar() {
 
 known_download_url() {
     case "$PROJECT_NAME/$MC_VERSION" in
+        paper/26.3) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/23d44ecd3c076255adb525673041b60c48d51dc97fff5861fa803ee6aefc967d/paper-26.3-3.jar' ;;
         paper/26.2) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/36fee4f3a7020eb2e2d6f8d70d849beaf0f024d86f09302b9ccf2d96f266127e/paper-26.2-71.jar' ;;
         paper/26.1.2) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/d30fae0c74092b10855f0412ca6b265c60301a013d34bc28a2a41bf5682dd80b/paper-26.1.2-69.jar' ;;
         paper/1.21.11) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar' ;;
