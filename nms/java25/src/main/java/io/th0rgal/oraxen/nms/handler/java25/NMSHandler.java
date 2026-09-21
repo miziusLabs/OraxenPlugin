@@ -159,8 +159,8 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                         final Deque<PendingBlockChange> pending =
                                 pendingBlockChanges.computeIfAbsent(ctx.channel(), ignored -> new ConcurrentLinkedDeque<>());
                         if (msg instanceof ServerboundUseItemOnPacket packet) {
-                            final BlockPos pos = packet.getHitResult().getBlockPos();
-                            pending.addLast(new PendingBlockChange(packet.getSequence(), pos.getX(), pos.getY(), pos.getZ(), true));
+                            final BlockPos pos = getUseItemOnHitResult(packet).getBlockPos();
+                            pending.addLast(new PendingBlockChange(getUseItemOnSequence(packet), pos.getX(), pos.getY(), pos.getZ(), true));
                         } else if (msg instanceof ServerboundPlayerActionPacket packet
                                 && packet.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
                             final BlockPos pos = packet.getPos();
@@ -346,6 +346,28 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
             }
         }
         return packet.getTags();
+    }
+
+    private BlockHitResult getUseItemOnHitResult(ServerboundUseItemOnPacket packet) {
+        if (is263OrAbove) {
+            try {
+                return (BlockHitResult) ServerboundUseItemOnPacket.class.getMethod("hitResult").invoke(packet);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to read 26.3 use-item-on hit result", e);
+            }
+        }
+        return packet.getHitResult();
+    }
+
+    private int getUseItemOnSequence(ServerboundUseItemOnPacket packet) {
+        if (is263OrAbove) {
+            try {
+                return (int) ServerboundUseItemOnPacket.class.getMethod("sequence").invoke(packet);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to read 26.3 use-item-on sequence", e);
+            }
+        }
+        return packet.getSequence();
     }
 
     private TeleportRandomlyConsumeEffect createTeleportRandomlyEffect(float diameter, boolean directionalParticles) {
