@@ -670,7 +670,80 @@ public class SchemaGenerator {
         // item_model (1.21.2+)
         addSimpleComponent(components, "item_model", "string", "Custom item model resource location", "1.21.2+");
 
+        // compostable (26.3+)
+        JsonObject compostable = new JsonObject();
+        compostable.addProperty("type", "object");
+        compostable.addProperty("minecraftVersion", "26.3+");
+        compostable.addProperty("description", "Controls how many layers the item adds to a composter");
+        JsonObject compostableProps = new JsonObject();
+        compostableProps.add("layers", numberProviderProperty("integer", "minecraft:context_int_provider",
+                "Layers to add, either an inline integer or a context integer provider ID", null));
+        compostable.add("properties", compostableProps);
+        components.add("compostable", compostable);
+
+        // cooking_fuel (26.3+)
+        JsonObject cookingFuel = new JsonObject();
+        cookingFuel.addProperty("type", "object");
+        cookingFuel.addProperty("minecraftVersion", "26.3+");
+        cookingFuel.addProperty("description", "Makes the item usable as Furnace, Smoker, or Blast Furnace fuel");
+        JsonObject cookingFuelProps = new JsonObject();
+        cookingFuelProps.add("burn_time", numberProviderProperty("integer", "minecraft:context_int_provider",
+                "Burn time in ticks, either an inline integer or a context integer provider ID", null));
+        cookingFuelProps.add("speed_multiplier", numberProviderProperty("number", "minecraft:context_float_provider",
+                "Cooking speed multiplier, either an inline number or a context float provider ID", null));
+        cookingFuel.add("properties", cookingFuelProps);
+        components.add("cooking_fuel", cookingFuel);
+
+        // brewing_fuel (26.3+)
+        JsonObject brewingFuel = new JsonObject();
+        brewingFuel.addProperty("type", "object");
+        brewingFuel.addProperty("minecraftVersion", "26.3+");
+        brewingFuel.addProperty("description", "Makes the item usable as Brewing Stand fuel");
+        JsonObject brewingFuelProps = new JsonObject();
+        brewingFuelProps.add("uses", numberProviderProperty("integer", "minecraft:context_int_provider",
+                "Number of brews, either an inline integer or a context integer provider ID", null));
+        brewingFuelProps.add("speed_multiplier", numberProviderProperty("number", "minecraft:context_float_provider",
+                "Brewing speed multiplier, either an inline number or a context float provider ID", null));
+        brewingFuel.add("properties", brewingFuelProps);
+        components.add("brewing_fuel", brewingFuel);
+
+        addSwingAnimationComponent(components, "attack_animation", "Animation used when attacking with the item");
+        addSwingAnimationComponent(components, "interact_animation", "Animation used when interacting with the item");
+
         return components;
+    }
+
+    private static void addSwingAnimationComponent(JsonObject components, String name, String description) {
+        JsonObject animation = new JsonObject();
+        animation.addProperty("type", "object");
+        animation.addProperty("minecraftVersion", "26.3+");
+        animation.addProperty("description", description);
+        JsonObject props = new JsonObject();
+        addComponentProp(props, "type", "string", "Swing animation type: none, whack, or stab", null, null);
+        addComponentProp(props, "duration", "integer", "Animation duration in ticks", 0, null);
+        animation.add("properties", props);
+        components.add(name, animation);
+    }
+
+    private static JsonObject numberProviderProperty(String numberType, String providerType, String description,
+            Number min) {
+        JsonObject property = new JsonObject();
+        property.addProperty("description", description);
+        JsonArray oneOf = new JsonArray();
+
+        JsonObject inline = new JsonObject();
+        inline.addProperty("type", numberType);
+        if (min != null)
+            inline.addProperty("min", min);
+        oneOf.add(inline);
+
+        JsonObject provider = new JsonObject();
+        provider.addProperty("type", "string");
+        provider.addProperty("description", "Namespaced ID from the " + providerType + " registry");
+        oneOf.add(provider);
+
+        property.add("oneOf", oneOf);
+        return property;
     }
 
     private static void addSimpleComponent(JsonObject components, String name, String type, String desc,

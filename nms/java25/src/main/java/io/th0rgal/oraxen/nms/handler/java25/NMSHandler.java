@@ -348,12 +348,11 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         return packet.getTags();
     }
 
-    private TeleportRandomlyConsumeEffect createTeleportRandomlyEffect(float diameter) {
+    private TeleportRandomlyConsumeEffect createTeleportRandomlyEffect(float diameter, boolean directionalParticles) {
         if (is263OrAbove) {
             try {
-                // Match Paper's default for the new directional-particles flag.
                 return TeleportRandomlyConsumeEffect.class.getConstructor(float.class, boolean.class)
-                        .newInstance(diameter, true);
+                        .newInstance(diameter, directionalParticles);
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException("Failed to create 26.3 teleport effect", e);
             }
@@ -594,7 +593,10 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                     case "clear_all_effects" -> consumable.onConsume(new ClearAllStatusEffectsConsumeEffect());
                     case "teleport_randomly" -> {
                         float diameter = parseFloatValue(effectSection.get("diameter"), 16f, "teleport_randomly.diameter");
-                        consumable.onConsume(createTeleportRandomlyEffect(diameter));
+                        boolean directionalParticles = Optional.ofNullable(effectSection.get("directional_particles"))
+                                .map(value -> Boolean.parseBoolean(value.toString()))
+                                .orElse(true);
+                        consumable.onConsume(createTeleportRandomlyEffect(diameter, directionalParticles));
                     }
                     case "play_sound" -> handlePlaySound(consumable, effectSection, template);
                     default -> Logs.logWarning("Invalid ConsumeEffect-Type " + type);
@@ -626,7 +628,10 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                 case "teleport_randomly" -> {
                     float diameter = parseFloatValue(effectSection.get("diameter"), 16f,
                             "death_protection.teleport_randomly.diameter");
-                    effects.add(createTeleportRandomlyEffect(diameter));
+                    boolean directionalParticles = Optional.ofNullable(effectSection.get("directional_particles"))
+                            .map(value -> Boolean.parseBoolean(value.toString()))
+                            .orElse(true);
+                    effects.add(createTeleportRandomlyEffect(diameter, directionalParticles));
                 }
                 case "play_sound" -> {
                     String soundId = Optional.ofNullable(effectSection.get("sound"))
