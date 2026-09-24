@@ -19,7 +19,6 @@ import io.th0rgal.oraxen.mechanics.provided.cosmetic.hat.HatMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.cosmetic.skin.SkinMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.cosmetic.skinnable.SkinnableMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.farming.bedrockbreak.BedrockBreakMechanicFactory;
-import io.th0rgal.oraxen.mechanics.provided.farming.bigmining.BigMiningMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.farming.mining.MiningMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.farming.bottledexp.BottledExpMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.farming.harvesting.HarvestingMechanicFactory;
@@ -77,7 +76,7 @@ public class MechanicsManager {
             "thor", "lifeleech", "energyblast", "witherskull", "fireball", "knockback_strike", "bleeding",
             "spear_lunge",
             // farming
-            "bigmining", "mining", "smelting", "bottledexp", "harvesting", "watering", "bedrockbreak"
+            "mining", "smelting", "bottledexp", "harvesting", "watering", "bedrockbreak"
     );
 
     public static void registerNativeMechanics() {
@@ -123,7 +122,6 @@ public class MechanicsManager {
         registerFactory("spear_lunge", SpearLungeMechanicFactory::new);
 
         // farming
-        registerFactory("bigmining", BigMiningMechanicFactory::new);
         registerFactory("mining", MiningMechanicFactory::new);
         registerFactory("smelting", SmeltingMechanicFactory::new);
         registerFactory("bottledexp", BottledExpMechanicFactory::new);

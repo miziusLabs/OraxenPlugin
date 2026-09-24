@@ -846,12 +846,6 @@ public class SchemaGenerator {
                 Map.of("delay", prop("integer", "Cooldown in milliseconds", 0, null)));
 
         // Farming mechanics
-        addMechanicIfAbsent(mechanics, "bigmining", "farming", "Mines blocks in an area",
-                Map.of(
-                        "radius", prop("integer", "Horizontal radius", 1, null),
-                        "depth", prop("integer", "Depth of mining area", 1, null)));
-        mechanics.getAsJsonObject("bigmining").addProperty("deprecated", true);
-
         addMechanicIfAbsent(mechanics, "smelting", "farming", "Auto-smelts mined blocks",
                 Map.of("play_sound", prop("boolean", "Play smelting sound", null, true)));
 
