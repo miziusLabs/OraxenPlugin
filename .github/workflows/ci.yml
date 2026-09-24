@@ -23,13 +23,17 @@ jobs:
           java-version: |
             21
             25
-          cache: gradle
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
 
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x gradlew
 
       - name: Compile plugin
-        run: ./gradlew compileJava :nms:java21:compileJava :nms:java25:compileJava --parallel
+        run: ./gradlew compileJava :nms:java21:compileJava :nms:java25:compileJava --parallel --build-cache
 
   test:
     name: Run tests
@@ -43,10 +47,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
 
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x gradlew
 
       - name: Run tests
-        run: ./gradlew test
+        run: ./gradlew test --build-cache
