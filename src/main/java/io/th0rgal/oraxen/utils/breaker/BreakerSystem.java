@@ -72,7 +72,15 @@ public class BreakerSystem implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onBlockDamage(final BlockDamageEvent event) {
-        handleEvent(event.getPlayer(), event.getBlock(), event.getBlockFace(), () -> event.setCancelled(true), true);
+        final BlockFace blockFace;
+        try {
+            blockFace = event.getBlockFace();
+        } catch (final IllegalStateException ignored) {
+            // Synthetic damage events created with the legacy constructor have no clicked face.
+            // They do not represent a new client mining action for the breaker to own.
+            return;
+        }
+        handleEvent(event.getPlayer(), event.getBlock(), blockFace, () -> event.setCancelled(true), true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
