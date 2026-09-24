@@ -1,6 +1,7 @@
 package io.th0rgal.oraxen.items;
 
 import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.configs.MiningConfigMigration;
 import io.th0rgal.oraxen.utils.OraxenYaml;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.configuration.ConfigurationSection;
@@ -24,6 +25,13 @@ public final class ItemMigrator {
     public ItemMigrator(final ConfigurationSection section) {
         this.section = section;
         migrateUppercaseSections();
+        if (section != null && MiningConfigMigration.migrateItem(section)) {
+            configUpdated = true;
+            blockConfigMigrated = true; // Reuse the migration backup path before rewriting the item file.
+            if (OraxenPlugin.get() != null)
+                Logs.logWarning("Item " + section.getName()
+                        + " uses deprecated mechanics.bigmining; migrated to mechanics.mining with world-relative offsets.");
+        }
     }
 
     /**

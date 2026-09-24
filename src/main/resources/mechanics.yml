@@ -136,9 +136,10 @@ spear_lunge:
 
 # FARMING
 
-bigmining:
+mining:
   enabled: true
-  # Toggles if Oraxen should call the BlockBreakEvent or just listen to it
+  # Items list x,y,z offsets relative to the mined block; 0,0,0 is mined normally.
+  # Whether to call BlockBreakEvent for each additional block
   # Known to cause issues with some enchantment-plugins if enabled
   call_events: true
 

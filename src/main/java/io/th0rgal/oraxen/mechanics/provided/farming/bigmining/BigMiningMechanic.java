@@ -4,6 +4,7 @@ import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import org.bukkit.configuration.ConfigurationSection;
 
+@Deprecated(since = "1.220.0")
 public class BigMiningMechanic extends Mechanic {
 
     private final int radius;

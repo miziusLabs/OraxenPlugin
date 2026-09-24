@@ -784,6 +784,19 @@ public class SchemaGenerator {
             String mechanicId = entry.getKey();
             MechanicFactory factory = entry.getValue();
 
+            if ("mining".equals(mechanicId)) {
+                JsonObject mining = new JsonObject();
+                mining.addProperty("category", "farming");
+                mining.addProperty("description", factory.getMechanicDescription());
+                mining.addProperty("type", "array");
+                JsonObject offset = new JsonObject();
+                offset.addProperty("type", "string");
+                offset.addProperty("pattern", "^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*-?\\d+\\s*$");
+                mining.add("items", offset);
+                mechanics.add("mining", mining);
+                continue;
+            }
+
             List<MechanicConfigProperty> schema = factory.getConfigSchema();
             String category = factory.getMechanicCategory();
             String description = factory.getMechanicDescription();
@@ -837,6 +850,7 @@ public class SchemaGenerator {
                 Map.of(
                         "radius", prop("integer", "Horizontal radius", 1, null),
                         "depth", prop("integer", "Depth of mining area", 1, null)));
+        mechanics.getAsJsonObject("bigmining").addProperty("deprecated", true);
 
         addMechanicIfAbsent(mechanics, "smelting", "farming", "Auto-smelts mined blocks",
                 Map.of("play_sound", prop("boolean", "Play smelting sound", null, true)));

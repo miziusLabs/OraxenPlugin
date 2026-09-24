@@ -15,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
 
+@Deprecated(since = "1.220.0")
 public class BigMiningMechanicListener implements Listener {
 
     private final BigMiningMechanicFactory factory;

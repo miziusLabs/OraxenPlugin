@@ -134,7 +134,7 @@ public class OraxenMetrics {
                 "soulbound", "consumable", "commands",
                 "hat", "aura", "skin",
                 "thor", "lifeleech", "bleeding",
-                "bigmining", "smelting", "harvesting");
+                "mining", "smelting", "harvesting");
 
         for (String mechanicId : trackedMechanics) {
             if (MechanicsManager.getMechanicFactory(mechanicId) != null) {

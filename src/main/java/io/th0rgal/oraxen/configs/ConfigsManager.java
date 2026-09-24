@@ -275,6 +275,9 @@ public class ConfigsManager {
         File configurationFile = resourcesManager.extractConfiguration(configName);
         YamlConfiguration configuration = OraxenYaml.loadConfiguration(configurationFile);
         boolean updated = configName.equals("settings.yml") && SettingsUpdater.migrateInventoryMenu(configuration);
+        boolean miningConfigMigrated = configName.equals("mechanics.yml")
+                && MiningConfigMigration.migrateFactory(configuration);
+        updated |= miningConfigMigrated;
         for (String key : defaultConfiguration.getKeys(true)) {
             if (!skippedYamlKeys.stream().filter(key::startsWith).toList().isEmpty())
                 continue;
@@ -313,6 +316,8 @@ public class ConfigsManager {
 
         if (updated)
             try {
+                if (miningConfigMigrated)
+                    MigrationBackups.moveToMigrated(plugin.getDataFolder(), configurationFile);
                 configuration.save(configurationFile);
             } catch (IOException e) {
                 Logs.logError("Failed to save updated configuration file: " + configurationFile.getName());
@@ -789,6 +794,7 @@ public class ConfigsManager {
                 continue;
             YamlConfiguration configuration = OraxenYaml.loadConfiguration(file);
             boolean fileChanged = false;
+            boolean migrationBackupRequired = false;
 
             for (String key : configuration.getKeys(false)) {
                 ConfigurationSection itemSection = configuration.getConfigurationSection(key);
@@ -796,6 +802,7 @@ public class ConfigsManager {
                     continue;
                 ItemMigrator migrator = new ItemMigrator(itemSection);
                 fileChanged |= migrator.configUpdated();
+                migrationBackupRequired |= migrator.blockConfigMigrated();
                 ConfigurationSection packSection = itemSection.getConfigurationSection("pack");
                 Material material = OraxenYaml.getMaterial(itemSection.getString("material", ""));
                 if (packSection == null || material == null)
@@ -833,6 +840,8 @@ public class ConfigsManager {
 
             if (fileChanged) {
                 try {
+                    if (migrationBackupRequired)
+                        MigrationBackups.moveToMigrated(plugin.getDataFolder(), file);
                     configuration.save(file);
                 } catch (IOException e) {
                     Logs.logWarning("Failed to save updated item file: " + file.getName());

@@ -9360,22 +9360,29 @@
       }
     },
     "bigmining": {
+      "deprecated": true,
       "category": "farming",
-      "description": "Mines blocks in an area around the targeted block",
-      "_source": "factory",
+      "description": "Mines blocks in an area",
       "properties": {
         "radius": {
           "type": "integer",
-          "description": "Horizontal radius of mining area",
-          "default": 1,
+          "description": "Horizontal radius",
           "min": 1
         },
         "depth": {
           "type": "integer",
           "description": "Depth of mining area",
-          "default": 1,
           "min": 1
         }
+      }
+    },
+    "mining": {
+      "category": "farming",
+      "description": "Mines blocks at offsets relative to the targeted block",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*-?\\d+\\s*$"
       }
     }
   },
