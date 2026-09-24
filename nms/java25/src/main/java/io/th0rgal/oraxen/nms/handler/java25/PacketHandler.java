@@ -72,29 +72,43 @@ final class PacketHandler {
 
     private Object transform(Object packet) {
         try {
-            if (formatInventoryTitles && packet instanceof ClientboundOpenScreenPacket openScreen) {
-                return new ClientboundOpenScreenPacket(openScreen.getContainerId(), openScreen.getType(), transform(openScreen.getTitle()));
-            }
-            if (formatTitles && packet instanceof ClientboundSetTitleTextPacket title && Settings.FORMAT_TITLES.toBool()) {
-                return new ClientboundSetTitleTextPacket(transform(title.text()));
-            }
-            if (formatTitles && packet instanceof ClientboundSetSubtitleTextPacket subtitle && Settings.FORMAT_SUBTITLES.toBool()) {
-                return new ClientboundSetSubtitleTextPacket(transform(subtitle.text()));
-            }
-            if (formatTitles && packet instanceof ClientboundSetActionBarTextPacket actionBar && Settings.FORMAT_ACTION_BAR.toBool()) {
-                return new ClientboundSetActionBarTextPacket(transform(actionBar.text()));
-            }
-            if (hideScoreboardNumbers && packet instanceof ClientboundSetObjectivePacket objective
-                    && objective.getMethod() != ClientboundSetObjectivePacket.METHOD_REMOVE) {
-                Objective nativeObjective = new Objective(new Scoreboard(), objective.getObjectiveName(), ObjectiveCriteria.DUMMY,
-                        objective.getDisplayName(), objective.getRenderType(), false, BlankFormat.INSTANCE);
-                return new ClientboundSetObjectivePacket(nativeObjective, objective.getMethod());
-            }
+            if (packet instanceof ClientboundOpenScreenPacket openScreen) return transformOpenScreen(openScreen);
+            if (packet instanceof ClientboundSetTitleTextPacket title) return transformTitle(title);
+            if (packet instanceof ClientboundSetSubtitleTextPacket subtitle) return transformSubtitle(subtitle);
+            if (packet instanceof ClientboundSetActionBarTextPacket actionBar) return transformActionBar(actionBar);
+            if (packet instanceof ClientboundSetObjectivePacket objective) return transformObjective(objective);
         } catch (Throwable exception) {
             if (Settings.DEBUG.toBool())
                 Logs.logWarning("Failed to transform outgoing packet " + packet.getClass().getSimpleName() + ": " + exception.getMessage());
         }
         return packet;
+    }
+
+    private ClientboundOpenScreenPacket transformOpenScreen(ClientboundOpenScreenPacket packet) {
+        if (!formatInventoryTitles) return packet;
+        return new ClientboundOpenScreenPacket(packet.getContainerId(), packet.getType(), transform(packet.getTitle()));
+    }
+
+    private ClientboundSetTitleTextPacket transformTitle(ClientboundSetTitleTextPacket packet) {
+        if (!formatTitles || !Settings.FORMAT_TITLES.toBool()) return packet;
+        return new ClientboundSetTitleTextPacket(transform(packet.text()));
+    }
+
+    private ClientboundSetSubtitleTextPacket transformSubtitle(ClientboundSetSubtitleTextPacket packet) {
+        if (!formatTitles || !Settings.FORMAT_SUBTITLES.toBool()) return packet;
+        return new ClientboundSetSubtitleTextPacket(transform(packet.text()));
+    }
+
+    private ClientboundSetActionBarTextPacket transformActionBar(ClientboundSetActionBarTextPacket packet) {
+        if (!formatTitles || !Settings.FORMAT_ACTION_BAR.toBool()) return packet;
+        return new ClientboundSetActionBarTextPacket(transform(packet.text()));
+    }
+
+    private ClientboundSetObjectivePacket transformObjective(ClientboundSetObjectivePacket packet) {
+        if (!hideScoreboardNumbers || packet.getMethod() == ClientboundSetObjectivePacket.METHOD_REMOVE) return packet;
+        Objective nativeObjective = new Objective(new Scoreboard(), packet.getObjectiveName(), ObjectiveCriteria.DUMMY,
+                packet.getDisplayName(), packet.getRenderType(), false, BlankFormat.INSTANCE);
+        return new ClientboundSetObjectivePacket(nativeObjective, packet.getMethod());
     }
 
     private static Component transform(Component component) {
