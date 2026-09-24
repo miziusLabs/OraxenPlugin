@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   compile:
+    name: Compile plugin
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -31,6 +32,7 @@ jobs:
         run: ./gradlew compileJava :nms:java21:compileJava :nms:java25:compileJava --parallel
 
   test:
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
