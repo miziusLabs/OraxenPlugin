@@ -1,31 +1,34 @@
-package io.th0rgal.oraxen.pack.generation;
+package io.th0rgal.oraxen.pack.generation.output;
 
+import io.th0rgal.oraxen.pack.generation.PackObfuscator;
+import io.th0rgal.oraxen.pack.generation.TextShaderGenerator;
+import io.th0rgal.oraxen.pack.generation.UnprotectedPackWriter;
 import io.th0rgal.oraxen.utils.HashUtils;
+import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.oraxen.utils.MinecraftVersion;
 import io.th0rgal.oraxen.utils.VirtualFile;
 import io.th0rgal.oraxen.utils.ZipUtils;
-import io.th0rgal.oraxen.utils.logs.Logs;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.function.BooleanSupplier;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BooleanSupplier;
 
 /** Writes the single-version archive after applying configured output transforms. */
-final class PackArchiveWriter {
+public final class PackArchiveWriter {
     private final File packFolder;
     private final File pack;
     private final TextShaderGenerator textShaderGenerator;
 
-    PackArchiveWriter(File packFolder, File pack, TextShaderGenerator textShaderGenerator) {
+    public PackArchiveWriter(File packFolder, File pack, TextShaderGenerator textShaderGenerator) {
         this.packFolder = packFolder;
         this.pack = pack;
         this.textShaderGenerator = textShaderGenerator;
     }
 
-    void write(List<VirtualFile> output, BooleanSupplier cancelled) throws IOException {
+    public void write(List<VirtualFile> output, BooleanSupplier cancelled) throws IOException {
         filterGeneratedCoreShadersBelow1214(output, MinecraftVersion.getCurrentVersion());
         UnprotectedPackWriter.writeConfigured(output, packFolder);
         PackObfuscator.obfuscate(output);

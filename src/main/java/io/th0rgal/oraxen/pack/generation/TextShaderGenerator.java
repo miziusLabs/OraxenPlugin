@@ -22,7 +22,7 @@ import java.util.Map;
  * <p>All shader output is written via {@link ResourcePack#writeStringToVirtual},
  * which is a public static method that remains in ResourcePack.
  */
-class TextShaderGenerator {
+public class TextShaderGenerator {
 
     // --- Records ---
 
@@ -94,11 +94,11 @@ class TextShaderGenerator {
         return ShaderOverlay.V1_21_4.directory();
     }
 
-    List<ShaderOverlay> getGeneratedOverlays() {
+    public List<ShaderOverlay> getGeneratedOverlays() {
         return List.copyOf(generatedOverlays);
     }
 
-    Map<String, String> getGeneratedCoreShaderHashes() {
+    public Map<String, String> getGeneratedCoreShaderHashes() {
         return Map.copyOf(generatedCoreShaderHashes);
     }
 
@@ -107,7 +107,7 @@ class TextShaderGenerator {
      * {@code (boolean skipBaseShaders, int minOverlayPackFormat)} pair so
      * callers cannot construct invalid combinations.
      */
-    enum ShaderEmissionMode {
+    public enum ShaderEmissionMode {
         /** Single-pack: emit base shaders for the server's pack format. */
         BASE_ONLY,
         /** Multi-version on 1.21.4+ server: skip base shaders, emit only overlays >= 1.21.4. */
@@ -126,7 +126,7 @@ class TextShaderGenerator {
         maybeGenerateTextShaders(hasAnimatedGlyphs, ShaderEmissionMode.BASE_ONLY);
     }
 
-    void maybeGenerateTextShaders(boolean hasAnimatedGlyphs, ShaderEmissionMode mode) {
+    public void maybeGenerateTextShaders(boolean hasAnimatedGlyphs, ShaderEmissionMode mode) {
         if (textShadersGenerated) return;
 
         TextShaderFeatures features = resolveTextShaderFeatures(hasAnimatedGlyphs);

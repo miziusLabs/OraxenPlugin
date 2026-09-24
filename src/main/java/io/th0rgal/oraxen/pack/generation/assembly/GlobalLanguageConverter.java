@@ -1,10 +1,11 @@
-package io.th0rgal.oraxen.pack.generation;
+package io.th0rgal.oraxen.pack.generation.assembly;
 
 import com.google.gson.*;
-import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.configs.Settings;
-import io.th0rgal.oraxen.utils.VirtualFile;
+import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.pack.generation.PackFileCollector;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import io.th0rgal.oraxen.utils.VirtualFile;
 
 import java.io.File;
 import java.io.InputStream;
@@ -14,7 +15,7 @@ import java.nio.file.Files;
 import java.util.*;
 
 /** Expands the optional global language file into per-language virtual assets. */
-final class GlobalLanguageConverter {
+public final class GlobalLanguageConverter {
     private final File packFolder;
 
     GlobalLanguageConverter(File packFolder) {

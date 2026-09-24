@@ -1,5 +1,8 @@
-package io.th0rgal.oraxen.pack.generation;
+package io.th0rgal.oraxen.pack.generation.assembly;
 
+import io.th0rgal.oraxen.pack.generation.PackFileCollector;
+import io.th0rgal.oraxen.pack.generation.PackMcmetaUtils;
+import io.th0rgal.oraxen.pack.generation.PackMerger;
 import io.th0rgal.oraxen.utils.VirtualFile;
 
 import java.io.File;
@@ -7,21 +10,21 @@ import java.io.IOException;
 import java.util.List;
 
 /** Reads pack files and imports uploaded packs into the virtual file list. */
-final class PackFileAssembler {
+public final class PackFileAssembler {
     private final File packFolder;
     private final GlobalLanguageConverter languageConverter;
     private PackFileCollector fileCollector;
 
-    PackFileAssembler(File packFolder) {
+    public PackFileAssembler(File packFolder) {
         this.packFolder = packFolder;
         this.languageConverter = new GlobalLanguageConverter(packFolder);
     }
 
-    void reset() {
+    public void reset() {
         fileCollector = new PackFileCollector(packFolder);
     }
 
-    void collectAsyncSafe(List<VirtualFile> output) throws IOException {
+    public void collectAsyncSafe(List<VirtualFile> output) throws IOException {
         fileCollector.getFilesInFolder(packFolder, output, packFolder.getCanonicalPath(), packFolder.getName() + ".zip");
 
         File[] files = packFolder.listFiles();

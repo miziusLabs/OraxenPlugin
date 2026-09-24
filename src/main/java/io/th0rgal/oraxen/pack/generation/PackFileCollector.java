@@ -28,15 +28,15 @@ import java.util.stream.Collectors;
  * static pack verification utilities.
  * Extracted from ResourcePack to reduce class size.
  */
-class PackFileCollector {
+public class PackFileCollector {
 
     private final File packFolder;
 
-    PackFileCollector(File packFolder) {
+    public PackFileCollector(File packFolder) {
         this.packFolder = packFolder;
     }
 
-    void getAllFiles(File dir, Collection<VirtualFile> fileList, String newFolder, String... excluded) {
+    public void getAllFiles(File dir, Collection<VirtualFile> fileList, String newFolder, String... excluded) {
         final File[] files = dir.listFiles();
         final List<String> blacklist = Arrays.asList(excluded);
         if (files != null)
@@ -50,7 +50,7 @@ class PackFileCollector {
             }
     }
 
-    void getFilesInFolder(File dir, Collection<VirtualFile> fileList, String newFolder, String... excluded) {
+    public void getFilesInFolder(File dir, Collection<VirtualFile> fileList, String newFolder, String... excluded) {
         final File[] files = dir.listFiles();
         final List<String> blacklist = Arrays.asList(excluded);
         if (files != null)
@@ -81,7 +81,7 @@ class PackFileCollector {
         return false;
     }
 
-    static Set<String> verifyPackFormatting(List<VirtualFile> output) {
+    public static Set<String> verifyPackFormatting(List<VirtualFile> output) {
         if (Settings.DEBUG.toBool()) Logs.logInfo("Verifying formatting for textures and models...");
         Set<VirtualFile> textures = new HashSet<>();
         Set<String> texturePaths = new HashSet<>();
@@ -288,7 +288,7 @@ class PackFileCollector {
         return normalisedPath.matches(".*assets/[^/]+/lang/[^/]+\\.json");
     }
 
-    static InputStream processJson(String content) {
+    public static InputStream processJson(String content) {
         String parsedContent = AdventureUtils.parseLegacyThroughMiniMessage(content).replace("\\<", "<");
         return new ByteArrayInputStream(parsedContent.getBytes(StandardCharsets.UTF_8));
     }

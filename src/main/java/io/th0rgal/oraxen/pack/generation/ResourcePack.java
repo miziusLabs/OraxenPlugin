@@ -1,14 +1,20 @@
 package io.th0rgal.oraxen.pack.generation;
 
 import com.google.gson.JsonObject;
-import io.th0rgal.oraxen.OraxenPlugin;
-import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.api.events.OraxenPackGeneratedEvent;
+import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.configs.AppearanceMode;
 import io.th0rgal.oraxen.configs.ResourcesManager;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.items.OraxenMeta;
+import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.pack.generation.assembly.PackFileAssembler;
+import io.th0rgal.oraxen.pack.generation.assets.FontAssetGenerator;
+import io.th0rgal.oraxen.pack.generation.assets.ItemAssetGenerator;
+import io.th0rgal.oraxen.pack.generation.assets.PackMetadataGenerator;
+import io.th0rgal.oraxen.pack.generation.output.PackArchiveWriter;
+import io.th0rgal.oraxen.pack.generation.output.PackOutputProcessor;
 import io.th0rgal.oraxen.pack.upload.UploadManager;
 import io.th0rgal.oraxen.utils.*;
 import io.th0rgal.oraxen.utils.customarmor.ComponentArmorModels;

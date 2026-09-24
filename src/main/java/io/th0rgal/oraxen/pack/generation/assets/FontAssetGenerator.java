@@ -1,36 +1,38 @@
-package io.th0rgal.oraxen.pack.generation;
+package io.th0rgal.oraxen.pack.generation.assets;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.fonts.Font;
 import io.th0rgal.oraxen.fonts.FontManager;
 import io.th0rgal.oraxen.glyphs.AnimatedGlyph;
 import io.th0rgal.oraxen.glyphs.Glyph;
 import io.th0rgal.oraxen.glyphs.ShiftProvider;
+import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.pack.generation.ResourcePack;
+import io.th0rgal.oraxen.pack.generation.TextShaderGenerator;
+import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.VirtualFile;
-import io.th0rgal.oraxen.utils.logs.Logs;
 
-import javax.imageio.ImageIO;
 import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.Collection;
+import javax.imageio.ImageIO;
 
 /** Generates fonts, animated glyph textures, and their shader variants. */
-final class FontAssetGenerator {
+public final class FontAssetGenerator {
     private final File packFolder;
     private final TextShaderGenerator textShaderGenerator;
 
-    FontAssetGenerator(File packFolder, TextShaderGenerator textShaderGenerator) {
+    public FontAssetGenerator(File packFolder, TextShaderGenerator textShaderGenerator) {
         this.packFolder = packFolder;
         this.textShaderGenerator = textShaderGenerator;
     }
 
-    void generate(boolean multiVersionResolved) {
+    public void generate(boolean multiVersionResolved) {
         FontManager fontManager = OraxenPlugin.get().getFontManager();
         if (!fontManager.autoGenerate)
             return;

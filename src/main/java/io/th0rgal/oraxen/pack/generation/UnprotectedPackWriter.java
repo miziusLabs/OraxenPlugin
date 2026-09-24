@@ -19,12 +19,12 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /** Writes an additional ordinary ZIP without changing the files used for client packs. */
-final class UnprotectedPackWriter {
+public final class UnprotectedPackWriter {
 
     private UnprotectedPackWriter() {
     }
 
-    static void writeConfigured(List<VirtualFile> output, File packFolder) {
+    public static void writeConfigured(List<VirtualFile> output, File packFolder) {
         Object location = Settings.UNPROTECTED_PACK_LOCATION.getValue();
         if (location == null || location.toString().isBlank()) return;
 

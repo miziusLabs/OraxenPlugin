@@ -1,17 +1,22 @@
-package io.th0rgal.oraxen.pack.generation;
+package io.th0rgal.oraxen.pack.generation.assets;
 
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.configs.AppearanceMode;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.items.OraxenMeta;
+import io.th0rgal.oraxen.pack.generation.ModelDefinitionGenerator;
+import io.th0rgal.oraxen.pack.generation.ModelGenerator;
+import io.th0rgal.oraxen.pack.generation.PredicatesGenerator;
+import io.th0rgal.oraxen.pack.generation.ResourcePack;
+import io.th0rgal.oraxen.pack.generation.VanillaItemDefinitionGenerator;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import org.bukkit.Material;
 
 import java.util.*;
 
 /** Builds the item model formats required by the server and client versions. */
-final class ItemAssetGenerator {
-    void generate(boolean multiVersionResolved) {
+public final class ItemAssetGenerator {
+    public void generate(boolean multiVersionResolved) {
         final Map<Material, Map<String, ItemBuilder>> texturedItems = extractTexturedItems();
         generateItemAppearanceAssets(texturedItems, multiVersionResolved);
     }

@@ -1,9 +1,12 @@
-package io.th0rgal.oraxen.pack.generation;
+package io.th0rgal.oraxen.pack.generation.assets;
 
 import com.google.gson.*;
 import io.th0rgal.oraxen.configs.Settings;
-import io.th0rgal.oraxen.utils.ResourcePackFormatUtil;
+import io.th0rgal.oraxen.pack.generation.PackMcmetaUtils;
+import io.th0rgal.oraxen.pack.generation.ShaderOverlay;
+import io.th0rgal.oraxen.pack.generation.TextShaderGenerator;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import io.th0rgal.oraxen.utils.ResourcePackFormatUtil;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -12,17 +15,17 @@ import java.nio.file.Path;
 import java.util.*;
 
 /** Maintains pack metadata and generated shader overlay compatibility ranges. */
-final class PackMetadataGenerator {
+public final class PackMetadataGenerator {
     private static final Set<String> LEGACY_SHADER_OVERLAY_DIRECTORIES = Set.of("overlay_1_21_6_plus", "overlay_1_21_4_5");
     private final File packFolder;
     private final TextShaderGenerator textShaderGenerator;
 
-    PackMetadataGenerator(File packFolder, TextShaderGenerator textShaderGenerator) {
+    public PackMetadataGenerator(File packFolder, TextShaderGenerator textShaderGenerator) {
         this.packFolder = packFolder;
         this.textShaderGenerator = textShaderGenerator;
     }
 
-    void updatePackMcmeta() {
+    public void updatePackMcmeta() {
         if (isMcmetaGenerationDisabled()) {
             return;
         }
@@ -38,7 +41,7 @@ final class PackMetadataGenerator {
      * Updates pack.mcmeta to add shader overlay entries after shaders have been generated.
      * This must be called after {@link #generateFont()} to ensure overlay directories exist.
      */
-    void updatePackMcmetaOverlays() {
+    public void updatePackMcmetaOverlays() {
         if (isMcmetaGenerationDisabled()) {
             return;
         }
@@ -205,7 +208,7 @@ final class PackMetadataGenerator {
         root.add("pack", pack);
     }
 
-    boolean isMcmetaGenerationDisabled() {
+    public boolean isMcmetaGenerationDisabled() {
         return Boolean.TRUE.equals(Settings.DISABLE_MCMETA_GENERATION.getValue());
     }
 

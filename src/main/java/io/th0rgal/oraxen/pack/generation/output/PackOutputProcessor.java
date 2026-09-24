@@ -1,15 +1,19 @@
-package io.th0rgal.oraxen.pack.generation;
+package io.th0rgal.oraxen.pack.generation.output;
 
 import io.th0rgal.oraxen.configs.Settings;
+import io.th0rgal.oraxen.pack.generation.AtlasGenerator;
+import io.th0rgal.oraxen.pack.generation.DuplicationHandler;
+import io.th0rgal.oraxen.pack.generation.PackFileCollector;
+import io.th0rgal.oraxen.pack.generation.SoundGenerator;
 import io.th0rgal.oraxen.utils.VirtualFile;
 
 import java.util.*;
 
 /** Validates and combines generated assets before archive writing. */
-final class PackOutputProcessor {
+public final class PackOutputProcessor {
     private final SoundGenerator soundGenerator;
 
-    PackOutputProcessor(SoundGenerator soundGenerator) {
+    public PackOutputProcessor(SoundGenerator soundGenerator) {
         this.soundGenerator = soundGenerator;
     }
 
@@ -17,12 +21,12 @@ final class PackOutputProcessor {
      * Post-processes the output: verifies textures, generates atlases,
      * merges duplicates, filters excluded extensions, and generates sounds.
      */
-    void process(List<VirtualFile> output, boolean multiVersionResolved) {
+    public void process(List<VirtualFile> output, boolean multiVersionResolved) {
         processAsyncSafe(output, multiVersionResolved);
         soundGenerator.generateSound(output);
     }
 
-    void processAsyncSafe(List<VirtualFile> output, boolean multiVersionResolved) {
+    public void processAsyncSafe(List<VirtualFile> output, boolean multiVersionResolved) {
         Set<String> malformedTextures = new HashSet<>();
         if (Settings.VERIFY_PACK_FILES.toBool())
             malformedTextures = PackFileCollector.verifyPackFormatting(output);
