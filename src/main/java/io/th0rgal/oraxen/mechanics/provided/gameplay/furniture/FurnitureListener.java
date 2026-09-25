@@ -30,6 +30,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
+import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryCreativeEvent;
 import org.bukkit.event.inventory.InventoryType;
@@ -279,7 +280,7 @@ public class FurnitureListener implements Listener {
     public void onHangingBreak(final HangingBreakEvent event) {
         if (!FurnitureFactory.isEnabled()) return;
         Entity entity = event.getEntity();
-        if (event.getCause() == HangingBreakEvent.RemoveCause.ENTITY)
+        if (event instanceof HangingBreakByEntityEvent entityBreak && entityBreak.getRemover() instanceof Player)
             return;
 
         FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(entity);
@@ -295,7 +296,9 @@ public class FurnitureListener implements Listener {
             return;
 
         event.setCancelled(true);
-        if (mechanic.hasBarriers(entity) || mechanic.hasHitbox())
+        if (event.getCause() != HangingBreakEvent.RemoveCause.EXPLOSION
+                && event.getCause() != HangingBreakEvent.RemoveCause.ENTITY
+                && (mechanic.hasBarriers(entity) || mechanic.hasHitbox()))
             return;
         OraxenFurniture.remove(entity, null);
     }
