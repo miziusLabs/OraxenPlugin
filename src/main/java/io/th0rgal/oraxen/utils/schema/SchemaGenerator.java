@@ -797,6 +797,23 @@ public class SchemaGenerator {
                 continue;
             }
 
+            if ("invulnerable".equals(mechanicId)) {
+                JsonObject invulnerable = new JsonObject();
+                invulnerable.addProperty("category", "misc");
+                invulnerable.addProperty("description", factory.getMechanicDescription());
+                invulnerable.addProperty("type", "array");
+                JsonObject cause = new JsonObject();
+                cause.addProperty("type", "string");
+                JsonArray values = new JsonArray();
+                for (String value : List.of("lava", "fire", "fire_tick", "block_explosion",
+                        "entity_explosion", "lightning", "contact"))
+                    values.add(value);
+                cause.add("enum", values);
+                invulnerable.add("items", cause);
+                mechanics.add("invulnerable", invulnerable);
+                continue;
+            }
+
             List<MechanicConfigProperty> schema = factory.getConfigSchema();
             String category = factory.getMechanicCategory();
             String description = factory.getMechanicDescription();

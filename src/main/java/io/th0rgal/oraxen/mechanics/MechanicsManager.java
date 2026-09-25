@@ -39,6 +39,7 @@ import io.th0rgal.oraxen.mechanics.provided.misc.consumablepotioneffects.Consuma
 import io.th0rgal.oraxen.mechanics.provided.misc.custom.CustomMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.food.FoodMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.itemtype.ItemTypeMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.misc.invulnerable.InvulnerableMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.misc.MiscMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.music_disc.MusicDiscMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.soulbound.SoulBoundMechanicFactory;
@@ -66,7 +67,7 @@ public class MechanicsManager {
     private static final Set<String> NATIVE_MECHANIC_IDS = Set.of(
             // misc
             "armor_effects", "consumable_potion_effects", "soulbound", "itemtype", "consumable", "custom",
-            "commands", "backpack", "music_disc", "misc",
+            "commands", "backpack", "music_disc", "misc", "invulnerable",
             // gameplay
             "food", "repair", "durability", "efficiency", "block", "noteblock", "stringblock", "chorusblock",
             "shaped_block", "furniture", "toggle_light",
@@ -94,6 +95,7 @@ public class MechanicsManager {
         registerFactory("backpack", BackpackMechanicFactory::new);
         registerFactory("music_disc", MusicDiscMechanicFactory::new);
         registerFactory("misc", MiscMechanicFactory::new);
+        registerFactory("invulnerable", InvulnerableMechanicFactory::new);
 
         // gameplay
         registerFactory("food", FoodMechanicFactory::new);

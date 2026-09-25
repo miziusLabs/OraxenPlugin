@@ -31,6 +31,7 @@ public final class ItemMechanics {
             return;
 
         migrator.migrateLegacyBlockMechanics(mechanicsSection);
+        migrator.migrateLegacyMiscMechanic(mechanicsSection);
 
         ItemBuilder modifiedItem = item;
         for (final String mechanicID : mechanicsSection.getKeys(false)) {

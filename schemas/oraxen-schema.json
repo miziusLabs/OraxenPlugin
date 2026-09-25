@@ -8978,24 +8978,9 @@
     },
     "misc": {
       "category": "misc",
-      "description": "Miscellaneous item properties like fire/lava damage resistance",
+      "description": "Miscellaneous item properties",
       "_source": "factory",
       "properties": {
-        "burns_in_fire": {
-          "type": "boolean",
-          "description": "Whether item burns in fire (deprecated, use damage_resistant)",
-          "default": true
-        },
-        "burns_in_lava": {
-          "type": "boolean",
-          "description": "Whether item burns in lava (deprecated, use damage_resistant)",
-          "default": true
-        },
-        "breaks_from_cactus": {
-          "type": "boolean",
-          "description": "Whether item breaks from cactus (deprecated, use damage_resistant)",
-          "default": true
-        },
         "break_music_discs": {
           "type": "boolean",
           "description": "Whether item can break music discs",
@@ -9006,6 +8991,23 @@
           "description": "Whether item renaming in anvils is prevented",
           "default": false
         }
+      }
+    },
+    "invulnerable": {
+      "category": "misc",
+      "description": "Protects dropped items from selected damage causes",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "lava",
+          "fire",
+          "fire_tick",
+          "block_explosion",
+          "entity_explosion",
+          "lightning",
+          "contact"
+        ]
       }
     },
     "smelting": {
