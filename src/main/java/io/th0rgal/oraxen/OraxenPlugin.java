@@ -37,6 +37,7 @@ import io.th0rgal.oraxen.sounds.CustomJukeboxSongRegistry;
 import io.th0rgal.oraxen.sounds.SoundManager;
 import io.th0rgal.oraxen.utils.*;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
+import io.th0rgal.oraxen.utils.UpdateChecker;
 import io.th0rgal.oraxen.utils.actions.ClickActionManager;
 import io.th0rgal.oraxen.utils.armorequipevent.ArmorEquipEvent;
 import io.th0rgal.oraxen.utils.breaker.BreakerSystem;
@@ -71,6 +72,7 @@ public class OraxenPlugin extends JavaPlugin {
     private volatile ResourcePack resourcePack;
     private volatile ClickActionManager clickActionManager;
     private volatile PacketAdapter packetAdapter;
+    private UpdateChecker updateChecker;
 
     public OraxenPlugin() {
         oraxen = this;
@@ -178,6 +180,9 @@ public class OraxenPlugin extends JavaPlugin {
         IntroductionGuide introductionGuide = new IntroductionGuide(this);
         Bukkit.getPluginManager().registerEvents(introductionGuide, this);
         introductionGuide.start();
+        updateChecker = new UpdateChecker(this);
+        Bukkit.getPluginManager().registerEvents(updateChecker, this);
+        updateChecker.start();
     }
 
     private void initializePacketAdapter() {
@@ -224,6 +229,7 @@ public class OraxenPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (updateChecker != null) updateChecker.stop();
         if (configsManager == null) {
             HandlerList.unregisterAll(this);
             OraxenCommand.unregisterAll();
@@ -264,6 +270,7 @@ public class OraxenPlugin extends JavaPlugin {
         configsManager.validatesConfig();
         resourceManager = new ResourcesManager(this);
         Settings.invalidateCache();
+        if (updateChecker != null) updateChecker.start();
     }
 
     private void initializeSoundManager() {

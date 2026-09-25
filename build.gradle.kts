@@ -363,6 +363,10 @@ paper {
         description = "Allows the player to receive Oraxen's first-run introduction guide"
         default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
     }
+    permissions.create("oraxen.update.notify") {
+        description = "Allows the player to receive Oraxen update notifications on join"
+        default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+    }
     // Keep Oraxen's classes visible to legacy Bukkit plugins and other add-ons
     // that hook into its API (io.th0rgal.oraxen.api.*) via the global classloader group
     hasOpenClassloader = true
