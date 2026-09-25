@@ -144,7 +144,7 @@ public class ItemUpdater implements Listener {
         ItemBuilder builder = OraxenItems.getItemById(id);
         if (builder == null || !builder.hasOraxenMeta()) return;
 
-        if (builder.getOraxenMeta().isDisableEnchanting()) {
+        if (!builder.getOraxenMeta().isEnchantable()) {
             event.setCancelled(true);
         }
     }
@@ -157,7 +157,7 @@ public class ItemUpdater implements Listener {
         ItemBuilder builder = OraxenItems.getItemById(id);
         if (builder == null || !builder.hasOraxenMeta()) return;
 
-        if (builder.getOraxenMeta().isDisableEnchanting()) {
+        if (!builder.getOraxenMeta().isEnchantable()) {
             if (result == null || item == null) return;
             if (!result.getEnchantments().equals(item.getEnchantments()))
                 event.setResult(null);

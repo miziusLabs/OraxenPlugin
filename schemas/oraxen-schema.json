@@ -7813,9 +7813,9 @@
       "type": "boolean",
       "description": "Disable automatic item updates"
     },
-    "disable_enchanting": {
+    "enchantable": {
       "type": "boolean",
-      "description": "Prevent enchanting this item"
+      "description": "Allow enchanting this item"
     },
     "ItemFlags": {
       "type": "array",

@@ -84,7 +84,7 @@ public final class ItemProperties {
         if (section.getBoolean("injectId", true))
             item.setCustomTag(OraxenItems.ITEM_ID, PersistentDataType.STRING, section.getName());
         oraxenMeta.setNoUpdate(mergedSection.getBoolean("no_auto_update", false));
-        oraxenMeta.setDisableEnchanting(mergedSection.getBoolean("disable_enchanting", false));
+        oraxenMeta.setEnchantable(mergedSection.getBoolean("enchantable", true));
         oraxenMeta.setExcludedFromInventory(mergedSection.getBoolean("excludeFromInventory", false));
         oraxenMeta.setExcludedFromCommands(mergedSection.getBoolean("excludeFromCommands", false));
         applyArmorStandModelProperties(mergedSection);

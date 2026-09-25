@@ -34,6 +34,7 @@ public final class ItemMigrator {
     public ItemMigrator(final ConfigurationSection section) {
         this.section = section;
         migrateUppercaseSections();
+        migrateEnchantable();
         if (section != null)
             migrateLegacyMiscMechanic(OraxenYaml.getConfigurationSection(section, "mechanics"));
         if (section != null && MiningConfigMigration.migrateItem(section)) {
@@ -96,6 +97,18 @@ public final class ItemMigrator {
      */
     public void markConfigUpdated() {
         configUpdated = true;
+    }
+
+    private void migrateEnchantable() {
+        if (section == null || !section.contains("disable_enchanting"))
+            return;
+
+        if (!section.contains("enchantable"))
+            section.set("enchantable", !section.getBoolean("disable_enchanting"));
+        section.set("disable_enchanting", null);
+        OraxenYaml.invalidateKeyCache(section);
+        configUpdated = true;
+        blockConfigMigrated = true;
     }
 
     public void migrateLegacyBlockMechanics(final ConfigurationSection mechanicsSection) {
