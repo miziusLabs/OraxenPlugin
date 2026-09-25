@@ -7791,6 +7791,29 @@
       "pattern": "^(#[0-9A-Fa-f]{6}|\\d{1,3},\\s*\\d{1,3},\\s*\\d{1,3})$",
       "description": "RGB color for leather armor, potions, maps (e.g., \u0027255, 128, 0\u0027 or \u0027#FF8000\u0027)"
     },
+    "glowing": {
+      "type": "string",
+      "enum": [
+        "black",
+        "dark_blue",
+        "dark_green",
+        "dark_aqua",
+        "dark_red",
+        "dark_purple",
+        "gold",
+        "gray",
+        "dark_gray",
+        "blue",
+        "green",
+        "aqua",
+        "red",
+        "light_purple",
+        "yellow",
+        "white"
+      ],
+      "description": "Outline color while the item is dropped (1.21.4+)",
+      "minecraftVersion": "1.21.4+"
+    },
     "trim_pattern": {
       "type": "string",
       "description": "Armor trim pattern key",

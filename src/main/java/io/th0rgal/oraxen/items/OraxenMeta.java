@@ -2,6 +2,7 @@ package io.th0rgal.oraxen.items;
 
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.commons.io.FilenameUtils;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.util.Vector;
@@ -39,6 +40,7 @@ public class OraxenMeta {
     private boolean excludedFromCommands = false;
     private boolean noUpdate = false;
     private boolean enchantable = true;
+    private NamedTextColor glowing;
     private boolean oversizedInGui = false;
     private boolean handAnimationOnSwap = true;
     private float swapAnimationScale = 1.0f;
@@ -46,6 +48,14 @@ public class OraxenMeta {
     private boolean excludeFromItemModel = false;
     private Vector armorStandHeadScale;
     private Map<String, String> additionalModels = new HashMap<>();
+
+    public NamedTextColor getGlowing() {
+        return glowing;
+    }
+
+    public void setGlowing(NamedTextColor glowing) {
+        this.glowing = glowing;
+    }
 
     public void setExcludedFromInventory(boolean excluded) {
         this.excludedFromInventory = excluded;

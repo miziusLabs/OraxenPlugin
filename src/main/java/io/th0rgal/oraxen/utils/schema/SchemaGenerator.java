@@ -434,6 +434,17 @@ public class SchemaGenerator {
                 "RGB color for leather armor, potions, maps (e.g., '255, 128, 0' or '#FF8000')");
         properties.add("color", color);
 
+        JsonObject glowing = new JsonObject();
+        glowing.addProperty("type", "string");
+        JsonArray glowingColors = new JsonArray();
+        for (String name : List.of("black", "dark_blue", "dark_green", "dark_aqua", "dark_red",
+                "dark_purple", "gold", "gray", "dark_gray", "blue", "green", "aqua", "red",
+                "light_purple", "yellow", "white")) glowingColors.add(name);
+        glowing.add("enum", glowingColors);
+        glowing.addProperty("description", "Outline color while the item is dropped (1.21.4+)");
+        glowing.addProperty("minecraftVersion", "1.21.4+");
+        properties.add("glowing", glowing);
+
         // trim_pattern
         addProperty(properties, "trim_pattern", "string", "Armor trim pattern key", false, "namespacedKey", "1.20+");
 

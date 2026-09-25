@@ -12,6 +12,7 @@ import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.oraxen.utils.wrappers.AttributeWrapper;
 import io.th0rgal.oraxen.utils.wrappers.EnchantmentWrapper;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
@@ -85,6 +86,16 @@ public final class ItemProperties {
             item.setCustomTag(OraxenItems.ITEM_ID, PersistentDataType.STRING, section.getName());
         oraxenMeta.setNoUpdate(mergedSection.getBoolean("no_auto_update", false));
         oraxenMeta.setEnchantable(mergedSection.getBoolean("enchantable", true));
+        if (mergedSection.isSet("glowing")) {
+            String colorName = mergedSection.getString("glowing", "").toLowerCase(Locale.ROOT);
+            NamedTextColor glowing = NamedTextColor.NAMES.value(colorName);
+            if (glowing == null)
+                Logs.logWarning("Glowing color " + colorName + " for " + section.getName() + " is invalid.");
+            else if (!VersionUtil.atOrAbove("1.21.4"))
+                Logs.logWarning("The glowing option for item \"" + section.getName() + "\" requires Minecraft 1.21.4+");
+            else
+                oraxenMeta.setGlowing(glowing);
+        }
         oraxenMeta.setExcludedFromInventory(mergedSection.getBoolean("excludeFromInventory", false));
         oraxenMeta.setExcludedFromCommands(mergedSection.getBoolean("excludeFromCommands", false));
         applyArmorStandModelProperties(mergedSection);
