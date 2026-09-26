@@ -9,9 +9,6 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -167,44 +164,17 @@ public class BlockEvents {
         OP_PLAYER {
             @Override
             void run(Player player, String command) {
-                Bukkit.dispatchCommand(opCommandSender(player), command);
+                boolean wasOp = player.isOp();
+                if (!wasOp) player.setOp(true);
+                try {
+                    Bukkit.dispatchCommand(player, command);
+                } finally {
+                    if (!wasOp) player.setOp(false);
+                }
             }
         };
 
         abstract void run(Player player, String command);
-
-        private static Player opCommandSender(Player player) {
-            return (Player) Proxy.newProxyInstance(
-                    Player.class.getClassLoader(),
-                    new Class[]{Player.class},
-                    (proxy, method, args) -> invokeAsOpPlayer(player, proxy, method, args)
-            );
-        }
-
-        private static boolean grantsOpPermission(Method method) {
-            return method.getName().equals("hasPermission") || method.getName().equals("isPermissionSet");
-        }
-
-        private static Object invokeAsOpPlayer(Player player, Object proxy, Method method, Object[] args) throws Throwable {
-            if (method.getDeclaringClass() == Object.class) {
-                return switch (method.getName()) {
-                    case "equals" -> proxy == args[0];
-                    case "hashCode" -> System.identityHashCode(proxy);
-                    case "toString" -> "OpPlayerCommandSender{" + player.getName() + "}";
-                    default -> method.invoke(player, args);
-                };
-            }
-
-            if (method.getParameterCount() == 0 && method.getName().equals("isOp")) return true;
-            if (method.getParameterCount() == 1 && grantsOpPermission(method)) return true;
-            if (method.getParameterCount() == 1 && method.getName().equals("setOp")) return null;
-
-            try {
-                return method.invoke(player, args);
-            } catch (InvocationTargetException exception) {
-                throw exception.getCause();
-            }
-        }
 
         private static CommandExecutor from(Object value, String sourceID, String eventPath) {
             if (value == null) return PLAYER;
