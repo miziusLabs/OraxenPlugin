@@ -26,9 +26,9 @@ import java.util.function.Predicate;
  * with any existing sounds.json from imported packs.
  * Extracted from ResourcePack to reduce class size.
  */
-class SoundGenerator {
+public class SoundGenerator {
 
-    void generateSound(List<VirtualFile> output) {
+    public void generateSound(List<VirtualFile> output) {
         SoundManager soundManager = OraxenPlugin.get().getSoundManager();
         if (!soundManager.isAutoGenerate())
             return;
