@@ -10,6 +10,7 @@ import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.compatibilities.provided.blocklocker.BlockLockerMechanic;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.BlockEvents;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.evolution.EvolvingFurniture;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.evolution.GrowthStage;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.jukebox.JukeboxBlock;
@@ -36,6 +37,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.entity.*;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -86,6 +88,7 @@ public class FurnitureMechanic extends Mechanic {
     private final String placedItemId;
     private float seatHeight;
     private final List<ClickAction> clickActions;
+    private final BlockEvents events;
     private FurnitureType furnitureType;
     private final DisplayEntityProperties displayEntityProperties;
     private final FurnitureHitbox hitbox;
@@ -288,6 +291,7 @@ public class FurnitureMechanic extends Mechanic {
         jukebox = jukeboxSection != null ? new JukeboxBlock(mechanicFactory, jukeboxSection) : null;
 
         clickActions = ClickAction.parseList(section);
+        events = new BlockEvents(section, getItemID(), "furniture.events");
 
         if (section.getBoolean("rotatable", false)) {
             if (barriers.stream().anyMatch(b -> b.getX() != 0 || b.getZ() != 0)) {
@@ -1336,6 +1340,10 @@ public class FurnitureMechanic extends Mechanic {
                 action.performActions(player);
             }
         }
+    }
+
+    public boolean runEvents(Player player, Action action) {
+        return events.run(player, action);
     }
 
     private List<UUID> spawnSeats(Location rootLocation, float yaw) {

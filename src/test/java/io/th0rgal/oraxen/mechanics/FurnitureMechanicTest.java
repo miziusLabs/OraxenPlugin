@@ -1,6 +1,7 @@
 package io.th0rgal.oraxen.mechanics;
 
 import io.th0rgal.oraxen.api.OraxenItems;
+import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic;
@@ -12,6 +13,8 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemDisplay;
+import org.bukkit.entity.Player;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
@@ -20,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,6 +36,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class FurnitureMechanicTest extends MechanicTestSupport {
+
+    @Test
+    void runsConfiguredFurnitureEventsForMatchingClick() {
+        FurnitureMechanic mechanic = new FurnitureMechanic(mechanicFactory(), mechanicSection("furniture",
+                "events", List.of(Map.of("click", "right", "actions", List.of(
+                        Map.of("command", "say <Player>", "executor", "PLAYER"))))));
+        Player player = mock(Player.class);
+        when(player.getName()).thenReturn("Alex");
+
+        try (var compatibilities = mockStatic(CompatibilitiesManager.class)) {
+            assertFalse(mechanic.runEvents(player, Action.LEFT_CLICK_BLOCK));
+            assertTrue(mechanic.runEvents(player, Action.RIGHT_CLICK_BLOCK));
+        }
+        verify(player).performCommand("say Alex");
+    }
 
     @Test
     void readsBasicFurnitureSettings() {

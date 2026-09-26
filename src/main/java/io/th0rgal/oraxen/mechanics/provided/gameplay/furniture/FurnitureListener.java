@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
+import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.api.OraxenFurniture;
 import io.th0rgal.oraxen.api.OraxenItems;
@@ -457,8 +458,12 @@ public class FurnitureListener implements Listener {
         final Block block = event.getClickedBlock();
         final Player player = event.getPlayer();
         EquipmentSlot hand = event.getHand();
+        Action action = event.getAction();
 
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || hand != EquipmentSlot.HAND)
+        if (action != Action.RIGHT_CLICK_BLOCK && action != Action.LEFT_CLICK_BLOCK)
+            return;
+        if ((action == Action.RIGHT_CLICK_BLOCK && hand != EquipmentSlot.HAND)
+                || (action == Action.LEFT_CLICK_BLOCK && hand != null && hand != EquipmentSlot.HAND))
             return;
         if (event.useInteractedBlock() == Event.Result.DENY)
             return;
@@ -478,8 +483,28 @@ public class FurnitureListener implements Listener {
         if (baseEntity == null)
             return;
 
+        if (action == Action.LEFT_CLICK_BLOCK) {
+            mechanic.runEvents(player, action);
+            return;
+        }
+
         new OraxenFurnitureInteractEvent(mechanic, baseEntity, player, event.getItem(), hand,
                 block, event.getBlockFace()).callEvent();
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerAttackFurniture(PrePlayerAttackEntityEvent event) {
+        if (!FurnitureFactory.isEnabled()) return;
+        Entity entity = event.getAttacked();
+        if (event.isCancelled() && !(entity instanceof Interaction)) return;
+        Player player = event.getPlayer();
+        FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(entity);
+        if (mechanic == null || !AntiGriefLib.canInteract(player, entity.getLocation())) return;
+
+        Entity baseEntity = mechanic.getBaseEntity(entity);
+        if (!BlockLockerCompatibility.canInteract(player,
+                blockLockerBlock(mechanic, baseEntity, entity.getLocation().getBlock()), mechanic)) return;
+        mechanic.runEvents(player, Action.LEFT_CLICK_BLOCK);
     }
 
     private Block blockLockerBlock(FurnitureMechanic mechanic, Entity baseEntity, Block fallback) {
@@ -504,6 +529,8 @@ public class FurnitureListener implements Listener {
                 : interactionEntity != null ? interactionEntity.getPersistentDataContainer() : baseEntity.getPersistentDataContainer();
 
         mechanic.runClickActions(player);
+        if (event.getHand() == EquipmentSlot.HAND)
+            mechanic.runEvents(player, Action.RIGHT_CLICK_BLOCK);
 
         if (mechanic.isStorage()) {
             StorageMechanic storage = mechanic.getStorage();

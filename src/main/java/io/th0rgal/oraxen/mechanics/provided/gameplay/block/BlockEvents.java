@@ -20,8 +20,14 @@ import java.util.Map;
 public class BlockEvents {
 
     private final List<BlockEvent> events;
+    private final String eventPath;
 
     public BlockEvents(ConfigurationSection section, String sourceID) {
+        this(section, sourceID, "block.events");
+    }
+
+    public BlockEvents(ConfigurationSection section, String sourceID, String eventPath) {
+        this.eventPath = eventPath;
         events = parseEvents(section.getList("events"), sourceID);
     }
 
@@ -45,14 +51,14 @@ public class BlockEvents {
         List<BlockEvent> parsedEvents = new ArrayList<>();
         for (Object eventConfig : eventConfigs) {
             if (!(eventConfig instanceof Map<?, ?> eventMap)) {
-                Logs.logWarning("Invalid block.events entry in " + sourceID + "; entries must be maps.");
+                Logs.logWarning("Invalid " + eventPath + " entry in " + sourceID + "; entries must be maps.");
                 continue;
             }
 
-            ClickFilter click = ClickFilter.from(eventMap.get("click"), sourceID);
+            ClickFilter click = ClickFilter.from(eventMap.get("click"), sourceID, eventPath);
             List<BlockEventAction> actions = parseActions(eventMap.get("actions"), sourceID);
             if (actions.isEmpty()) {
-                Logs.logWarning("Block event in " + sourceID + " has no valid actions.");
+                Logs.logWarning(eventPath + " entry in " + sourceID + " has no valid actions.");
                 continue;
             }
 
@@ -68,7 +74,7 @@ public class BlockEvents {
         List<BlockEventAction> parsedActions = new ArrayList<>();
         for (Object actionConfig : actionConfigs) {
             if (!(actionConfig instanceof Map<?, ?> actionMap)) {
-                Logs.logWarning("Invalid block.events action in " + sourceID + "; actions must be maps.");
+                Logs.logWarning("Invalid " + eventPath + " action in " + sourceID + "; actions must be maps.");
                 continue;
             }
 
@@ -77,10 +83,10 @@ public class BlockEvents {
             if (command != null) {
                 String commandText = command.toString().trim();
                 if (commandText.isEmpty()) {
-                    Logs.logWarning("Empty command action in block event of " + sourceID + ".");
+                    Logs.logWarning("Empty command action in " + eventPath + " of " + sourceID + ".");
                     continue;
                 }
-                parsedActions.add(new CommandAction(commandText, CommandExecutor.from(actionMap.get("executor"), sourceID)));
+                parsedActions.add(new CommandAction(commandText, CommandExecutor.from(actionMap.get("executor"), sourceID, eventPath)));
                 continue;
             }
 
@@ -89,7 +95,7 @@ public class BlockEvents {
                 continue;
             }
 
-            Logs.logWarning("Unknown block.events action in " + sourceID + "; expected 'command' or 'message'.");
+            Logs.logWarning("Unknown " + eventPath + " action in " + sourceID + "; expected 'command' or 'message'.");
         }
 
         return List.copyOf(parsedActions);
@@ -200,7 +206,7 @@ public class BlockEvents {
             }
         }
 
-        private static CommandExecutor from(Object value, String sourceID) {
+        private static CommandExecutor from(Object value, String sourceID, String eventPath) {
             if (value == null) return PLAYER;
 
             String normalized = value.toString().trim().toUpperCase(Locale.ROOT).replace('-', '_');
@@ -209,7 +215,7 @@ public class BlockEvents {
             try {
                 return valueOf(normalized);
             } catch (IllegalArgumentException exception) {
-                Logs.logWarning("Invalid block.events executor '" + value + "' in " + sourceID + "; using PLAYER.");
+                Logs.logWarning("Invalid " + eventPath + " executor '" + value + "' in " + sourceID + "; using PLAYER.");
                 return PLAYER;
             }
         }
@@ -228,7 +234,7 @@ public class BlockEvents {
             };
         }
 
-        private static ClickFilter from(Object value, String sourceID) {
+        private static ClickFilter from(Object value, String sourceID, String eventPath) {
             if (value == null) return BOTH;
 
             String normalized = value.toString().trim().toUpperCase(Locale.ROOT).replace('-', '_');
@@ -237,7 +243,7 @@ public class BlockEvents {
             try {
                 return valueOf(normalized);
             } catch (IllegalArgumentException exception) {
-                Logs.logWarning("Invalid block.events click filter '" + value + "' in " + sourceID + "; using BOTH.");
+                Logs.logWarning("Invalid " + eventPath + " click filter '" + value + "' in " + sourceID + "; using BOTH.");
                 return BOTH;
             }
         }
