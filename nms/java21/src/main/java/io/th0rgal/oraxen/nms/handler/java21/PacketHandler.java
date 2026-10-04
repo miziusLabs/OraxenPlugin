@@ -27,6 +27,7 @@ import org.bukkit.craftbukkit.entity.CraftPlayer;
 final class PacketHandler {
 
     private final NamespacedKey key;
+    private final TridentPacketHandler tridents = new TridentPacketHandler();
     private volatile boolean formatInventoryTitles;
     private volatile boolean formatTitles;
     private volatile boolean hideScoreboardNumbers;
@@ -43,14 +44,21 @@ final class PacketHandler {
         var pipeline = channel.pipeline();
         if (pipeline.get(key.asString()) != null) pipeline.remove(key.asString());
         pipeline.addBefore("packet_handler", key.asString(), new ChannelDuplexHandler() {
+            private final TridentPacketHandler.Session tridentSession = tridents.session();
             @Override
             public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+                try {
+                    msg = tridentSession.transform(msg);
+                } catch (ReflectiveOperationException | LinkageError exception) {
+                    Logs.logWarning("Failed to render custom trident: " + exception.getMessage());
+                }
                 ctx.write(transform(msg), promise);
             }
         });
     }
 
     void shutdown() {
+        tridents.shutdown();
         ChannelInitializeListenerHolder.removeListener(key);
         for (var player : Bukkit.getOnlinePlayers()) {
             Channel channel = ((CraftPlayer) player).getHandle().connection.connection.channel;
