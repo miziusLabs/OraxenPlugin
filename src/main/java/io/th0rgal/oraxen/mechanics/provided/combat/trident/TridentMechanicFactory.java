@@ -63,7 +63,7 @@ public class TridentMechanicFactory extends MechanicFactory implements Listener 
             return mechanic;
         } catch (IllegalArgumentException exception) {
             Logs.logWarning("Invalid trident mechanic for " + section.getParent().getParent().getName()
-                    + ": " + exception.getMessage());
+                    + ".\n" + exception.getMessage());
             return null;
         }
     }
