@@ -15,6 +15,7 @@ trident:
         return: trident.return.sound
       appearance:
         model: tridents/oraxen_trident
+        charging-model: tridents/oraxen_trident_charging
         thrown-model: tridents/oraxen_trident_thrown
         transform: NONE
 ```
@@ -22,6 +23,8 @@ trident:
 `appearance.model` and `appearance.thrown-model` are required resource pack model paths without the `.json` extension. Paths without a namespace use `minecraft`. For example, `tridents/oraxen_trident` uses `pack/assets/minecraft/models/tridents/oraxen_trident.json`. A path such as `oraxen:tridents/oraxen_trident` uses the `oraxen` namespace instead. Models can reference textures in any namespace.
 
 The mechanic generates the item model definitions for holding, charging and throwing. The thrown model uses the configured item display transform, which defaults to `NONE`. Orient its shaft along the model's Y axis with its tip toward positive Y.
+
+`appearance.charging-model` is optional and uses the same path format. It selects a separate model while the player charges a throw. If omitted, charging uses `appearance.model`. Copy the handheld model to a separate file and adjust its third-person hand rotations and translations to set the charging direction and grip position without changing the normal held pose. The charging model's first-person display settings control its first-person appearance. `appearance.transform` applies only to the thrown model.
 
 Sounds accept vanilla or custom resource pack sound identifiers. Omit `hit-ground` to use `hit`, and omit `return` to use `throw`. Omitting `throw` or `hit` uses the corresponding vanilla sound. Custom sounds must also be defined in the resource pack, for example through `sounds.yml`.
 

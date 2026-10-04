@@ -35,7 +35,8 @@ public class TridentMechanicFactory extends MechanicFactory implements Listener 
     public static final String soundsProperty = "sounds";
 
     @ConfigProperty(type = PropertyType.OBJECT, nested = {
-            @NestedProperty(name = "model", type = PropertyType.STRING, description = "Handheld and charging model"),
+            @NestedProperty(name = "model", type = PropertyType.STRING, description = "Handheld model"),
+            @NestedProperty(name = "charging-model", type = PropertyType.STRING, description = "Model while charging, defaults to model"),
             @NestedProperty(name = "thrown-model", type = PropertyType.STRING, description = "Thrown model"),
             @NestedProperty(name = "transform", type = PropertyType.ENUM, defaultValue = "NONE", enumRef = "ItemDisplayTransform")})
     public static final String appearanceProperty = "appearance";

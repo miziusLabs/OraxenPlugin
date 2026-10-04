@@ -20,6 +20,7 @@ class TridentMechanicTest extends MechanicTestSupport {
         section.set("sounds.hit", "trident.hit.sound");
         TridentMechanic mechanic = new TridentMechanic(mechanicFactory(), section);
         assertEquals("minecraft:tridents/amethyst", mechanic.getModel());
+        assertEquals(mechanic.getModel(), mechanic.getChargingModel());
         assertEquals("custom:tridents/amethyst_thrown", mechanic.getThrownModel());
         assertEquals(ItemDisplay.ItemDisplayTransform.NONE, mechanic.getTransform());
         assertEquals("trident.hit.sound", mechanic.getGroundSound());
@@ -47,6 +48,30 @@ class TridentMechanicTest extends MechanicTestSupport {
         assertEquals("minecraft:tridents/amethyst", mechanic.modelDefinition(false).getAsJsonObject("model").get("model").getAsString());
         assertEquals("custom:tridents/amethyst_thrown", mechanic.modelDefinition(true).getAsJsonObject("model").get("model").getAsString());
         assertEquals("oraxen:test_item_thrown", mechanic.getThrownItemModel().toString());
+    }
+
+    @Test
+    void selectsChargingModelOnlyWhileUsingTheHeldItem() {
+        ConfigurationSection section = section();
+        section.set("appearance.charging-model", "custom:tridents/amethyst_charging.json");
+        TridentMechanic mechanic = new TridentMechanic(mechanicFactory(), section);
+        var condition = mechanic.modelDefinition(false).getAsJsonObject("model");
+        assertEquals("custom:tridents/amethyst_charging", mechanic.getChargingModel());
+        assertEquals("minecraft:condition", condition.get("type").getAsString());
+        assertEquals("minecraft:using_item", condition.get("property").getAsString());
+        assertEquals(mechanic.getChargingModel(), condition.getAsJsonObject("on_true").get("model").getAsString());
+        assertEquals(mechanic.getModel(), condition.getAsJsonObject("on_false").get("model").getAsString());
+        assertEquals("minecraft:model", condition.getAsJsonObject("on_true").get("type").getAsString());
+        assertEquals(mechanic.getThrownModel(), mechanic.modelDefinition(true).getAsJsonObject("model").get("model").getAsString());
+    }
+
+    @Test
+    void rejectsInvalidOrBlankChargingModel() {
+        ConfigurationSection section = section();
+        section.set("appearance.charging-model", "Invalid Path");
+        assertThrows(IllegalArgumentException.class, () -> new TridentMechanic(mechanicFactory(), section));
+        section.set("appearance.charging-model", " ");
+        assertThrows(IllegalArgumentException.class, () -> new TridentMechanic(mechanicFactory(), section));
     }
 
     @Test
