@@ -24,8 +24,8 @@ final class TridentNativeAccess {
             soundLocation = SoundEvent.class.getMethod("location");
             soundPath = ResourceLocationHelper.getResourceLocationClass().getMethod("getPath");
             createSound = SoundEvent.class.getMethod("createVariableRangeEvent", ResourceLocationHelper.getResourceLocationClass());
-            yaw = ClientboundMoveEntityPacket.class.getMethod("getYRot");
-            pitch = ClientboundMoveEntityPacket.class.getMethod("getXRot");
+            yaw = rotationAccessor("getYRot", "getyRot");
+            pitch = rotationAccessor("getXRot", "getxRot");
             Method accessor = null;
             Method[] legacy = null;
             try {
@@ -42,6 +42,14 @@ final class TridentNativeAccess {
     }
 
     private TridentNativeAccess() {}
+
+    private static Method rotationAccessor(String name, String legacyName) throws NoSuchMethodException {
+        try {
+            return ClientboundMoveEntityPacket.class.getMethod(name);
+        } catch (NoSuchMethodException exception) {
+            return ClientboundMoveEntityPacket.class.getMethod(legacyName);
+        }
+    }
 
     private static EntityType<?> resolveItemDisplay() {
         try {
