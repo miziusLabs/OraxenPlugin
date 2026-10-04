@@ -50,7 +50,7 @@ final class PacketHandler {
                 try {
                     msg = tridentSession.transform(msg);
                 } catch (ReflectiveOperationException | LinkageError exception) {
-                    Logs.logWarning("Failed to render custom trident: " + exception.getMessage());
+                    Logs.logWarning("Failed to render custom trident.\n" + exception.getMessage());
                 }
                 ctx.write(transform(msg), promise);
             }
