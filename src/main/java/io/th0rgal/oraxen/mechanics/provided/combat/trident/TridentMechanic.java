@@ -12,6 +12,7 @@ import java.util.Locale;
 
 public class TridentMechanic extends Mechanic {
     private final String model;
+    private final String chargingModel;
     private final String thrownModel;
     private final ItemDisplay.ItemDisplayTransform transform;
     private final String throwSound;
@@ -23,6 +24,8 @@ public class TridentMechanic extends Mechanic {
         super(factory, section, item -> item.setType(Material.TRIDENT)
                 .setItemModel(new NamespacedKey("oraxen", section.getParent().getParent().getName())));
         model = modelPath(section, "appearance.model");
+        chargingModel = section.contains("appearance.charging-model")
+                ? modelPath(section, "appearance.charging-model") : model;
         thrownModel = modelPath(section, "appearance.thrown-model");
         transform = ItemDisplay.ItemDisplayTransform.valueOf(
                 section.getString("appearance.transform", "NONE").toUpperCase(Locale.ROOT));
@@ -48,6 +51,7 @@ public class TridentMechanic extends Mechanic {
     }
 
     public String getModel() { return model; }
+    public String getChargingModel() { return chargingModel; }
     public String getThrownModel() { return thrownModel; }
     public ItemDisplay.ItemDisplayTransform getTransform() { return transform; }
     public NamespacedKey getThrownItemModel() { return new NamespacedKey("oraxen", getItemID() + "_thrown"); }
@@ -68,10 +72,23 @@ public class TridentMechanic extends Mechanic {
 
     public JsonObject modelDefinition(boolean thrown) {
         JsonObject root = new JsonObject();
+        if (!thrown && !chargingModel.equals(model)) {
+            JsonObject condition = new JsonObject();
+            condition.addProperty("type", "minecraft:condition");
+            condition.addProperty("property", "minecraft:using_item");
+            condition.add("on_true", modelObject(chargingModel));
+            condition.add("on_false", modelObject(model));
+            root.add("model", condition);
+        } else {
+            root.add("model", modelObject(thrown ? thrownModel : model));
+        }
+        return root;
+    }
+
+    private static JsonObject modelObject(String path) {
         JsonObject modelObject = new JsonObject();
         modelObject.addProperty("type", "minecraft:model");
-        modelObject.addProperty("model", thrown ? thrownModel : model);
-        root.add("model", modelObject);
-        return root;
+        modelObject.addProperty("model", path);
+        return modelObject;
     }
 }
