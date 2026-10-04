@@ -7,7 +7,9 @@ import io.papermc.paper.event.player.PlayerTrackEntityEvent;
 import io.th0rgal.oraxen.mechanics.provided.combat.trident.TridentMechanic;
 import io.th0rgal.oraxen.mechanics.provided.combat.trident.TridentMechanicFactory;
 import io.th0rgal.oraxen.nms.TridentPacketRotation;
+import io.th0rgal.oraxen.nms.TridentTrackingInterval;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
+import io.th0rgal.oraxen.utils.logs.Logs;
 import net.minecraft.core.Holder;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
@@ -18,6 +20,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Trident;
@@ -55,8 +58,12 @@ final class TridentPacketHandler implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTrack(PlayerTrackEntityEvent event) {
-        if (!(event.getEntity() instanceof Trident trident) || tridents.containsKey(trident.getEntityId())) return;
-        SchedulerUtil.runOnOwningThread(trident, () -> register(trident));
+        if (!(event.getEntity() instanceof Trident trident)) return;
+        SchedulerUtil.runOnOwningThread(trident, () -> {
+            if (!tridents.containsKey(trident.getEntityId())) register(trident);
+            RenderData data = tridents.get(trident.getEntityId());
+            if (data != null) updateTracking(trident, data);
+        });
     }
 
     private void register(Trident trident) {
@@ -77,9 +84,28 @@ final class TridentPacketHandler implements Listener {
         display.setTransformation(new Transformation(new Vector3f(),
                 new Quaternionf().rotateX((float) (Math.PI / 2.0)), new Vector3f(1.0F), new Quaternionf()));
         Location location = trident.getLocation();
-        tridents.put(trident.getEntityId(), new RenderData(trident.getUniqueId(),
+        RenderData data = new RenderData(trident.getUniqueId(),
                 List.copyOf(nativeDisplay.getEntityData().getNonDefaultValues()), mechanic,
-                new SoundPosition(location.getX(), location.getY(), location.getZ(), System.nanoTime(), "item.trident.throw")));
+                new SoundPosition(location.getX(), location.getY(), location.getZ(), System.nanoTime(), "item.trident.throw"));
+        tridents.put(trident.getEntityId(), data);
+        // EntityAddToWorldEvent can precede tracker creation. Retry on the entity's region
+        // until it exists, then let the native tracker send movement every tick.
+        if (!updateTracking(trident, data)) {
+            data.trackingTask = SchedulerUtil.runForEntityTimer(trident, 1, 1,
+                    () -> updateTracking(trident, data), () -> tridents.remove(trident.getEntityId(), data));
+        }
+    }
+
+    private boolean updateTracking(Trident trident, RenderData data) {
+        try {
+            var trackedEntity = ((CraftEntity) trident).getHandle().moonrise$getTrackedEntity();
+            if (trackedEntity == null) return false;
+            TridentTrackingInterval.everyTick(trackedEntity.serverEntity);
+        } catch (ReflectiveOperationException | LinkageError exception) {
+            Logs.logWarning("Failed to update custom trident movement interval: " + exception.getMessage());
+        }
+        data.cancelTrackingTask();
+        return true;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -101,11 +127,13 @@ final class TridentPacketHandler implements Listener {
 
     @EventHandler
     public void onRemove(EntityRemoveFromWorldEvent event) {
-        tridents.remove(event.getEntity().getEntityId());
+        RenderData data = tridents.remove(event.getEntity().getEntityId());
+        if (data != null) data.cancelTrackingTask();
     }
 
     void shutdown() {
         HandlerList.unregisterAll(this);
+        tridents.values().forEach(RenderData::cancelTrackingTask);
         tridents.clear();
     }
 
@@ -189,6 +217,12 @@ final class TridentPacketHandler implements Listener {
         private final List<SynchedEntityData.DataValue<?>> metadata;
         private final TridentMechanic mechanic;
         private volatile SoundPosition soundPosition;
+        private volatile SchedulerUtil.ScheduledTask trackingTask;
+
+        private void cancelTrackingTask() {
+            SchedulerUtil.ScheduledTask task = trackingTask;
+            if (task != null) task.cancel();
+        }
 
         private RenderData(UUID uuid, List<SynchedEntityData.DataValue<?>> metadata,
                            TridentMechanic mechanic, SoundPosition soundPosition) {
