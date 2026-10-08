@@ -332,7 +332,7 @@ paper {
         "LightAPI", "PlaceholderAPI", "MythicMobs", "MMOItems", "MythicCrucible",
         "CrateReloaded", "ItemBridge", "WorldEdit", "FastAsyncWorldEdit", "WorldGuard", "Towny",
         "Factions", "Lands", "PlotSquared", "NBTAPI", "ModelEngine", "ViaVersion", "ViaBackwards",
-        "HuskClaims", "HuskTowns", "BentoBox", "Skript", "Iris",
+        "HuskClaims", "HuskTowns", "BentoBox", "Skript",
         "ExecutableItems", "SCore", "EcoItems", "BlockLocker",
         // Remaining protection plugins detected reflectively by the shaded AntiGriefLib
         // (net.momirealms:antigrieflib). Without a declared dependency their classes are
