@@ -121,14 +121,14 @@ libraries-included = [
     "actions-core", # included in actions-spigot
 ]
 libraries-bukkit = [
+    "aws-s3",
+    "aws-url-connection",
     "spring-expression",
     "commons-lang3",
     "mc-logs",
     "creative",
 ]
 libraries-shade = [
-    "aws-s3",
-    "aws-url-connection",
     "bstats",
     "triumph-gui",
     "antigrieflib",

@@ -131,9 +131,6 @@ dependencies {
     compileOnly(oraxenLibs.annotations)
     // shaded dependencies
     implementation(oraxenLibs.bundles.libraries.shade) {
-        // S3 uses the synchronous URLConnection transport; avoid unused HTTP stacks.
-        exclude("software.amazon.awssdk", "apache-client")
-        exclude("software.amazon.awssdk", "netty-nio-client")
         exclude("com.google.code.gson", "gson")
         exclude("net.kyori")
         exclude(group = "com.google.guava")
@@ -145,6 +142,11 @@ dependencies {
     }
 
     // Test dependencies
+    testRuntimeOnly(oraxenLibs.aws.s3) {
+        exclude("software.amazon.awssdk", "apache-client")
+        exclude("software.amazon.awssdk", "netty-nio-client")
+    }
+    testRuntimeOnly(oraxenLibs.aws.url.connection)
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -241,7 +243,6 @@ tasks {
     }
 
     shadowJar {
-        relocate("org.reactivestreams", "io.th0rgal.oraxen.shaded.reactivestreams")
         val nmsJava21Jar = project(":nms:java21").tasks.named<Jar>("jar")
         val nmsJava25Jar = project(":nms:java25").tasks.named<Jar>("jar")
         dependsOn(nmsJava21Jar, nmsJava25Jar)
