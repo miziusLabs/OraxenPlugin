@@ -174,10 +174,8 @@ public class InfoCommand {
         if (OraxenBlocks.isOraxenNoteBlock(itemId)) {
             NoteBlockMechanic mechanic = (NoteBlockMechanic) NoteBlockMechanicFactory.getInstance().getMechanic(itemId);
             if (mechanic == null) return;
-            NoteBlock data = NoteBlockMechanicFactory.createNoteBlockData(mechanic.getCustomVariation());
-            AdventureUtils.sendMessage(sender, AdventureUtils.MINI_MESSAGE.deserialize("<gray>Instrument ⏵ <white>" + data.getInstrument()));
-            AdventureUtils.sendMessage(sender, AdventureUtils.MINI_MESSAGE.deserialize("<gray>Note ⏵ <white>" + data.getNote().getId()));
-            AdventureUtils.sendMessage(sender, AdventureUtils.MINI_MESSAGE.deserialize("<gray>Powered ⏵ <white>" + data.isPowered()));
+            BlockData data = NoteBlockMechanicFactory.createNoteBlockData(mechanic.getCustomVariation());
+            AdventureUtils.sendMessage(sender, AdventureUtils.MINI_MESSAGE.deserialize("<gray>Block ⏵ <white>" + data.getAsString()));
         } else if (OraxenBlocks.isOraxenStringBlock(itemId)) {
             StringBlockMechanic mechanic = (StringBlockMechanic) StringBlockMechanicFactory.getInstance().getMechanic(itemId);
             if (mechanic == null) return;

@@ -104,12 +104,16 @@ public class BlockBreaking {
             if (hasMatchers && !fallback && matchers.isEmpty()) {
                 Logs.logWarning("Block mechanic " + sourceID + " has a 'when' breaking rule with no valid tool entries; the rule will never match.");
             }
-            if (!map.containsKey("hardness") && !map.containsKey("drops") && !map.containsKey("durability")) {
+            Map<Object, Object> properties = new LinkedHashMap<>();
+            if (fallback && map.get("else") instanceof Map<?, ?> nested) properties.putAll(nested);
+            // Explicit sibling properties override values inside the fallback mapping.
+            properties.putAll(map);
+            if (!properties.containsKey("hardness") && !properties.containsKey("drops") && !properties.containsKey("durability")) {
                 Logs.logWarning("Block mechanic " + sourceID + " has a breaking rule without 'hardness', 'drops', or 'durability'; using default hardness 1.0 and no drops.");
             }
-            double hardness = parseDouble(map.get("hardness"), 1.0D, sourceID);
-            Drop drop = parseDrop(map.get("drops"), sourceID);
-            DurabilityAction durabilityAction = parseDurabilityAction(map.get("durability"), sourceID);
+            double hardness = parseDouble(properties.get("hardness"), 1.0D, sourceID);
+            Drop drop = parseDrop(properties.get("drops"), sourceID);
+            DurabilityAction durabilityAction = parseDurabilityAction(properties.get("durability"), sourceID);
             parsedRules.add(new Rule(matchers, fallback, hardness, drop, durabilityAction));
             if (fallback) seenFallback = true;
         }

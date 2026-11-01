@@ -15,9 +15,9 @@ caveblock:
   mechanics:
     block:
       type: FULL
-      block-sounds:
-        break-sound: block.glass.break
-        place-sound: block.glass.place
+      sounds:
+        break: minecraft:block.glass.break
+        place: minecraft:block.glass.place
       custom-variation: 0
       appearance:
         model: default/caveblock
@@ -42,9 +42,9 @@ amethyst_ore:
   mechanics:
     block:
       type: FULL
-      block-sounds:
-        break-sound: block.stone.break
-        place-sound: block.stone.place
+      sounds:
+        break: minecraft:block.stone.break
+        place: minecraft:block.stone.place
       custom-variation: 1
       appearance:
         model: amethyst_ore
@@ -80,9 +80,9 @@ ruby_ore:
   mechanics:
     block:
       type: FULL
-      block-sounds:
-        break-sound: block.stone.break
-        place-sound: block.stone.place
+      sounds:
+        break: minecraft:block.stone.break
+        place: minecraft:block.stone.place
       custom-variation: 2
       appearance:
         model: ruby_ore
@@ -118,9 +118,9 @@ onyx_ore:
   mechanics:
     block:
       type: FULL
-      block-sounds:
-        break-sound: block.stone.break
-        place-sound: block.stone.place
+      sounds:
+        break: minecraft:block.stone.break
+        place: minecraft:block.stone.place
       custom-variation: 3
       appearance:
         model: onyx_ore
@@ -155,9 +155,9 @@ orax_ore:
   mechanics:
     block:
       type: FULL
-      block-sounds:
-        break-sound: block.stone.break
-        place-sound: block.stone.place
+      sounds:
+        break: minecraft:block.stone.break
+        place: minecraft:block.stone.place
       custom-variation: 4
       appearance:
         model: orax_ore

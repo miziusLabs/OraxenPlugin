@@ -1,0 +1,138 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "emerald": "minecraft:block/emerald_block",
+    "particle": "minecraft:block/emerald_block",
+    "gold": "minecraft:block/gold_block"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "south": {
+          "texture": "#gold"
+        },
+        "north": {
+          "texture": "#gold"
+        },
+        "west": {
+          "texture": "#gold"
+        },
+        "east": {
+          "texture": "#gold"
+        },
+        "up": {
+          "texture": "#gold"
+        },
+        "down": {
+          "texture": "#gold"
+        }
+      },
+      "to": [
+        16,
+        3,
+        16
+      ]
+    },
+    {
+      "from": [
+        4,
+        3,
+        4
+      ],
+      "faces": {
+        "south": {
+          "texture": "#emerald"
+        },
+        "north": {
+          "texture": "#emerald"
+        },
+        "west": {
+          "texture": "#emerald"
+        },
+        "east": {
+          "texture": "#emerald"
+        },
+        "up": {
+          "texture": "#emerald"
+        },
+        "down": {
+          "texture": "#emerald"
+        }
+      },
+      "to": [
+        12,
+        13,
+        12
+      ]
+    },
+    {
+      "from": [
+        1,
+        13,
+        1
+      ],
+      "faces": {
+        "south": {
+          "texture": "#gold"
+        },
+        "north": {
+          "texture": "#gold"
+        },
+        "west": {
+          "texture": "#gold"
+        },
+        "east": {
+          "texture": "#gold"
+        },
+        "up": {
+          "texture": "#gold"
+        },
+        "down": {
+          "texture": "#gold"
+        }
+      },
+      "to": [
+        15,
+        16,
+        15
+      ]
+    },
+    {
+      "from": [
+        5,
+        5,
+        3
+      ],
+      "faces": {
+        "south": {
+          "texture": "#gold"
+        },
+        "north": {
+          "texture": "#gold"
+        },
+        "west": {
+          "texture": "#gold"
+        },
+        "east": {
+          "texture": "#gold"
+        },
+        "up": {
+          "texture": "#gold"
+        },
+        "down": {
+          "texture": "#gold"
+        }
+      },
+      "to": [
+        11,
+        11,
+        4
+      ]
+    }
+  ]
+}

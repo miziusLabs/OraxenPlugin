@@ -98,6 +98,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     private final Listener packDispatchListener;
     private final boolean is263OrAbove;
     private final PacketHandler packetHandler;
+    private final NativeBlockLight nativeBlockLight = new NativeBlockLight();
     private final NamespacedKey mineableTagKey;
     private final NamespacedKey blockPredictionKey;
     private static final Map<io.netty.channel.Channel, Deque<PendingBlockChange>> pendingBlockChanges = new ConcurrentHashMap<>();
@@ -144,6 +145,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                 if (msg instanceof ClientboundUpdateTagsPacket updateTagsPacket) {
                     Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload> tags = new HashMap<>(getPacketTags(updateTagsPacket));
                     if (payload != null
+                            && !NativeCustomBlocks.enabled()
                             && NoteBlockMechanicFactory.isEnabled()
                             && NoteBlockMechanicFactory.getInstance().removeMineableTag())
                         tags.put(Registries.BLOCK, payload);
@@ -254,6 +256,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     @Override
     public void shutdown() {
+        nativeBlockLight.shutdown();
         // Unregister the listeners before touching any channel: they keep this plugin's
         // classloader alive, so a failing channel must not skip their removal.
         if (mineableTagKey != null) ChannelInitializeListenerHolder.removeListener(mineableTagKey);
@@ -283,6 +286,41 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     @Override
     public boolean tripwireUpdatesDisabled() {
         return GlobalConfiguration.get().blockUpdates.disableTripwireUpdates;
+    }
+
+    @Override
+    public void refreshNativeBlockLight(Block block) {
+        nativeBlockLight.refresh(block);
+    }
+
+    @Override
+    public void finishNativeBlockRegistration() {
+        NativeCustomBlocks.sealRegistrations();
+    }
+
+    @Override
+    public boolean supportsNativeCustomBlocks() {
+        return true;
+    }
+
+    @Override
+    public void registerCustomBlock(String key, BlockData appearance, int light) {
+        NativeCustomBlocks.register(key, appearance, light);
+    }
+
+    @Override
+    public BlockData customBlockData(String key) {
+        return NativeCustomBlocks.data(key);
+    }
+
+    @Override
+    public String customBlockKey(BlockData data) {
+        return NativeCustomBlocks.key(data);
+    }
+
+    @Override
+    public void restoreVanillaNoteBlockUpdates() {
+        GlobalConfiguration.get().blockUpdates.disableNoteblockUpdates = false;
     }
 
     @Override

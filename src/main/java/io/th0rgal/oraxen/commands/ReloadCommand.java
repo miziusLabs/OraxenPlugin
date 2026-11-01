@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.commands;
 
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockStorage;
 import io.th0rgal.oraxen.commands.arguments.ArgumentSuggestions;
 import io.th0rgal.oraxen.commands.arguments.TextArgument;
 import io.th0rgal.oraxen.OraxenPlugin;
@@ -36,6 +37,7 @@ public class ReloadCommand {
     public static void reloadItems(@Nullable CommandSender sender) {
         sendReloadMessage(sender, ITEMS_RELOAD);
         OraxenItems.loadItems();
+        NativeBlockStorage.initialize();
         OraxenPlugin.get().getInvManager().regen();
         new OraxenItemsLoadedEvent().callEvent();
 

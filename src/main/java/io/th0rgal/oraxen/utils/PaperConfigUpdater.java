@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
  * Utility class to update Paper's paper-global.yml configuration file.
  * Uses line-by-line processing to preserve comments and formatting.
  * <p>
- * Disable auto-update via settings.yml: general.auto-update.paper-config: false
- * Or via system property: -Doraxen.autoUpdatePaperConfig=false
+ * Disable automatic tripwire and chorus changes with general.auto-update.paper-config.
+ * Explicit restoration of vanilla note behavior after migration always persists.
  */
 public final class PaperConfigUpdater {
 
@@ -30,8 +30,8 @@ public final class PaperConfigUpdater {
     private PaperConfigUpdater() {}
 
     /**
-     * Ensures all block update settings are disabled in paper-global.yml.
-     * Updates: disable-noteblock-updates, disable-tripwire-updates, disable-chorus-plant-updates
+     * Disables updates for the tripwire and chorus backing states in paper-global.yml.
+     * Leaves note block updates unchanged until native block migration completes.
      * <p>
      * Intended for Paper 1.20.1+ servers and compatible forks.
      *
@@ -83,9 +83,7 @@ public final class PaperConfigUpdater {
 
                 // Process settings within block-updates
                 if (inBlockUpdates) {
-                    String updated = tryUpdateSetting(line, "disable-noteblock-updates", updatedSettings);
-                    if (updated != null) { updatedLines.set(i, updated); continue; }
-
+                    String updated;
                     updated = tryUpdateSetting(line, "disable-tripwire-updates", updatedSettings);
                     if (updated != null) { updatedLines.set(i, updated); continue; }
 
@@ -106,6 +104,65 @@ public final class PaperConfigUpdater {
 
         updatedBlockUpdateSettings = Set.copyOf(updatedSettings);
         return updatedSettings;
+    }
+
+    /** Persist vanilla note updates only after all loaded legacy blocks have migrated. */
+    public static void restoreNoteBlockUpdates() {
+        Path configPath = Path.of(CONFIG_FILE);
+        if (!Files.exists(configPath)) return;
+        try {
+            List<String> lines = Files.readAllLines(configPath);
+            List<String> restored = restoreNoteBlockUpdates(lines);
+            if (!restored.equals(lines)) Files.write(configPath, restored);
+            cachedBlockUpdateSettings = parseBlockUpdateSettings(restored);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not persist vanilla note block updates after migration", exception);
+        }
+    }
+
+    static List<String> restoreNoteBlockUpdates(List<String> lines) {
+        List<String> restored = new ArrayList<>(lines);
+        Pattern section = Pattern.compile("^block-updates:\\s*(?:#.*)?$");
+        Pattern emptySection = Pattern.compile("^block-updates:\\s*\\{\\}(\\s*(?:#.*)?)$");
+        Pattern setting = Pattern.compile("^(\\s*disable-noteblock-updates:\\s*)(true|false)(\\s*(?:#.*)?)$", Pattern.CASE_INSENSITIVE);
+        for (int index = 0; index < restored.size(); index++) {
+            String line = restored.get(index);
+            Matcher empty = emptySection.matcher(line);
+            if (empty.matches()) {
+                restored.set(index, "block-updates:" + empty.group(1));
+                restored.add(index + 1, "  disable-noteblock-updates: false");
+                return restored;
+            }
+            if (!section.matcher(line).matches()) {
+                if (line.startsWith("block-updates:"))
+                    throw new IllegalArgumentException("Cannot restore note updates in an inline block-updates mapping");
+                continue;
+            }
+            String indentation = "  ";
+            boolean foundIndentation = false;
+            for (int child = index + 1; child < restored.size(); child++) {
+                String childLine = restored.get(child);
+                String trimmed = childLine.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+                int indent = getIndent(childLine);
+                if (indent == 0) break;
+                if (!foundIndentation) {
+                    indentation = childLine.substring(0, childLine.length() - childLine.stripLeading().length());
+                    foundIndentation = true;
+                }
+                Matcher match = setting.matcher(childLine);
+                if (match.matches() && childLine.startsWith(indentation + "disable-noteblock-updates:")) {
+                    restored.set(child, match.group(1) + "false" + match.group(3));
+                    return restored;
+                }
+            }
+            restored.add(index + 1, indentation + "disable-noteblock-updates: false");
+            return restored;
+        }
+        if (!restored.isEmpty() && !restored.getLast().isBlank()) restored.add("");
+        restored.add("block-updates:");
+        restored.add("  disable-noteblock-updates: false");
+        return restored;
     }
 
     /**

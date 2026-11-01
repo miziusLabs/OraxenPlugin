@@ -1,0 +1,20 @@
+native_pillar:
+  name: Emerald pedestal
+  material: PAPER
+  pack:
+    generate_model: false
+    model: native_pillar
+  mechanics:
+    block:
+      appearance:
+        model: native_pillar
+        rotation: horizontal
+      light: 12
+      sounds:
+        place: minecraft:block.stone.place
+        break: minecraft:block.glass.break
+      breaking:
+        - else:
+            hardness: 1
+            drops:
+              - item: native_pillar

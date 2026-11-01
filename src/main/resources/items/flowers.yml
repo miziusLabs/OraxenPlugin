@@ -15,9 +15,9 @@ brunnera:
   mechanics:
     block:
       type: STRING
-      block-sounds:
-        break-sound: block.grass.break
-        place-sound: block.grass.place
+      sounds:
+        break: minecraft:block.grass.break
+        place: minecraft:block.grass.place
       custom-variation: 1
       appearance:
         model: brunnera
@@ -39,9 +39,9 @@ daffodil:
   mechanics:
     block:
       type: STRING
-      block-sounds:
-        break-sound: block.grass.break
-        place-sound: block.grass.place
+      sounds:
+        break: minecraft:block.grass.break
+        place: minecraft:block.grass.place
       custom-variation: 2
       appearance:
         model: daffodil
@@ -63,9 +63,9 @@ dailily:
   mechanics:
     block:
       type: STRING
-      block-sounds:
-        break-sound: block.grass.break
-        place-sound: block.grass.place
+      sounds:
+        break: minecraft:block.grass.break
+        place: minecraft:block.grass.place
       custom-variation: 3
       appearance:
         model: dailily

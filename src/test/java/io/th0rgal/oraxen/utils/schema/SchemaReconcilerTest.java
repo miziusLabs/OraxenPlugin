@@ -17,6 +17,19 @@ class SchemaReconcilerTest {
     }
 
     @Test
+    void soundSchemaAllowsStringOrMapWithPlaybackDefaults() {
+        var sound = MechanicConfigProperty.builder("break", MechanicConfigProperty.Type.OBJECT_OR_STRING)
+                .nested(Map.of("sound", MechanicConfigProperty.string("sound", "Sound ID"),
+                        "volume", MechanicConfigProperty.decimal("volume", "Volume", 1.0),
+                        "pitch", MechanicConfigProperty.decimal("pitch", "Pitch", 1.0))).build();
+        JsonObject json = SchemaGenerator.convertPropertyToJson(sound);
+        assertEquals(JsonParser.parseString("[\"object\",\"string\"]"), json.get("type"));
+        var properties = json.getAsJsonObject("properties");
+        assertEquals("string", properties.getAsJsonObject("sound").get("type").getAsString());
+        assertEquals(1.0, properties.getAsJsonObject("volume").get("default").getAsDouble());
+        assertEquals(1.0, properties.getAsJsonObject("pitch").get("default").getAsDouble());
+    }
+    @Test
     void scalarOrObjectScaleKeepsAxisConstraintsInGeneratedSchema() {
         var scale = MechanicConfigProperty.builder("scale", MechanicConfigProperty.Type.OBJECT_OR_NUMBER)
                 .nested(Map.of("x", MechanicConfigProperty.decimal("x", "X-axis scale", 1.0))).build();

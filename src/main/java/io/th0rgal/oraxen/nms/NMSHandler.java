@@ -19,6 +19,31 @@ import java.util.UUID;
 
 public interface NMSHandler {
 
+    default void restoreVanillaNoteBlockUpdates() {
+    }
+
+    default void finishNativeBlockRegistration() {
+    }
+
+    default void refreshNativeBlockLight(org.bukkit.block.Block block) {
+    }
+
+    default boolean supportsNativeCustomBlocks() {
+        return false;
+    }
+
+    default void registerCustomBlock(String key, BlockData appearance, int light) {
+        throw new UnsupportedOperationException("Native custom blocks are unavailable on this server");
+    }
+
+    default BlockData customBlockData(String key) {
+        return null;
+    }
+
+    default String customBlockKey(BlockData data) {
+        return null;
+    }
+
     default Listener packDispatchListener() {
         return null;
     }

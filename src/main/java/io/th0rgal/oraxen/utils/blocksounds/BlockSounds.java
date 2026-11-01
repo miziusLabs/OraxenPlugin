@@ -62,28 +62,41 @@ public class BlockSounds {
     private final float hitPitch;
     private final float fallPitch;
 
+    private final boolean modern;
+
+    public static BlockSounds fromSounds(ConfigurationSection section) {
+        return new BlockSounds(section, true);
+    }
+
     public BlockSounds(ConfigurationSection section) {
+        this(section, section.getName().equals("sounds"));
+    }
+
+    private BlockSounds(ConfigurationSection section, boolean modern) {
+        this.modern = modern;
         placeSound = getSound(section, "place");
         breakSound = getSound(section, "break");
         stepSound = getSound(section, "step");
         hitSound = getSound(section, "hit");
         fallSound = getSound(section, "fall");
 
-        placeVolume = getVolume(section, "place", VANILLA_PLACE_VOLUME);
-        breakVolume = getVolume(section, "break", VANILLA_BREAK_VOLUME);
-        stepVolume = getVolume(section, "step", VANILLA_STEP_VOLUME);
-        hitVolume = getVolume(section, "hit", VANILLA_HIT_VOLUME);
-        fallVolume = getVolume(section, "fall", VANILLA_FALL_VOLUME);
+        placeVolume = getVolume(section, "place", modern ? 1.0f : VANILLA_PLACE_VOLUME);
+        breakVolume = getVolume(section, "break", modern ? 1.0f : VANILLA_BREAK_VOLUME);
+        stepVolume = getVolume(section, "step", modern ? 1.0f : VANILLA_STEP_VOLUME);
+        hitVolume = getVolume(section, "hit", modern ? 1.0f : VANILLA_HIT_VOLUME);
+        fallVolume = getVolume(section, "fall", modern ? 1.0f : VANILLA_FALL_VOLUME);
 
-        placePitch = getPitch(section, "place", VANILLA_PLACE_PITCH);
-        breakPitch = getPitch(section, "break", VANILLA_BREAK_PITCH);
-        stepPitch = getPitch(section, "step", VANILLA_STEP_PITCH);
-        hitPitch = getPitch(section, "hit", VANILLA_HIT_PITCH);
-        fallPitch = getPitch(section, "fall", VANILLA_FALL_PITCH);
+        placePitch = getPitch(section, "place", modern ? 1.0f : VANILLA_PLACE_PITCH);
+        breakPitch = getPitch(section, "break", modern ? 1.0f : VANILLA_BREAK_PITCH);
+        stepPitch = getPitch(section, "step", modern ? 1.0f : VANILLA_STEP_PITCH);
+        hitPitch = getPitch(section, "hit", modern ? 1.0f : VANILLA_HIT_PITCH);
+        fallPitch = getPitch(section, "fall", modern ? 1.0f : VANILLA_FALL_PITCH);
     }
 
     private String getSound(ConfigurationSection section, String key) {
         ConfigurationSection soundSection = section.getConfigurationSection(key);
+        if (modern && section.isString(key)) return section.getString(key);
+        if (modern && soundSection != null && soundSection.isString("sound")) return soundSection.getString("sound");
         return section.isString(key + "_sound")
                 ? section.getString(key + "_sound")
                 : section.isString(key + "-sound")
@@ -96,7 +109,7 @@ public class BlockSounds {
     private float getVolume(ConfigurationSection section, String type, float defaultValue) {
         ConfigurationSection soundSection = section.getConfigurationSection(type);
         if (soundSection == null) {
-            return (float) section.getDouble("volume", defaultValue);
+            return modern ? defaultValue : (float) section.getDouble("volume", defaultValue);
         } else return (float) soundSection.getDouble("volume", defaultValue);
     }
 
@@ -112,7 +125,7 @@ public class BlockSounds {
     }
 
     public String getPlaceSound() {
-        return BlockHelpers.validateReplacedSounds(placeSound);
+        return modern ? placeSound : BlockHelpers.validateReplacedSounds(placeSound);
     }
 
     public boolean hasBreakSound() {
@@ -120,7 +133,7 @@ public class BlockSounds {
     }
 
     public String getBreakSound() {
-        return BlockHelpers.validateReplacedSounds(breakSound);
+        return modern ? breakSound : BlockHelpers.validateReplacedSounds(breakSound);
     }
 
     public boolean hasStepSound() {
@@ -128,7 +141,7 @@ public class BlockSounds {
     }
 
     public String getStepSound() {
-        return BlockHelpers.validateReplacedSounds(stepSound);
+        return modern ? stepSound : BlockHelpers.validateReplacedSounds(stepSound);
     }
 
     public boolean hasHitSound() {
@@ -136,7 +149,7 @@ public class BlockSounds {
     }
 
     public String getHitSound() {
-        return BlockHelpers.validateReplacedSounds(hitSound);
+        return modern ? hitSound : BlockHelpers.validateReplacedSounds(hitSound);
     }
 
     public boolean hasFallSound() {
@@ -144,7 +157,7 @@ public class BlockSounds {
     }
 
     public String getFallSound() {
-        return BlockHelpers.validateReplacedSounds(fallSound);
+        return modern ? fallSound : BlockHelpers.validateReplacedSounds(fallSound);
     }
 
     public float getPlaceVolume() {

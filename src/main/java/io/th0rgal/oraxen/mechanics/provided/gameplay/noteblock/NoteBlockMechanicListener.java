@@ -1,8 +1,10 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock;
 
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockRegistry;
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.api.OraxenItems;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockStorage;
 import io.th0rgal.oraxen.api.events.noteblock.OraxenNoteBlockInteractEvent;
 import io.th0rgal.oraxen.api.events.noteblock.OraxenNoteBlockPlaceEvent;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.limitedplacing.LimitedPlacing;
@@ -302,7 +304,9 @@ public class NoteBlockMechanicListener implements Listener {
             customVariation = directional.getDirectionVariation(face, player);
         }
 
-        BlockData data = NoteBlockMechanicFactory.createNoteBlockData(customVariation);
+        BlockData data = mechanic.isDirectional()
+                ? NoteBlockMechanicFactory.createNoteBlockData(customVariation)
+                : NoteBlockMechanicFactory.placementData(mechanic, face, player);
         Block target = BlockHelpers.isReplaceable(placedAgainst.getType())
                 ? placedAgainst
                 : placedAgainst.getRelative(face);
@@ -318,6 +322,8 @@ public class NoteBlockMechanicListener implements Listener {
             return;
         }
 
+        if (NativeBlockRegistry.enabled()) return;
+
         if (event.getInstrument() != Instrument.PIANO) {
             event.setCancelled(true);
             return;
@@ -330,6 +336,16 @@ public class NoteBlockMechanicListener implements Listener {
                 .orElse(Instrument.PIANO);
         // This is deprecated, but seems to be without reason
         event.setInstrument(fakeInstrument);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onVanillaNoteParticle(final NotePlayEvent event) {
+        if (!NativeBlockRegistry.enabled()
+                || OraxenBlocks.isOraxenNoteBlock(event.getBlock())) return;
+        String instrument = event.getInstrument().name();
+        if (Set.of("ZOMBIE", "SKELETON", "CREEPER", "DRAGON", "WITHER_SKELETON", "PIGLIN", "CUSTOM_HEAD").contains(instrument)) return;
+        Location position = event.getBlock().getLocation().add(0.5, 1.2, 0.5);
+        position.getWorld().spawnParticle(Particle.NOTE, position, 0, event.getNote().getId() / 24.0, 0, 0, 1);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -425,6 +441,7 @@ public class NoteBlockMechanicListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlacingUnsupportedBlockAboveOraxenNoteBlock(final BlockPlaceEvent event) {
+        if (NativeBlockRegistry.enabled()) return;
         Block placed = event.getBlockPlaced();
         if (!isUnsupportedBlockAboveNoteBlock(placed.getType())) return;
         if (OraxenBlocks.getNoteBlockMechanic(placed.getRelative(BlockFace.DOWN)) == null) return;
@@ -434,6 +451,7 @@ public class NoteBlockMechanicListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlacingBlock(final BlockPlaceEvent event) {
+        if (NativeBlockRegistry.enabled()) return;
         Block placed = event.getBlockPlaced();
         if (placed.getType() != Material.NOTE_BLOCK) return;
         if (OraxenBlocks.isOraxenNoteBlock(OraxenItems.getIdByItem(event.getItemInHand()))) return;
@@ -521,6 +539,7 @@ public class NoteBlockMechanicListener implements Listener {
             // Call the event and check if it is cancelled, if so reset BlockData
             if (!blockPlaceEvent.callEvent() || !blockPlaceEvent.canBuild()) {
                 target.setBlockData(oldData);
+                NativeBlockStorage.record(target, NMSHandlers.getHandler().customBlockKey(oldData));
                 return;
             }
         }
@@ -529,10 +548,16 @@ public class NoteBlockMechanicListener implements Listener {
         if (targetOraxen != null) {
 
             OraxenBlocks.place(targetOraxen.getItemID(), target.getLocation());
+            String nativeKey = NMSHandlers.getHandler().customBlockKey(newData);
+            if (nativeKey != null) {
+                target.setBlockData(newData);
+                NativeBlockStorage.record(target, nativeKey);
+            }
 
             OraxenNoteBlockPlaceEvent oraxenPlaceEvent = new OraxenNoteBlockPlaceEvent(targetOraxen, target, player, item, hand);
             if (!oraxenPlaceEvent.callEvent()) {
                 target.setBlockData(oldData);
+                NativeBlockStorage.record(target, NMSHandlers.getHandler().customBlockKey(oldData));
                 return;
             }
 
@@ -548,6 +573,7 @@ public class NoteBlockMechanicListener implements Listener {
             Utils.swingHand(player, hand);
         } else {
             target.setBlockData(oldData);
+            NativeBlockStorage.record(target, NMSHandlers.getHandler().customBlockKey(oldData));
             BlockHelpers.correctAllBlockStates(placedAgainst, player, hand, face, item, newData);
         }
         target.getWorld().sendGameEvent(player, GameEvent.BLOCK_PLACE, target.getLocation().toVector());

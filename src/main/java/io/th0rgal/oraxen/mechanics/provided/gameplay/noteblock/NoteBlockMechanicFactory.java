@@ -7,6 +7,9 @@ import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicConfigProperty;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockRegistry;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockRotation;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockStorage;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.directional.DirectionalBlock;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.farmblock.FarmBlockTask;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.logstrip.LogStripListener;
@@ -22,6 +25,9 @@ import org.bukkit.Instrument;
 import org.bukkit.Material;
 import org.bukkit.Note;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.NoteBlock;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
@@ -39,6 +45,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     // Repopulated on reload (a region/command thread on Folia) while every block
     // event handler reads it from other region threads.
     public static final Map<Integer, NoteBlockMechanic> BLOCK_PER_VARIATION = new ConcurrentHashMap<>();
+    private static final Map<String, NoteBlockMechanic> nativeBlocks = new ConcurrentHashMap<>();
     private static JsonObject variants;
     private static NoteBlockMechanicFactory instance;
     public final List<String> toolTypes;
@@ -57,6 +64,9 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     public NoteBlockMechanicFactory(ConfigurationSection section, boolean registerListeners) {
         super(section);
         instance = this;
+        nativeBlocks.clear();
+        BLOCK_PER_VARIATION.clear();
+        NativeBlockStorage.resetLegacyMappings();
         variants = new JsonObject();
         variants.add("instrument=harp,powered=false", getModelJson("block/note_block"));
         toolTypes = section.getStringList("tool_types");
@@ -143,6 +153,15 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
         return BLOCK_PER_VARIATION.get(customVariation);
     }
 
+    public static BlockData placementData(NoteBlockMechanic mechanic, BlockFace face, Player player) {
+        NativeBlockRotation rotation = NativeBlockRotation.parse(mechanic.getSection().getString("appearance.rotation"));
+        String identity = rotation.select(face, player.getLocation().getYaw()).identity(mechanic.getItemID());
+        return NMSHandlers.getHandler().customBlockData(NativeBlockStorage.key(identity));
+    }
+    public static NoteBlockMechanic getNativeMechanic(String key) {
+        return key == null ? null : nativeBlocks.get(key);
+    }
+
     public static boolean isEnabled() {
         return instance != null && instance.enabled && MechanicsManager.isMechanicEnabled("block");
     }
@@ -162,7 +181,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     }
 
     public boolean removeMineableTag() {
-        return removeMineableTag;
+        return !NativeBlockRegistry.enabled() && removeMineableTag;
     }
 
 
@@ -174,7 +193,10 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
      */
     public static void setBlockModel(Block block, String itemId) {
         NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(itemId);
-        if (mechanic != null) block.setBlockData(createNoteBlockData(mechanic.getCustomVariation()));
+        if (mechanic != null) {
+            block.setBlockData(createNoteBlockData(mechanic.getCustomVariation()));
+            if (NativeBlockRegistry.enabled()) NativeBlockStorage.record(block, NativeBlockStorage.key(itemId));
+        }
     }
 
     private String getBlockstateContent() {
@@ -204,10 +226,10 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
         // Physics-related stuff
         MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new NoteBlockMechanicListener.NoteBlockMechanicPaperListener());
         boolean noteblockUpdatesDisabled = NMSHandlers.isNoteblockUpdatesDisabled();
-        if (!noteblockUpdatesDisabled)
+        if (!NativeBlockRegistry.enabled() && !noteblockUpdatesDisabled)
             MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new NoteBlockMechanicListener.NoteBlockMechanicPhysicsListener());
         // Warn if Paper config is not set (auto-update happens earlier in plugin enable)
-        if (!noteblockUpdatesDisabled
+        if (!NativeBlockRegistry.enabled() && !noteblockUpdatesDisabled
                 && PaperConfigUpdater.wasBlockUpdateSettingUpdated("disable-noteblock-updates")) {
             Logs.logWarning("Paper block-updates.disable-noteblock-updates is not enabled, restart may be required");
         }
@@ -219,8 +241,32 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 
     @Override
     public Mechanic parse(ConfigurationSection itemMechanicConfiguration) {
+        if (!VersionUtil.atOrAbove("1.21.4")) {
+            Logs.logWarning("Full custom blocks require Paper or Folia 1.21.4 or newer.");
+            return null;
+        }
+        if (!NativeBlockRegistry.enabled()) {
+            Logs.logError("Native custom block support is unavailable. Full custom blocks were not loaded.");
+            return null;
+        }
+        NativeBlockRotation rotation = NativeBlockRotation.parse(itemMechanicConfiguration.getString("appearance.rotation"));
+        if (rotation != NativeBlockRotation.NONE && itemMechanicConfiguration.isConfigurationSection("directional")) {
+            Logs.logError("appearance.rotation cannot be combined with legacy directional configuration");
+            return null;
+        }
+        String itemId = itemMechanicConfiguration.getParent().getParent().getName();
+        Integer legacyVariation = itemMechanicConfiguration.contains("custom_variation")
+                ? itemMechanicConfiguration.getInt("custom_variation") : null;
+        int allocatedVariation = NativeBlockRegistry.variation(itemId, legacyVariation);
+        Object originalVariation = itemMechanicConfiguration.get("custom_variation");
+        itemMechanicConfiguration.set("custom_variation", allocatedVariation);
         enable();
-        NoteBlockMechanic mechanic = new NoteBlockMechanic(this, itemMechanicConfiguration);
+        NoteBlockMechanic mechanic;
+        try {
+            mechanic = new NoteBlockMechanic(this, itemMechanicConfiguration);
+        } finally {
+            itemMechanicConfiguration.set("custom_variation", originalVariation);
+        }
         if (!Range.between(0, 775).contains(mechanic.getCustomVariation())) {
             Logs.logError("The custom_variation of " + mechanic.getItemID() + " is " + mechanic.getCustomVariation() + ", but must be between 0 and 775!");
             Logs.logWarning("The item has failed to build for now to prevent bugs and issues.");
@@ -240,6 +286,17 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
         }
 
         BLOCK_PER_VARIATION.put(mechanic.getCustomVariation(), mechanic);
+        NativeBlockRegistry.register(itemId, createAppearanceData(mechanic.getCustomVariation()), mechanic.getLight().getLightLevel());
+        if (legacyVariation != null) NativeBlockStorage.registerLegacy(legacyVariation, itemId);
+        nativeBlocks.put(NativeBlockStorage.key(itemId), mechanic);
+        for (NativeBlockRotation.Variant variant : rotation.variants()) {
+            if (variant.suffix().isEmpty()) continue;
+            String identity = variant.identity(itemId);
+            int variation = NativeBlockRegistry.variation(identity, null);
+            variants.add(getBlockstateVariantName(variation), variant.apply(getModelJson(modelName)));
+            NativeBlockRegistry.register(identity, createAppearanceData(variation), mechanic.getLight().getLightLevel());
+            nativeBlocks.put(NativeBlockStorage.key(identity), mechanic);
+        }
         addToImplemented(mechanic);
         return mechanic;
     }
@@ -260,7 +317,16 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
      * @param id The block id.
      */
     @SuppressWarnings("deprecation")
-    public static NoteBlock createNoteBlockData(int id) {
+    public static BlockData createNoteBlockData(int id) {
+        NoteBlockMechanic mechanic = BLOCK_PER_VARIATION.get(id);
+        if (mechanic != null && NativeBlockRegistry.enabled()) {
+            BlockData data = NMSHandlers.getHandler().customBlockData(NativeBlockStorage.key(mechanic.getItemID()));
+            if (data != null) return data;
+        }
+        return createAppearanceData(id);
+    }
+
+    public static NoteBlock createAppearanceData(int id) {
         /* We have 16 instruments with 25 notes. All of those blocks can be powered.
          * That's: 16*25*2 = 800 variations. The first 25 variations of PIANO (not powered)
          * will be reserved for the vanilla behavior. We still have 800-25 = 775 variations
@@ -278,7 +344,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
      *
      * @param itemID The id of an item implementing NoteBlockMechanic
      */
-    public NoteBlock createNoteBlockData(String itemID) {
+    public BlockData createNoteBlockData(String itemID) {
         /* We have 16 instruments with 25 notes. All of those blocks can be powered.
          * That's: 16*25*2 = 800 variations. The first 25 variations of PIANO (not powered)
          * will be reserved for the vanilla behavior. We still have 800-25 = 775 variations

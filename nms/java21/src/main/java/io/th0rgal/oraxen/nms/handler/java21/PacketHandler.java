@@ -63,7 +63,9 @@ final class PacketHandler {
                 } catch (ReflectiveOperationException | LinkageError exception) {
                     Logs.logWarning("Failed to render custom trident.\n" + exception.getMessage());
                 }
-                ctx.write(transform(msg), promise);
+                Object transformed = transform(msg);
+                if (transformed == null) promise.setSuccess();
+                else ctx.write(transformed, promise);
             }
         });
     }
@@ -94,8 +96,13 @@ final class PacketHandler {
     }
 
     private Object transform(Object packet) {
+        if (packet instanceof ClientboundBundlePacket bundle) return transformBundle(bundle);
         try {
-            if (packet instanceof ClientboundBundlePacket bundle) return transformBundle(bundle);
+            packet = NativeBlockPackets.transform(packet);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Cannot project native custom block packet", exception);
+        }
+        try {
             if (packet instanceof ClientboundOpenScreenPacket openScreen) return transformOpenScreen(openScreen);
             if (packet instanceof ClientboundSetTitleTextPacket title) return transformTitle(title);
             if (packet instanceof ClientboundSetSubtitleTextPacket subtitle) return transformSubtitle(subtitle);
@@ -115,6 +122,7 @@ final class PacketHandler {
         for (Packet<? super ClientGamePacketListener> subPacket : bundle.subPackets()) {
             Object transformed = transform(subPacket);
             if (transformed != subPacket) changed = true;
+            if (transformed == null) continue;
             packets.add(transformed instanceof Packet<?> packet
                     ? (Packet<? super ClientGamePacketListener>) packet
                     : subPacket);

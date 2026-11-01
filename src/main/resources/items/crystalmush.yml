@@ -14,9 +14,9 @@ crystalmush_log:
   mechanics:
     block:
       type: FULL
-      block-sounds:
-        break-sound: block.wood.break
-        place-sound: block.wood.place
+      sounds:
+        break: minecraft:block.wood.break
+        place: minecraft:block.wood.place
       custom-variation: 5
       appearance:
         model: crystalmush_log
@@ -54,9 +54,9 @@ crystalmush_planks:
   mechanics:
     block:
       type: FULL
-      block-sounds:
-        break-sound: block.wood.break
-        place-sound: block.wood.place
+      sounds:
+        break: minecraft:block.wood.break
+        place: minecraft:block.wood.place
       custom-variation: 6
       appearance:
         model: crystalmush_planks
@@ -102,9 +102,9 @@ crystalmush_leaves:
       light: 12
       appearance:
         model: crystalmush_leaves
-      block-sounds:
-        break-sound: block.grass.break
-        place-sound: block.grass.place
+      sounds:
+        break: minecraft:block.grass.break
+        place: minecraft:block.grass.place
       breaking:
         - when:
             - minecraft:shears
@@ -137,9 +137,9 @@ crystalmush_trapdoor:
       custom-variation: 2
       appearance:
         model: crystalmush_trapdoor
-      block-sounds:
-        break-sound: block.wood.break
-        place-sound: block.wood.place
+      sounds:
+        break: minecraft:block.wood.break
+        place: minecraft:block.wood.place
       breaking:
         - when:
             - minecraft:iron_axe
@@ -180,9 +180,9 @@ crystalmush_door:
         textures:
           bottom: default/crystalmush/crystalmush_door_bottom_anim
           top: default/crystalmush/crystalmush_door_top_anim
-      block-sounds:
-        break-sound: block.wood.break
-        place-sound: block.wood.place
+      sounds:
+        break: minecraft:block.wood.break
+        place: minecraft:block.wood.place
       breaking:
         - when:
             - minecraft:iron_axe
@@ -220,9 +220,9 @@ crystalmush_stairs:
       custom-variation: 3
       appearance:
         model: crystalmush_stairs
-      block-sounds:
-        break-sound: block.wood.break
-        place-sound: block.wood.place
+      sounds:
+        break: minecraft:block.wood.break
+        place: minecraft:block.wood.place
       breaking:
         - when:
             - minecraft:iron_axe
@@ -260,9 +260,9 @@ crystalmush_slab:
       custom-variation: 3
       appearance:
         model: crystalmush_slab
-      block-sounds:
-        break-sound: block.wood.break
-        place-sound: block.wood.place
+      sounds:
+        break: minecraft:block.wood.break
+        place: minecraft:block.wood.place
       breaking:
         - when:
             - minecraft:iron_axe

@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen;
 
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockStorage;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.api.events.OraxenItemsLoadedEvent;
 import io.th0rgal.oraxen.commands.CommandsManager;
@@ -100,6 +101,16 @@ public class OraxenPlugin extends JavaPlugin {
     public void onLoad() {
         // Download dependencies registered with Hopper
         OraxenHopper.download(this);
+        if (VersionUtil.atOrAbove("1.21.4")) {
+            String runtime = VersionUtil.isModernVersionNamespace() ? "java25" : "java21";
+            try {
+                Class.forName("io.th0rgal.oraxen.nms.handler." + runtime + ".NativeCustomBlocks")
+                        .getMethod("bootstrap", java.nio.file.Path.class)
+                        .invoke(null, getDataFolder().toPath().resolve("native-blocks.json"));
+            } catch (ReflectiveOperationException | LinkageError exception) {
+                throw new IllegalStateException("Could not restore native custom block registrations before world loading", exception);
+            }
+        }
     }
 
     @Override
@@ -155,6 +166,12 @@ public class OraxenPlugin extends JavaPlugin {
         if (!VersionUtil.atOrAbove("1.21.6"))
             CustomJukeboxSongRegistry.reload(soundManager.getJukeboxSounds());
         OraxenItems.loadItems();
+        NMSHandlers.getHandler().finishNativeBlockRegistration();
+        NativeBlockStorage.initialize(
+                () -> {
+                    PaperConfigUpdater.restoreNoteBlockUpdates();
+                    NMSHandlers.getHandler().restoreVanillaNoteBlockUpdates();
+                });
         fontManager.registerEvents();
         fontManager.verifyRequired(); // Verify the required glyph is there
         hudManager.registerEvents();
