@@ -14,7 +14,6 @@ import org.bukkit.entity.Player;
 
 import java.net.URI;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,7 +24,7 @@ public abstract class PackSender {
 
     private static final long DEFAULT_PRE_JOIN_TIMEOUT_MILLIS = 30_000L;
     private static final Pattern TIMEOUT_PATTERN = Pattern.compile("^([0-9]+(?:\\.[0-9]+)?)\\s*(ms|s|m|ticks?|t)?$", Pattern.CASE_INSENSITIVE);
-    private static final Map<UUID, UUID> lastSentPackIds = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, UUID> lastSentPackIds = new ConcurrentHashMap<>();
 
     protected final HostingProvider hostingProvider;
     private static final Object dispatchNormalizationLock = new Object();
@@ -63,8 +62,11 @@ public abstract class PackSender {
             ResourcePackRequest request = createResourcePackRequest(uuid, url, sha1, componentPrompt, mandatory);
             sendResourcePack((Audience) player, player.getUniqueId(), uuid, request);
         } else {
-            player.setResourcePack(url, sha1, componentPrompt, mandatory);
-            rememberPack(player.getUniqueId(), uuid);
+            UUID playerId = player.getUniqueId();
+            lastSentPackIds.compute(playerId, (id, previousPackId) -> {
+                player.setResourcePack(url, sha1, componentPrompt, mandatory);
+                return uuid;
+            });
         }
     }
 
@@ -77,23 +79,25 @@ public abstract class PackSender {
 
     /** Sends a prepared request after removing this player's previous Oraxen pack, if present. */
     public static void sendResourcePack(Audience audience, UUID playerId, UUID packId, ResourcePackRequest request) {
-        UUID previousPackId = playerId != null ? lastSentPackIds.get(playerId) : null;
-        if (previousPackId != null && !previousPackId.equals(packId)) {
-            // The new pack has a content-derived UUID. Remove Oraxen's previous pack first,
-            // or its translations remain active alongside keys omitted from the new pack.
-            audience.removeResourcePacks(previousPackId);
+        if (playerId == null) {
+            audience.sendResourcePacks(request);
+            return;
         }
 
-        audience.sendResourcePacks(request);
-        rememberPack(playerId, packId);
+        lastSentPackIds.compute(playerId, (id, previousPackId) -> {
+            if (previousPackId != null && !previousPackId.equals(packId)) {
+                // The new pack has a content-derived UUID. Remove Oraxen's previous pack first,
+                // or its translations remain active alongside keys omitted from the new pack.
+                audience.removeResourcePacks(previousPackId);
+            }
+
+            audience.sendResourcePacks(request);
+            return packId;
+        });
     }
 
     public static void forgetPack(UUID playerId) {
-        lastSentPackIds.remove(playerId);
-    }
-
-    private static void rememberPack(UUID playerId, UUID packId) {
-        if (playerId != null && packId != null) lastSentPackIds.put(playerId, packId);
+        if (playerId != null) lastSentPackIds.remove(playerId);
     }
 
     private static ResourcePackRequest createResourcePackRequest(UUID uuid, String url, byte[] sha1,
