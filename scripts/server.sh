@@ -238,6 +238,40 @@ regenerate_server_files() {
     printf 'eula=true\n' > "$SERVER_DIR/eula.txt"
 }
 
+# Keep version-specific settings and override only the properties needed by this test server.
+configure_server_properties() {
+    local properties_file="$SERVER_DIR/server.properties"
+    local temporary_file="$SERVER_DIR/server.properties.tmp"
+
+    if [[ -f "$properties_file" ]]; then
+        cp -p "$properties_file" "$temporary_file"
+        awk '
+            function has_property(line, key, remainder) {
+                sub(/^[[:space:]]*/, "", line)
+                if (substr(line, 1, length(key)) != key) return 0
+                remainder = substr(line, length(key) + 1)
+                return remainder == "" || remainder ~ /^[[:space:]]/ || remainder ~ /^[=:]/
+            }
+            {
+                line = $0
+                sub(/\r$/, "", line)
+                if (has_property(line, "online-mode") || has_property(line, "white-list")) next
+                print line
+                wrote_other_line = 1
+            }
+            END {
+                if (wrote_other_line) print ""
+                print "online-mode=false"
+                print "white-list=false"
+            }
+        ' "$properties_file" > "$temporary_file"
+    else
+        printf 'online-mode=false\nwhite-list=false\n' > "$temporary_file"
+    fi
+
+    mv -f "$temporary_file" "$properties_file"
+}
+
 java_command="$(find_java "$(required_java_version)")" \
     || error "Java $(required_java_version) is required for ${MC_VERSION}; set JAVA_$(required_java_version)_HOME or JAVA_HOME"
 
@@ -245,6 +279,7 @@ oraxen_jar="$(find_oraxen_jar)"
 download_server_jar
 reset_server_files
 regenerate_server_files
+configure_server_properties
 cp "$oraxen_jar" "$SERVER_DIR/plugins/Oraxen.jar"
 
 cat <<EOF

@@ -104,6 +104,35 @@ function Get-OraxenJar {
     return $jars[0].FullName
 }
 
+# Keep version-specific settings and override only the properties needed by this test server.
+function Set-ServerProperties([string]$propertiesPath) {
+    $managedProperties = @('online-mode', 'white-list')
+    $serverPropertyLines = New-Object 'System.Collections.Generic.List[string]'
+
+    if (Test-Path -LiteralPath $propertiesPath -PathType Leaf) {
+        foreach ($line in [System.IO.File]::ReadAllLines($propertiesPath)) {
+            $isManagedProperty = $false
+            foreach ($propertyName in $managedProperties) {
+                $pattern = '^\s*' + [regex]::Escape($propertyName) + '(?:\s*[:=]\s*|\s+|$)'
+                if ([regex]::IsMatch($line, $pattern)) {
+                    $isManagedProperty = $true
+                    break
+                }
+            }
+            if (-not $isManagedProperty) { $serverPropertyLines.Add($line) }
+        }
+    }
+
+    if ($serverPropertyLines.Count -gt 0 -and $serverPropertyLines[$serverPropertyLines.Count - 1] -ne '') {
+        $serverPropertyLines.Add('')
+    }
+    $serverPropertyLines.Add('online-mode=false')
+    $serverPropertyLines.Add('white-list=false')
+
+    $content = [string]::Join([Environment]::NewLine, $serverPropertyLines.ToArray()) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($propertiesPath, $content, (New-Object System.Text.UTF8Encoding($false)))
+}
+
 $oraxenJar = Get-OraxenJar
 $knownDownloads = @{
     'paper/26.3' = 'https://fill-data.papermc.io/v1/objects/ddfea9cddc8f40e33080d4d9a3e9818fd1f9ea33f6100b42ac228ef80eb7ceed/paper-26.3-31.jar'
@@ -151,6 +180,7 @@ if (-not $noReset) {
 $pluginsDir = Join-Path $serverDir 'plugins'
 [void][System.IO.Directory]::CreateDirectory($pluginsDir)
 [System.IO.File]::WriteAllText((Join-Path $serverDir 'eula.txt'), "eula=true`n", (New-Object System.Text.UTF8Encoding($false)))
+Set-ServerProperties (Join-Path $serverDir 'server.properties')
 Copy-Item -LiteralPath $oraxenJar -Destination (Join-Path $pluginsDir 'Oraxen.jar') -Force
 
 Write-Host "Starting $serverName $mcVersion"
