@@ -55,5 +55,6 @@ public class PackLoadingManager implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         frozenPlayers.remove(event.getPlayer().getUniqueId());
+        PackSender.forgetPack(event.getPlayer().getUniqueId());
     }
 }
