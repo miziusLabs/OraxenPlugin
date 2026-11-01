@@ -11,6 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 public class BukkitPackSender extends PackSender implements Listener {
 
@@ -70,5 +71,10 @@ public class BukkitPackSender extends PackSender implements Listener {
         if (delay <= 0) sendPack(player);
         else SchedulerUtil.runForEntityLater(player, delay * 20L, () ->
                 sendPack(player), null);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        PackSender.forgetPack(event.getPlayer().getUniqueId());
     }
 }

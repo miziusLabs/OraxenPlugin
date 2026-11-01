@@ -96,6 +96,7 @@ public final class PackDispatchListener implements Listener {
 
     @EventHandler
     public void onClose(@NotNull PlayerConnectionCloseEvent event) {
+        PackSender.forgetPack(event.getPlayerUniqueId());
         try {
             CompletableFuture<Void> future = futures.remove(event.getPlayerUniqueId());
             if (future != null) future.complete(null);
@@ -163,7 +164,7 @@ public final class PackDispatchListener implements Listener {
                 })
                 .build();
 
-        connection.getAudience().sendResourcePacks(request);
+        PackSender.sendResourcePack(connection.getAudience(), playerId, packUUID, request);
         return future;
     }
 
