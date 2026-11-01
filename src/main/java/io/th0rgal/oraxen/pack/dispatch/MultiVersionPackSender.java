@@ -15,6 +15,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.Comparator;
 import java.util.UUID;
@@ -153,6 +154,11 @@ public class MultiVersionPackSender implements Listener {
         } else {
             SchedulerUtil.runForEntityLater(player, delay * 20L, () -> sendPack(player), null);
         }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        PackSender.forgetPack(event.getPlayer().getUniqueId());
     }
 
     public PackVersion resolvePack(Object connection) {
