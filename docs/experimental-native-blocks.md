@@ -57,3 +57,11 @@ Oraxen scans old chunks once and converts matching legacy note states into nativ
 Legacy ordinary blocks did not store an item ID. A vanilla note with the same state as a configured legacy custom block is indistinguishable during that first scan and can also convert. Back up the worlds and matching plugin data before upgrading. Restore missing legacy item definitions before the first migration. An already migrated chunk will not repeat legacy classification when definitions are added later.
 
 After all currently loaded chunks migrate successfully, Oraxen writes `disable-noteblock-updates: false` to Paper's configuration and restores live vanilla note updates. Later old chunks migrate when they load. A migration failure prevents the startup completion callback. Tripwire and chorus update settings remain separate and keep their existing behavior.
+
+## Client lighting validation
+
+A live Minecraft 26.3 client connected to Paper 26.3 confirmed a block-light baseline of `0` at an isolated location around x100, z100. Placing `native_validation` through normal item interaction raised adjacent client block light to `13` without reconnecting or injecting diagnostic light packets. The source emits `14`.
+
+![Adjacent client light after placement](images/native-blocks-light-placement.png)
+
+Removal, chunk reload, and chunk-boundary checks remain pending.
