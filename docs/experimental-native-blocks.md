@@ -64,4 +64,16 @@ A live Minecraft 26.3 client connected to Paper 26.3 confirmed a block-light bas
 
 ![Adjacent client light after placement](images/native-blocks-light-placement.png)
 
-Removal, chunk reload, and chunk-boundary checks remain pending.
+Normal breaking returned adjacent client block light to `0` without reconnecting.
+
+![Adjacent client light after removal](images/native-blocks-light-removal.png)
+
+A second source near x200, z200 retained adjacent client block light `13` after teleporting to x1000, z1000 and back, beyond the chunk view distance. Breaking it after the chunk reload returned client block light to `0`.
+
+![Client light after chunk reload](images/native-blocks-light-reload.png)
+
+A source at x303, y-60, z300 in chunk 18 illuminated the adjacent sample at x304, y-60, z300 in chunk 19. The isolated baseline was `0`, placement raised the neighboring chunk's client block light to `13`, and normal breaking returned it to `0`.
+
+![Client light across a chunk boundary](images/native-blocks-light-boundary.png)
+
+These checks used the normal synchronization path with no diagnostic light packets. They establish the sampled client values after interaction, not a maximum update latency. Live lighting validation here covers Paper 26.3. Earlier Paper 1.21.4 and Folia 1.21.11 checks covered startup, not live client lighting. Configured sounds have not been audibly checked because the managed client is muted.
