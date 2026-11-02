@@ -199,7 +199,6 @@ public class BreakerSystem implements Listener {
             if (breakerLocations.contains(location)) stopBlockBreaker(location);
 
             breakerLocations.add(location);
-            if (protectNoteBlockStack) suppressClientSideBreaking(player, location);
 
             // Defer the rest to the next tick so the PlayerInteractEvent and Oraxen damage
             // events fire after BlockDamageEvent processing has fully completed.
@@ -208,6 +207,9 @@ public class BreakerSystem implements Listener {
             final float serverBreakProgress = useAttributeTiming
                     ? CustomBlockMiningListener.serverDrivenBreakProgress(player, block, item)
                     : 0.0F;
+            // Capture the normal attribute-driven progress before setting the player's break speed
+            // to zero for client prediction suppression.
+            if (protectNoteBlockStack) suppressClientSideBreaking(player, location);
             SchedulerUtil.runAtLocation(location, () -> {
                 // Fire PlayerInteractEvent for plugin support (cancellation state is ignored).
                 // Oraxen click actions already ran on the real interact and skip this copy.
