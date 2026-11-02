@@ -581,11 +581,10 @@ public class NoteBlockMechanicListener implements Listener {
 
     private void finishAdjacentBlockChange(final Player player, final Block changedBlock, final Location packetBlock) {
         if (!AdjacentNoteBlockUpdateHelper.hasCustomVerticalNeighbor(changedBlock)) return;
-        SchedulerUtil.runOnOwningThread(player, () -> {
-            player.sendBlockChange(changedBlock.getLocation(), changedBlock.getBlockData());
-            AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(changedBlock, player);
-            NMSHandlers.getHandler().acknowledgeBlockChanges(player, packetBlock, true);
-        });
+        // Capture block states on the block's region before scheduling packets for the player.
+        AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(changedBlock, player);
+        SchedulerUtil.runOnOwningThread(player, () ->
+                NMSHandlers.getHandler().acknowledgeBlockChanges(player, packetBlock, true));
     }
 
     private boolean isUnsupportedBlockAboveNoteBlock(Material material) {

@@ -4,6 +4,8 @@ The `FULL` block mechanic requires Paper or Folia 1.21.4 or newer and a working 
 
 Full blocks have native server identities. Chunk files store their native keys. Outgoing packets map their appearance to note block states that the resource pack renders. Players need the pack but no client mod. Ordinary note blocks keep their server instruments, notes, and redstone behavior.
 
+Breaking a block above or below a custom full block can make the vanilla client predict a different note block instrument. Oraxen sends the removed block and the unchanged custom neighbors together before acknowledging the break, including creative and instant breaks that bypass block damage events. Survival stack mining also keeps its existing server-controlled progress. Creative prediction happens before the server receives the click, so this correction cannot guarantee that every client frame keeps the custom appearance under latency.
+
 An item can define its full block under `mechanics.block`.
 
 ```yaml

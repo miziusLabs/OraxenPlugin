@@ -69,6 +69,7 @@ public class BreakerSystem implements Listener {
     private final Map<Location, SchedulerUtil.ScheduledTask> breakerTasks = new ConcurrentHashMap<>();
     private final Map<Location, SchedulerUtil.ScheduledTask> breakerPlaySound = new ConcurrentHashMap<>();
     private final Map<Location, Player> clientSideBreakSuppressions = new ConcurrentHashMap<>();
+    private final ThreadLocal<BlockBreakEvent> syntheticBreak = new ThreadLocal<>();
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onBlockDamage(final BlockDamageEvent event) {
@@ -88,6 +89,24 @@ public class BreakerSystem implements Listener {
         if (!shouldProtectAdjacentVanillaBlock(event.getPlayer(), event.getBlock())) return;
         handleAdjacentVanillaBlock(event.getPlayer(), event.getBlock(), () -> event.setCancelled(true),
                 event.getInstaBreak());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAdjacentBlockBreak(final BlockBreakEvent event) {
+        final Block block = event.getBlock();
+        // Our timers publish a break event before their final permission check and removal.
+        // They send the correction themselves after the block has actually been removed.
+        if (syntheticBreak.get() == event) return;
+        if (!hasCustomVerticalNoteBlockNeighbor(block)) return;
+
+        // Creative and instant breaks can bypass BlockDamageEvent. Repair their predicted
+        // neighbor states too, before the normal dig acknowledgement settles the prediction.
+        AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(block, event.getPlayer(),
+                Material.AIR.createBlockData());
+        final Player player = event.getPlayer();
+        final Location location = block.getLocation();
+        SchedulerUtil.runOnOwningThread(player, () ->
+                NMSHandlers.getHandler().acknowledgeBlockChanges(player, location, false));
     }
 
     @EventHandler(priority = EventPriority.LOW)
@@ -254,16 +273,20 @@ public class BreakerSystem implements Listener {
                     }
 
                     BlockDurability.setSuppressVanillaDamageCancellation(true);
+                    final BlockBreakEvent breakEvent = new BlockBreakEvent(block, player);
+                    syntheticBreak.set(breakEvent);
                     boolean canBreak;
                     try {
-                        canBreak = new BlockBreakEvent(block, player).callEvent() && AntiGriefLib.canBreak(player, location);
+                        canBreak = breakEvent.callEvent() && AntiGriefLib.canBreak(player, location);
                     } finally {
+                        syntheticBreak.remove();
                         BlockDurability.setSuppressVanillaDamageCancellation(false);
                     }
                     if (canBreak) {
                         // Damage item with properties identified earlier, unless the block mechanic configured durability itself.
                         if (durabilityAction == null) ItemUtils.damageItem(player, drop, item);
                         modifier.breakBlock(player, block, item);
+                        AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(block, player);
                     } else stopBlockHitSound(location);
 
                     stopBlockBreaker(location);
@@ -414,11 +437,9 @@ public class BreakerSystem implements Listener {
         breakerLocations.add(location);
         suppressClientSideBreaking(player, location);
 
-        SchedulerUtil.runOnOwningThread(player, () -> {
-            player.sendBlockChange(location, originalData);
-            AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(block, player);
-            NMSHandlers.getHandler().acknowledgeBlockChanges(player, location, false);
-        });
+        AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(block, player, originalData);
+        SchedulerUtil.runOnOwningThread(player, () ->
+                NMSHandlers.getHandler().acknowledgeBlockChanges(player, location, false));
 
         final float[] progress = {0.0F};
         final SchedulerUtil.ScheduledTask task = SchedulerUtil.runAtLocationTimer(location, 1L, 1L, () -> {

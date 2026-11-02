@@ -26,10 +26,17 @@ public final class AdjacentNoteBlockUpdateHelper {
     }
 
     public static void resendCustomVerticalNeighbors(final Block changedBlock, final Player actor) {
-        final Map<Location, BlockData> updates = customVerticalNeighborStates(changedBlock);
+        resendCustomVerticalNeighbors(changedBlock, actor, changedBlock.getBlockData());
+    }
+
+    public static void resendCustomVerticalNeighbors(final Block changedBlock, final Player actor,
+                                                     final BlockData changedState) {
+        final Map<Location, BlockData> updates = blockChangeStates(changedBlock, changedState);
         if (updates.isEmpty()) return;
 
-        SchedulerUtil.runOnOwningThread(actor, () -> updates.forEach(actor::sendBlockChange));
+        // Include the target in the same section update as its neighbors. Sending just the
+        // neighbors can leave the client's predicted removal pending until a later packet.
+        SchedulerUtil.runOnOwningThread(actor, () -> actor.sendMultiBlockChange(updates));
 
         final World world = changedBlock.getWorld();
         final Location origin = changedBlock.getLocation();
@@ -37,7 +44,7 @@ public final class AdjacentNoteBlockUpdateHelper {
         if (!VersionUtil.isFoliaServer()) {
             for (final Player viewer : world.getPlayers()) {
                 if (viewer.getUniqueId().equals(actorId) || !isWithinTrackingDistance(viewer, origin)) continue;
-                updates.forEach(viewer::sendBlockChange);
+                viewer.sendMultiBlockChange(updates);
             }
             return;
         }
@@ -47,9 +54,15 @@ public final class AdjacentNoteBlockUpdateHelper {
             SchedulerUtil.runForEntity(viewer, () -> {
                 if (!viewer.isOnline() || !viewer.getWorld().equals(world)
                         || !isWithinTrackingDistance(viewer, origin)) return;
-                updates.forEach(viewer::sendBlockChange);
+                viewer.sendMultiBlockChange(updates);
             }, null);
         }
+    }
+
+    static Map<Location, BlockData> blockChangeStates(final Block block, final BlockData changedState) {
+        final Map<Location, BlockData> updates = customVerticalNeighborStates(block);
+        if (!updates.isEmpty()) updates.put(block.getLocation(), changedState);
+        return updates;
     }
 
     static Map<Location, BlockData> customVerticalNeighborStates(final Block block) {

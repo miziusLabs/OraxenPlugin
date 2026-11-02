@@ -2,13 +2,19 @@ package io.th0rgal.oraxen.utils.breaker;
 
 import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.api.OraxenFurniture;
+import io.th0rgal.oraxen.nms.NMSHandler;
+import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.PotionUtils;
+import io.th0rgal.oraxen.utils.SchedulerUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockDamageEvent;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.junit.jupiter.api.Test;
@@ -31,6 +37,41 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 class NoteBlockClientPredictionTest {
+
+    @Test
+    void breakWithoutDamageEventCorrectsNeighborsBeforeAcknowledgingPrediction() {
+        final Block block = mock(Block.class);
+        final Player player = mock(Player.class);
+        final Location location = new Location(null, 0, 15, 0);
+        final BlockData air = mock(BlockData.class);
+        final NMSHandler handler = mock(NMSHandler.class);
+        when(block.getLocation()).thenReturn(location);
+
+        try (MockedStatic<AdjacentNoteBlockUpdateHelper> updates = mockStatic(AdjacentNoteBlockUpdateHelper.class);
+             MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class);
+             MockedStatic<SchedulerUtil> scheduler = mockStatic(SchedulerUtil.class);
+             MockedStatic<NMSHandlers> nms = mockStatic(NMSHandlers.class)) {
+            updates.when(() -> AdjacentNoteBlockUpdateHelper.hasCustomVerticalNeighbor(block)).thenReturn(true);
+            bukkit.when(() -> Bukkit.createBlockData(Material.AIR)).thenReturn(air);
+            nms.when(NMSHandlers::getHandler).thenReturn(handler);
+            scheduler.when(() -> SchedulerUtil.runOnOwningThread(org.mockito.ArgumentMatchers.eq(player),
+                    org.mockito.ArgumentMatchers.any(Runnable.class))).thenAnswer(invocation -> {
+                        invocation.<Runnable>getArgument(1).run();
+                        return null;
+                    });
+            updates.when(() -> AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(block, player, air))
+                    .thenAnswer(invocation -> {
+                        verify(handler, org.mockito.Mockito.never())
+                                .acknowledgeBlockChanges(player, location, false);
+                        return null;
+                    });
+
+            new BreakerSystem().onAdjacentBlockBreak(new BlockBreakEvent(block, player));
+
+            updates.verify(() -> AdjacentNoteBlockUpdateHelper.resendCustomVerticalNeighbors(block, player, air));
+            verify(handler).acknowledgeBlockChanges(player, location, false);
+        }
+    }
 
     @Test
     void ignoresSyntheticBlockDamageWithoutABlockFace() {
@@ -119,6 +160,45 @@ class NoteBlockClientPredictionTest {
 
             assertEquals(1, updates.size());
             assertSame(aboveData, updates.get(aboveLocation));
+        }
+    }
+
+    @Test
+    void breakCorrectionIncludesAirAndBothUnchangedCustomNeighbors() {
+        final Block target = mock(Block.class);
+        final Block above = mock(Block.class);
+        final Block below = mock(Block.class);
+        final Location targetLocation = new Location(null, 0, 15, 0);
+        final Location aboveLocation = new Location(null, 0, 16, 0);
+        final Location belowLocation = new Location(null, 0, 14, 0);
+        final BlockData air = mock(BlockData.class);
+        final BlockData aboveData = mock(BlockData.class);
+        final BlockData belowData = mock(BlockData.class);
+        when(target.getLocation()).thenReturn(targetLocation);
+        when(target.getRelative(BlockFace.UP)).thenReturn(above);
+        when(target.getRelative(BlockFace.DOWN)).thenReturn(below);
+        when(above.getLocation()).thenReturn(aboveLocation);
+        when(below.getLocation()).thenReturn(belowLocation);
+        when(above.getBlockData()).thenReturn(aboveData);
+        when(below.getBlockData()).thenReturn(belowData);
+
+        try (MockedStatic<OraxenBlocks> blocks = mockStatic(OraxenBlocks.class)) {
+            blocks.when(() -> OraxenBlocks.isOraxenNoteBlock(above)).thenReturn(true);
+            blocks.when(() -> OraxenBlocks.isOraxenNoteBlock(below)).thenReturn(true);
+
+            assertEquals(Map.of(targetLocation, air, aboveLocation, aboveData, belowLocation, belowData),
+                    AdjacentNoteBlockUpdateHelper.blockChangeStates(target, air));
+        }
+    }
+
+    @Test
+    void isolatedBreakNeedsNoPredictionCorrection() {
+        final Block target = mock(Block.class);
+        when(target.getRelative(BlockFace.UP)).thenReturn(mock(Block.class));
+        when(target.getRelative(BlockFace.DOWN)).thenReturn(mock(Block.class));
+
+        try (MockedStatic<OraxenBlocks> blocks = mockStatic(OraxenBlocks.class)) {
+            assertTrue(AdjacentNoteBlockUpdateHelper.blockChangeStates(target, mock(BlockData.class)).isEmpty());
         }
     }
 
