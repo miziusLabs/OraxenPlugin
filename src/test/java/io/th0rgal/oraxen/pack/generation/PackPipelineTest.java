@@ -36,6 +36,23 @@ class PackPipelineTest {
     }
 
     @Test
+    void snapshotProcessingReportsTheAssetLayerPrefix() {
+        List<VirtualFile> files = new ArrayList<>(List.of(
+                file("assets/minecraft/models/item/base.json", "{}"),
+                file("oraxen_import_0/assets/minecraft/models/item/overlay.json", "{}")));
+        List<String> prefixes = new ArrayList<>();
+
+        PackPipeline.processSnapshots(files, (prefix, snapshot) -> {
+            prefixes.add(prefix);
+            assertEquals("assets/minecraft/models/item/" + (prefix.isEmpty() ? "base.json" : "overlay.json"),
+                    snapshot.getFirst().getPath());
+        });
+
+        assertEquals(List.of("", "oraxen_import_0/"), prefixes);
+        assertEquals("oraxen_import_0/assets/minecraft/models/item/overlay.json", files.getLast().getPath());
+    }
+
+    @Test
     void sparsifiesGeneratedOverlaysWithoutChangingTheirVisibleResources() throws IOException {
         String metadata = """
                 {"overlays":{"entries":[
