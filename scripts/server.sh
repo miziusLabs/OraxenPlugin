@@ -145,25 +145,18 @@ find_java() {
 find_oraxen_jar() {
     local jar
     local jars=()
+    echo "Building Oraxen shadowJar..." >&2
+    if [[ -x "$PROJECT_DIR/gradlew" ]]; then
+        "$PROJECT_DIR/gradlew" -p "$PROJECT_DIR" shadowJar >&2 || error "Gradle shadowJar failed"
+    else
+        (cd "$PROJECT_DIR" && sh ./gradlew shadowJar >&2) || error "Gradle shadowJar failed"
+    fi
+
     shopt -s nullglob
     for jar in "$PROJECT_DIR"/build/libs/oraxen-*.jar; do
         [[ "$jar" == *-sources.jar || "$jar" == *-javadoc.jar ]] || jars+=("$jar")
     done
     shopt -u nullglob
-
-    if ((${#jars[@]} == 0)); then
-        echo "No Oraxen jar found; building shadowJar..." >&2
-        if [[ -x "$PROJECT_DIR/gradlew" ]]; then
-            "$PROJECT_DIR/gradlew" -p "$PROJECT_DIR" shadowJar >&2
-        else
-            (cd "$PROJECT_DIR" && sh ./gradlew shadowJar >&2)
-        fi
-        shopt -s nullglob
-        for jar in "$PROJECT_DIR"/build/libs/oraxen-*.jar; do
-            [[ "$jar" == *-sources.jar || "$jar" == *-javadoc.jar ]] || jars+=("$jar")
-        done
-        shopt -u nullglob
-    fi
 
     ((${#jars[@]} > 0)) || error "could not find the built Oraxen jar in $PROJECT_DIR/build/libs"
 

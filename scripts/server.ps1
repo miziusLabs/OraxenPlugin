@@ -84,22 +84,17 @@ if (-not $javaCommand) {
 
 function Get-OraxenJar {
     $libsDir = Join-Path $projectDir 'build/libs'
+    Write-Host 'Building Oraxen shadowJar...'
+    $wrapper = Join-Path $projectDir 'gradlew.bat'
+    if (Test-Path -LiteralPath $wrapper -PathType Leaf) {
+        & $wrapper -p $projectDir shadowJar | Out-Host
+    } else {
+        & gradle -p $projectDir shadowJar | Out-Host
+    }
+    if ($LASTEXITCODE -ne 0) { throw "Gradle shadowJar failed with exit code $LASTEXITCODE" }
     $jars = @(Get-ChildItem -LiteralPath $libsDir -Filter 'oraxen-*.jar' -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -notmatch '-(sources|javadoc)\.jar$' } |
         Sort-Object LastWriteTimeUtc -Descending)
-    if ($jars.Count -eq 0) {
-        Write-Host 'No Oraxen jar found; building shadowJar...'
-        $wrapper = Join-Path $projectDir 'gradlew.bat'
-        if (Test-Path -LiteralPath $wrapper -PathType Leaf) {
-            & $wrapper -p $projectDir shadowJar | Out-Host
-        } else {
-            & gradle -p $projectDir shadowJar | Out-Host
-        }
-        if ($LASTEXITCODE -ne 0) { throw "Gradle shadowJar failed with exit code $LASTEXITCODE" }
-        $jars = @(Get-ChildItem -LiteralPath $libsDir -Filter 'oraxen-*.jar' -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -notmatch '-(sources|javadoc)\.jar$' } |
-            Sort-Object LastWriteTimeUtc -Descending)
-    }
     if ($jars.Count -eq 0) { throw "Could not find the built Oraxen jar in $libsDir" }
     return $jars[0].FullName
 }
