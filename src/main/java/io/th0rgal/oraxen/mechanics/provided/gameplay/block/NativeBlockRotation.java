@@ -35,6 +35,16 @@ public enum NativeBlockRotation {
         return variants;
     }
 
+    /** Finds a persisted orientation even if the current configuration no longer uses that mode. */
+    public static Variant variantForIdentity(String itemId, String identity) {
+        for (NativeBlockRotation rotation : values()) {
+            for (Variant variant : rotation.variants) {
+                if (!variant.suffix().isEmpty() && variant.identity(itemId).equals(identity)) return variant;
+            }
+        }
+        return null;
+    }
+
     /** Horizontal models face the player. Axis models align their original vertical axis to the clicked face. */
     public Variant select(BlockFace clickedFace, float playerYaw) {
         return switch (this) {

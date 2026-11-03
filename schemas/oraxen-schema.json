@@ -8804,8 +8804,10 @@
         },
         "custom-variation": {
           "type": "integer",
-          "description": "Backing-state variation ID",
-          "default": 1
+          "description": "Legacy full-block variation used for migration (0-773)",
+          "default": 1,
+          "min": 0,
+          "max": 773
         },
         "breaking": {
           "type": "array",

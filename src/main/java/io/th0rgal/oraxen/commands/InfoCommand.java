@@ -172,7 +172,7 @@ public class InfoCommand {
     private void sendBlockInfo(CommandSender sender, String itemId) {
         AdventureUtils.sendMessage(sender, AdventureUtils.MINI_MESSAGE.deserialize("<gray>ItemID ⏵ <white>" + itemId));
         if (OraxenBlocks.isOraxenNoteBlock(itemId)) {
-            NoteBlockMechanic mechanic = (NoteBlockMechanic) NoteBlockMechanicFactory.getInstance().getMechanic(itemId);
+            NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(itemId);
             if (mechanic == null) return;
             BlockData data = NoteBlockMechanicFactory.createNoteBlockData(mechanic.getCustomVariation());
             AdventureUtils.sendMessage(sender, AdventureUtils.MINI_MESSAGE.deserialize("<gray>Block ⏵ <white>" + data.getAsString()));

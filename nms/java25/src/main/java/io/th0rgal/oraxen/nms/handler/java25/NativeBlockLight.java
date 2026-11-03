@@ -5,11 +5,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundLightUpdatePacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 
 import java.util.Set;
@@ -30,15 +33,50 @@ final class NativeBlockLight {
             throw new IllegalStateException("Native block lighting must update on the owning region");
         if (!active) return;
         World world = block.getWorld();
+        BlockData currentData = block.getBlockData();
+        String blockKey = NativeCustomBlocks.key(currentData);
+        if (blockKey == null) return;
+        BlockData desiredData = NativeCustomBlocks.data(blockKey);
+        if (!(currentData instanceof CraftBlockData currentCraftData)
+                || !(desiredData instanceof CraftBlockData desiredCraftData)) return;
+        BlockState currentState = currentCraftData.getState();
+        BlockState desiredState = desiredCraftData.getState();
+        int previousEmission = currentState.getLightEmission();
+        if (currentState != desiredState) block.setBlockData(desiredData, false);
+
         ServerLevel level = ((CraftWorld) world).getHandle();
         BlockPos pos = new BlockPos(block.getX(), block.getY(), block.getZ());
         level.getChunkSource().getLightEngine().checkBlock(pos);
         int emission = level.getBlockState(pos).getLightEmission();
-        if (emission == 0) return;
-        int radius = emission - 1;
+        int radius = Math.max(emission, previousEmission) - 1;
+        if (radius < 0) return;
         for (int chunkX = (pos.getX() - radius) >> 4; chunkX <= (pos.getX() + radius) >> 4; chunkX++) {
             for (int chunkZ = (pos.getZ() - radius) >> 4; chunkZ <= (pos.getZ() + radius) >> 4; chunkZ++)
                 queue(world, chunkX, chunkZ, block.getY());
+        }
+    }
+
+    void refreshAppearance(Block block) {
+        Location location = block.getLocation();
+        if (!Bukkit.isOwnedByCurrentRegion(location))
+            throw new IllegalStateException("Native block appearance must update on the owning region");
+        if (!active) return;
+
+        BlockData blockData = block.getBlockData();
+        if (NativeCustomBlocks.key(blockData) == null) return;
+        World world = block.getWorld();
+        var worldId = world.getUID();
+        int chunkX = block.getX() >> 4;
+        int chunkZ = block.getZ() >> 4;
+        long chunkKey = ((long) chunkZ << 32) | (chunkX & 0xffffffffL);
+        Location updateLocation = location.clone();
+        BlockData updateData = (BlockData) blockData.clone();
+        for (var player : world.getPlayersSeeingChunk(chunkX, chunkZ)) {
+            SchedulerUtil.runOnOwningThread(player, () -> {
+                if (active && player.isOnline() && player.getWorld().getUID().equals(worldId)
+                        && player.isChunkSent(chunkKey))
+                    player.sendBlockChange(updateLocation.clone(), updateData.clone());
+            });
         }
     }
 

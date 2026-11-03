@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenBlocks;
@@ -34,7 +35,8 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,11 +44,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class NoteBlockMechanicFactory extends MechanicFactory {
 
-    // Repopulated on reload (a region/command thread on Folia) while every block
-    // event handler reads it from other region threads.
+    // Kept for source compatibility. Internal lookups use the immutable snapshot below.
     public static final Map<Integer, NoteBlockMechanic> BLOCK_PER_VARIATION = new ConcurrentHashMap<>();
-    private static final Map<String, NoteBlockMechanic> nativeBlocks = new ConcurrentHashMap<>();
-    private static JsonObject variants;
+    private static volatile MechanicsMappings mechanicsMappings = new MechanicsMappings(Map.of(), Map.of(), Map.of());
+    private static Map<Integer, NoteBlockMechanic> pendingBlockMechanics;
+    private static Map<String, NoteBlockMechanic> pendingNativeBlocks;
+    private static Map<String, NoteBlockMechanic> pendingItemMechanics;
+    private static volatile JsonObject variants = defaultVariants();
+    private static JsonObject pendingVariants;
     private static NoteBlockMechanicFactory instance;
     public final List<String> toolTypes;
     private boolean farmBlock;
@@ -57,6 +62,10 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     private final boolean registerListeners;
     private boolean enabled;
 
+    private record MechanicsMappings(Map<Integer, NoteBlockMechanic> blockMechanics,
+                                     Map<String, NoteBlockMechanic> nativeBlocks,
+                                     Map<String, NoteBlockMechanic> itemMechanics) {}
+
     public NoteBlockMechanicFactory(ConfigurationSection section) {
         this(section, true);
     }
@@ -64,11 +73,6 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     public NoteBlockMechanicFactory(ConfigurationSection section, boolean registerListeners) {
         super(section);
         instance = this;
-        nativeBlocks.clear();
-        BLOCK_PER_VARIATION.clear();
-        NativeBlockStorage.resetLegacyMappings();
-        variants = new JsonObject();
-        variants.add("instrument=harp,powered=false", getModelJson("block/note_block"));
         toolTypes = section.getStringList("tool_types");
         farmBlockCheckDelay = section.getInt("farmblock_check_delay");
         farmBlock = false;
@@ -150,7 +154,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     }
 
     public static NoteBlockMechanic getBlockMechanic(int customVariation) {
-        return BLOCK_PER_VARIATION.get(customVariation);
+        return mechanicsMappings.blockMechanics().get(customVariation);
     }
 
     public static BlockData placementData(NoteBlockMechanic mechanic, BlockFace face, Player player) {
@@ -159,7 +163,83 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
         return NMSHandlers.getHandler().customBlockData(NativeBlockStorage.key(identity));
     }
     public static NoteBlockMechanic getNativeMechanic(String key) {
-        return key == null ? null : nativeBlocks.get(key);
+        return key == null ? null : mechanicsMappings.nativeBlocks().get(key);
+    }
+
+    public static NoteBlockMechanic getItemMechanic(String itemId) {
+        return itemId == null ? null : mechanicsMappings.itemMechanics().get(itemId);
+    }
+
+    /** Resolves references to mechanics already parsed in the current global item load. */
+    private static NoteBlockMechanic getPendingMechanic(String itemId) {
+        return pendingItemMechanics == null ? getItemMechanic(itemId) : pendingItemMechanics.get(itemId);
+    }
+
+    public static synchronized void beginNativeMappingsReload() {
+        pendingBlockMechanics = new LinkedHashMap<>();
+        pendingNativeBlocks = new LinkedHashMap<>();
+        pendingItemMechanics = new LinkedHashMap<>();
+        pendingVariants = defaultVariants();
+    }
+
+    public static synchronized void commitNativeMappings() {
+        if (pendingBlockMechanics == null || pendingNativeBlocks == null || pendingItemMechanics == null) return;
+        Map<Integer, NoteBlockMechanic> nextBlockMechanics = Map.copyOf(pendingBlockMechanics);
+        Map<String, NoteBlockMechanic> nextNativeBlocks = Map.copyOf(pendingNativeBlocks);
+        Map<String, NoteBlockMechanic> nextItemMechanics = Map.copyOf(pendingItemMechanics);
+        mechanicsMappings = new MechanicsMappings(nextBlockMechanics, nextNativeBlocks, nextItemMechanics);
+        commitBlockstateVariants();
+        BLOCK_PER_VARIATION.clear();
+        BLOCK_PER_VARIATION.putAll(nextBlockMechanics);
+        pendingBlockMechanics = null;
+        pendingNativeBlocks = null;
+        pendingItemMechanics = null;
+    }
+
+    private static synchronized void commitBlockstateVariants() {
+        if (pendingVariants != null) variants = pendingVariants;
+        pendingVariants = null;
+    }
+
+    public static synchronized void discardNativeMappings() {
+        pendingBlockMechanics = null;
+        pendingNativeBlocks = null;
+        pendingItemMechanics = null;
+        pendingVariants = null;
+    }
+
+    private static synchronized void registerBlockMechanic(int variation, NoteBlockMechanic mechanic) {
+        if (pendingBlockMechanics != null) {
+            pendingBlockMechanics.put(variation, mechanic);
+            return;
+        }
+        MechanicsMappings current = mechanicsMappings;
+        Map<Integer, NoteBlockMechanic> updated = new LinkedHashMap<>(current.blockMechanics());
+        updated.put(variation, mechanic);
+        mechanicsMappings = new MechanicsMappings(Map.copyOf(updated), current.nativeBlocks(), current.itemMechanics());
+        BLOCK_PER_VARIATION.put(variation, mechanic);
+    }
+
+    private static synchronized void registerNativeMechanic(String key, NoteBlockMechanic mechanic) {
+        if (pendingNativeBlocks != null) {
+            pendingNativeBlocks.put(key, mechanic);
+            return;
+        }
+        MechanicsMappings current = mechanicsMappings;
+        Map<String, NoteBlockMechanic> updated = new LinkedHashMap<>(current.nativeBlocks());
+        updated.put(key, mechanic);
+        mechanicsMappings = new MechanicsMappings(current.blockMechanics(), Map.copyOf(updated), current.itemMechanics());
+    }
+
+    static synchronized void registerItemMechanic(String itemId, NoteBlockMechanic mechanic) {
+        if (pendingItemMechanics != null) {
+            pendingItemMechanics.put(itemId, mechanic);
+            return;
+        }
+        MechanicsMappings current = mechanicsMappings;
+        Map<String, NoteBlockMechanic> updated = new LinkedHashMap<>(current.itemMechanics());
+        updated.put(itemId, mechanic);
+        mechanicsMappings = new MechanicsMappings(current.blockMechanics(), current.nativeBlocks(), Map.copyOf(updated));
     }
 
     public static boolean isEnabled() {
@@ -199,7 +279,23 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
         }
     }
 
-    private String getBlockstateContent() {
+    static JsonObject defaultVariants() {
+        JsonObject variants = new JsonObject();
+        variants.add("instrument=harp,powered=false", getModelJson("block/note_block"));
+        return variants;
+    }
+
+    static synchronized void registerBlockstateVariant(String key, JsonElement value) {
+        if (pendingVariants != null) {
+            pendingVariants.add(key, value);
+            return;
+        }
+        JsonObject updated = variants.deepCopy();
+        updated.add(key, value);
+        variants = updated;
+    }
+
+    static String getBlockstateContent() {
         JsonObject noteblock = new JsonObject();
         noteblock.add("variants", variants);
         return noteblock.toString();
@@ -255,9 +351,22 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
             return null;
         }
         String itemId = itemMechanicConfiguration.getParent().getParent().getName();
-        Integer legacyVariation = itemMechanicConfiguration.contains("custom_variation")
+        Integer configuredLegacyVariation = itemMechanicConfiguration.contains("custom_variation")
                 ? itemMechanicConfiguration.getInt("custom_variation") : null;
-        int allocatedVariation = NativeBlockRegistry.variation(itemId, legacyVariation);
+        Integer legacyVariation = NativeBlockRegistry.isValidLegacyVariation(configuredLegacyVariation)
+                ? configuredLegacyVariation : null;
+        if (configuredLegacyVariation != null && legacyVariation == null)
+            Logs.logWarning("Ignoring invalid legacy custom variation " + configuredLegacyVariation + " for " + itemId
+                    + "; valid values are 0 through " + (NativeBlockRegistry.SLOT_COUNT - 1));
+        if (legacyVariation != null) NativeBlockStorage.validateLegacy(legacyVariation, itemId);
+
+        Map<String, Integer> requestedVariations = new LinkedHashMap<>();
+        requestedVariations.put(itemId, legacyVariation);
+        for (NativeBlockRotation.Variant variant : rotation.variants()) {
+            if (!variant.suffix().isEmpty()) requestedVariations.put(variant.identity(itemId), null);
+        }
+        Map<String, Integer> reservations = NativeBlockRegistry.reserveVariations(requestedVariations);
+        int allocatedVariation = reservations.get(itemId);
         Object originalVariation = itemMechanicConfiguration.get("custom_variation");
         itemMechanicConfiguration.set("custom_variation", allocatedVariation);
         enable();
@@ -267,35 +376,51 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
         } finally {
             itemMechanicConfiguration.set("custom_variation", originalVariation);
         }
-        if (!Range.between(0, 775).contains(mechanic.getCustomVariation())) {
-            Logs.logError("The custom_variation of " + mechanic.getItemID() + " is " + mechanic.getCustomVariation() + ", but must be between 0 and 775!");
+        if (!Range.between(0, NativeBlockRegistry.SLOT_COUNT - 1).contains(mechanic.getCustomVariation())) {
+            Logs.logError("The custom_variation of " + mechanic.getItemID() + " is " + mechanic.getCustomVariation()
+                    + ", but must be between 0 and " + (NativeBlockRegistry.SLOT_COUNT - 1) + "!");
             Logs.logWarning("The item has failed to build for now to prevent bugs and issues.");
             return null;
         }
         DirectionalBlock directional = mechanic.getDirectional();
         String modelName = mechanic.getModel(itemMechanicConfiguration.getParent().getParent());
+        JsonObject itemVariants = new JsonObject();
 
         if (mechanic.isDirectional() && !directional.isParentBlock()) {
-            NoteBlockMechanic parentMechanic = directional.getParentMechanic();
+            NoteBlockMechanic parentMechanic = getPendingMechanic(directional.getParentBlock());
             modelName = (parentMechanic.getModel(itemMechanicConfiguration.getParent().getParent()));
-            variants.add(getBlockstateVariantName(mechanic.getCustomVariation()),
+            itemVariants.add(getBlockstateVariantName(mechanic.getCustomVariation()),
                     getDirectionalModelJson(modelName, mechanic, parentMechanic));
         } else {
-            variants.add(getBlockstateVariantName(mechanic.getCustomVariation()),
+            itemVariants.add(getBlockstateVariantName(mechanic.getCustomVariation()),
                     getModelJson(modelName));
         }
 
-        BLOCK_PER_VARIATION.put(mechanic.getCustomVariation(), mechanic);
-        NativeBlockRegistry.register(itemId, createAppearanceData(mechanic.getCustomVariation()), mechanic.getLight().getLightLevel());
+        List<NativeBlockRegistry.Registration> registrations = new ArrayList<>();
+        Map<String, String> nativeKeys = new LinkedHashMap<>();
+        // Rebuild appearances for every allocated orientation so placed blocks keep their
+        // model and mechanic when the configured rotation mode changes.
+        for (Map.Entry<String, JsonObject> allocation : NativeBlockRegistry.identitiesForOwner(itemId, reservations).entrySet()) {
+            String identity = allocation.getKey();
+            int variation = allocation.getValue().get("variation").getAsInt();
+            if (!identity.equals(itemId)) {
+                NativeBlockRotation.Variant variant = NativeBlockRotation.variantForIdentity(itemId, identity);
+                if (variant == null) continue;
+                itemVariants.add(getBlockstateVariantName(variation), variant.apply(getModelJson(modelName)));
+            }
+            registrations.add(new NativeBlockRegistry.Registration(identity, itemId,
+                    createAppearanceData(variation), mechanic.getLight().getLightLevel()));
+            nativeKeys.put(identity, NativeBlockStorage.key(identity));
+        }
+
+        NativeBlockRegistry.registerAll(reservations, registrations);
         if (legacyVariation != null) NativeBlockStorage.registerLegacy(legacyVariation, itemId);
-        nativeBlocks.put(NativeBlockStorage.key(itemId), mechanic);
-        for (NativeBlockRotation.Variant variant : rotation.variants()) {
-            if (variant.suffix().isEmpty()) continue;
-            String identity = variant.identity(itemId);
-            int variation = NativeBlockRegistry.variation(identity, null);
-            variants.add(getBlockstateVariantName(variation), variant.apply(getModelJson(modelName)));
-            NativeBlockRegistry.register(identity, createAppearanceData(variation), mechanic.getLight().getLightLevel());
-            nativeBlocks.put(NativeBlockStorage.key(identity), mechanic);
+        registerBlockMechanic(mechanic.getCustomVariation(), mechanic);
+        for (Map.Entry<String, String> nativeKey : nativeKeys.entrySet()) {
+            registerNativeMechanic(nativeKey.getValue(), mechanic);
+        }
+        for (Map.Entry<String, JsonElement> variant : itemVariants.entrySet()) {
+            registerBlockstateVariant(variant.getKey(), variant.getValue());
         }
         addToImplemented(mechanic);
         return mechanic;
@@ -303,12 +428,34 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 
     @Override
     public NoteBlockMechanic getMechanic(String itemID) {
-        return (NoteBlockMechanic) super.getMechanic(itemID);
+        return getItemMechanic(itemID);
     }
 
     @Override
     public NoteBlockMechanic getMechanic(ItemStack itemStack) {
-        return (NoteBlockMechanic) super.getMechanic(itemStack);
+        return getItemMechanic(io.th0rgal.oraxen.api.OraxenItems.getIdByItem(itemStack));
+    }
+
+    @Override
+    public boolean isNotImplementedIn(String itemID) {
+        return getItemMechanic(itemID) == null;
+    }
+
+    @Override
+    public boolean isNotImplementedIn(ItemStack itemStack) {
+        return getMechanic(itemStack) == null;
+    }
+
+    @Override
+    public java.util.Set<String> getItems() {
+        return mechanicsMappings.itemMechanics().keySet();
+    }
+
+    @Override
+    protected void addToImplemented(Mechanic mechanic) {
+        super.addToImplemented(mechanic);
+        if (mechanic instanceof NoteBlockMechanic noteBlockMechanic)
+            registerItemMechanic(mechanic.getItemID(), noteBlockMechanic);
     }
 
     /**
@@ -318,7 +465,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
      */
     @SuppressWarnings("deprecation")
     public static BlockData createNoteBlockData(int id) {
-        NoteBlockMechanic mechanic = BLOCK_PER_VARIATION.get(id);
+        NoteBlockMechanic mechanic = getBlockMechanic(id);
         if (mechanic != null && NativeBlockRegistry.enabled()) {
             BlockData data = NMSHandlers.getHandler().customBlockData(NativeBlockStorage.key(mechanic.getItemID()));
             if (data != null) return data;
@@ -328,8 +475,8 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 
     public static NoteBlock createAppearanceData(int id) {
         /* We have 16 instruments with 25 notes. All of those blocks can be powered.
-         * That's: 16*25*2 = 800 variations. The first 25 variations of PIANO (not powered)
-         * will be reserved for the vanilla behavior. We still have 800-25 = 775 variations
+         * That's: 16*25*2 = 800 variations. The first 26 states are reserved for vanilla behavior,
+         * leaving 800-26 = 774 custom variations.
          */
         id += 26;
         NoteBlock noteBlock = (NoteBlock) Bukkit.createBlockData(Material.NOTE_BLOCK);
@@ -346,10 +493,11 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
      */
     public BlockData createNoteBlockData(String itemID) {
         /* We have 16 instruments with 25 notes. All of those blocks can be powered.
-         * That's: 16*25*2 = 800 variations. The first 25 variations of PIANO (not powered)
-         * will be reserved for the vanilla behavior. We still have 800-25 = 775 variations
+         * That's: 16*25*2 = 800 variations. The first 26 states are reserved for vanilla behavior,
+         * leaving 800-26 = 774 custom variations.
          */
-        return createNoteBlockData(((NoteBlockMechanic) getInstance().getMechanic(itemID)).getCustomVariation());
+        NoteBlockMechanic mechanic = getItemMechanic(itemID);
+        return mechanic == null ? null : createNoteBlockData(mechanic.getCustomVariation());
     }
 
     public void registerFarmBlock() {
@@ -368,13 +516,14 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 
     @Override
     public @Nullable String getMechanicDescription() {
-        return "Creates custom blocks using noteblock states (up to 775 variations)";
+        return "Creates custom blocks using noteblock states (up to 774 variations)";
     }
 
     @Override
     public @NotNull List<MechanicConfigProperty> getConfigSchema() {
         return List.of(
-                MechanicConfigProperty.integer("custom_variation", "Unique variation ID (0-775)", 0, 0, 775),
+                MechanicConfigProperty.integer("custom_variation", "Legacy full-block variation used for migration (0-773)", 0, 0,
+                        NativeBlockRegistry.SLOT_COUNT - 1),
                 MechanicConfigProperty.string("model", "Block model path"),
                 MechanicConfigProperty.decimal("hardness", "Block break hardness", 1.0, 0.0),
                 MechanicConfigProperty.integer("light", "Light level emitted (0-15)", 0, 0, 15),

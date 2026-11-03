@@ -24,6 +24,7 @@ import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.CustomBlockPickItemListener;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureEntityIndex;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.pack.dispatch.PackLoadingManager;
 import io.th0rgal.oraxen.pack.generation.LegacyDatapackCleaner;
@@ -119,6 +120,8 @@ public class OraxenPlugin extends JavaPlugin {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
+
+        FurnitureEntityIndex.register(this);
 
         clickActionManager = new ClickActionManager(this);
         reloadConfigs();
@@ -255,7 +258,9 @@ public class OraxenPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (updateChecker != null) updateChecker.stop();
+        NativeBlockStorage.shutdown();
         if (configsManager == null) {
+            FurnitureEntityIndex.clear();
             HandlerList.unregisterAll(this);
             OraxenCommand.unregisterAll();
             NMSHandlers.shutdown();
@@ -263,6 +268,7 @@ public class OraxenPlugin extends JavaPlugin {
         }
 
         cleanupRuntimeResources();
+        FurnitureEntityIndex.clear();
         HandlerList.unregisterAll(this);
         FurnitureFactory.unregisterEvolution();
         MechanicsManager.unregisterTasks();

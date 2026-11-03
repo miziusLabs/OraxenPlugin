@@ -8,6 +8,9 @@ import io.th0rgal.oraxen.items.ItemLoader;
 import io.th0rgal.oraxen.items.ModelData;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockRegistry;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockStorage;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.NoteBlockMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.pack.generation.DuplicationHandler;
 import io.th0rgal.oraxen.utils.AdventureUtils;
@@ -40,6 +43,9 @@ public class OraxenItems {
 
     public static void loadItems() {
         try {
+            NativeBlockRegistry.beginReload();
+            NativeBlockStorage.resetLegacyMappings();
+            NoteBlockMechanicFactory.beginNativeMappingsReload();
             var tridentFactory = TridentMechanicFactory.get();
             if (tridentFactory != null) tridentFactory.clearMechanics();
             ItemLoader.MODEL_DATAS_BY_ID.clear();
@@ -88,10 +94,17 @@ public class OraxenItems {
                 var furniture = furnitureFactory == null ? null : furnitureFactory.getMechanic(itemId);
                 if (furniture != null) furniture.initializeAppearance(loadedItemsById);
             }
-            registry = new RegistrySnapshot(immutableItemMap(loadedMap),
+            RegistrySnapshot nextRegistry = new RegistrySnapshot(immutableItemMap(loadedMap),
                     Collections.unmodifiableMap(new HashMap<>(loadedItemsById)),
                     Collections.unmodifiableSet(new HashSet<>(loadedItems)));
+            NativeBlockRegistry.commitReload();
+            NoteBlockMechanicFactory.commitNativeMappings();
+            NativeBlockStorage.commitLegacyMappings();
+            registry = nextRegistry;
         } catch (Exception e) {
+            NativeBlockRegistry.discardReload();
+            NoteBlockMechanicFactory.discardNativeMappings();
+            NativeBlockStorage.discardLegacyMappings();
             Logs.logError("Failed to load Oraxen items.");
             Logs.logError("Error; " + e.getMessage());
             if (Settings.DEBUG.toBool()) {

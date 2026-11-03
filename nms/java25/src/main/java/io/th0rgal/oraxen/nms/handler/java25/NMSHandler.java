@@ -294,8 +294,18 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     @Override
+    public void refreshNativeBlockAppearance(Block block) {
+        nativeBlockLight.refreshAppearance(block);
+    }
+
+    @Override
+    public void finishNativeBlockReload() {
+        NativeCustomBlocks.finishReload();
+    }
+
+    @Override
     public void finishNativeBlockRegistration() {
-        NativeCustomBlocks.sealRegistrations();
+        // All physical slot states were registered in onLoad. Item reloads only rebind them.
     }
 
     @Override
@@ -304,8 +314,41 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     @Override
-    public void registerCustomBlock(String key, BlockData appearance, int light) {
-        NativeCustomBlocks.register(key, appearance, light);
+    public Collection<io.th0rgal.oraxen.nms.NMSHandler.ChunkCoordinate> loadedChunkCoordinates(World world) {
+        if (!VersionUtil.isFoliaServer())
+            return io.th0rgal.oraxen.nms.NMSHandler.super.loadedChunkCoordinates(world);
+
+        try {
+            ServerLevel level = ((CraftWorld) world).getHandle();
+            Object chunkIndex = readLoadedChunkIndex(level.getChunkSource());
+            Method keyIteratorMethod = chunkIndex.getClass().getMethod("keyIterator");
+            PrimitiveIterator.OfLong keys = (PrimitiveIterator.OfLong) keyIteratorMethod.invoke(chunkIndex);
+            List<io.th0rgal.oraxen.nms.NMSHandler.ChunkCoordinate> coordinates = new ArrayList<>();
+            while (keys.hasNext()) {
+                long key = keys.nextLong();
+                coordinates.add(new io.th0rgal.oraxen.nms.NMSHandler.ChunkCoordinate(
+                        net.minecraft.world.level.ChunkPos.getX(key), net.minecraft.world.level.ChunkPos.getZ(key)));
+            }
+            return List.copyOf(coordinates);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not enumerate loaded chunk coordinates on Folia", exception);
+        }
+    }
+
+    private static Object readLoadedChunkIndex(Object chunkSource) throws ReflectiveOperationException {
+        Field field = chunkSource.getClass().getDeclaredField("fullChunks");
+        field.setAccessible(true);
+        return Objects.requireNonNull(field.get(chunkSource), "Folia loaded chunk index");
+    }
+
+    @Override
+    public void registerCustomBlock(String key, int slot, BlockData appearance, int light) {
+        NativeCustomBlocks.register(key, slot, appearance, light);
+    }
+
+    @Override
+    public void registerCustomBlocks(java.util.List<CustomBlockRegistration> registrations) {
+        NativeCustomBlocks.registerAll(registrations);
     }
 
     @Override

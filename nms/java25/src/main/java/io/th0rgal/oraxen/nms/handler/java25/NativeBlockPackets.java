@@ -41,7 +41,14 @@ final class NativeBlockPackets {
     }
 
     static Object transform(Object packet) throws ReflectiveOperationException {
-        if (!NativeCustomBlocks.enabled()) return packet;
+        boolean projectCustomBlocks = NativeCustomBlocks.enabled();
+        boolean repackBlockPalette = NativeCustomBlocks.requiresPaletteRepack();
+        if (!projectCustomBlocks && !repackBlockPalette) return packet;
+        if (!projectCustomBlocks) {
+            if (packet instanceof ClientboundLevelChunkWithLightPacket chunk)
+                return transformChunk(chunk, false);
+            return packet;
+        }
         // The client sees the reserved harp state. Real playback particles come from NotePlayEvent.
         if (packet instanceof ClientboundBlockEventPacket event && value(event, "block") == Blocks.NOTE_BLOCK) return null;
         if (packet instanceof ClientboundSetEntityDataPacket metadata) {
@@ -102,7 +109,7 @@ final class NativeBlockPackets {
                     (float) value(particles, "xDist"), (float) value(particles, "yDist"), (float) value(particles, "zDist"),
                     (float) value(particles, "maxSpeed"), (int) value(particles, "count"));
         }
-        if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) return transformChunk(chunk);
+        if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) return transformChunk(chunk, true);
         return packet;
     }
 
@@ -163,7 +170,8 @@ final class NativeBlockPackets {
         return constructor.newInstance(values);
     }
 
-    private static Object transformChunk(ClientboundLevelChunkWithLightPacket original) throws ReflectiveOperationException {
+    private static Object transformChunk(ClientboundLevelChunkWithLightPacket original, boolean projectCustomBlocks)
+            throws ReflectiveOperationException {
         ClientboundLevelChunkPacketData chunkData = (ClientboundLevelChunkPacketData) value(original, "chunkData");
         FriendlyByteBuf input = chunkData.getReadBuffer();
         FriendlyByteBuf output = new FriendlyByteBuf(Unpooled.buffer(input.readableBytes()));
@@ -171,8 +179,8 @@ final class NativeBlockPackets {
             while (input.isReadable()) {
                 output.writeShort(input.readShort());
                 if (fluidSectionCount) output.writeShort(input.readShort());
-                palette(input, output, true);
-                palette(input, output, false);
+                palette(input, output, true, projectCustomBlocks);
+                palette(input, output, false, projectCustomBlocks);
             }
             byte[] projected = new byte[output.readableBytes()];
             output.getBytes(0, projected);
@@ -180,20 +188,22 @@ final class NativeBlockPackets {
             ClientboundLevelChunkWithLightPacket copy = copy(original, ClientboundLevelChunkWithLightPacket.STREAM_CODEC);
             Object dataCopy = value(copy, "chunkData");
             NativeCustomBlocks.field(ClientboundLevelChunkPacketData.class, "buffer").set(dataCopy, projected);
-            var entities = new ArrayList<>();
-            for (Object blockEntity : (Iterable<?>) value(dataCopy, "blockEntitiesData")) {
-                Object originalTag = value(blockEntity, "tag");
-                CompoundTag tag = originalTag instanceof Optional<?> optional
-                        ? (CompoundTag) optional.orElse(null) : (CompoundTag) originalTag;
-                CompoundTag tagCopy = projectTag(tag);
-                if (tagCopy != tag) {
-                    if (blockEntity.getClass().isRecord())
-                        blockEntity = replaceRecordComponent(blockEntity, "tag", Optional.of(tagCopy));
-                    else NativeCustomBlocks.field(blockEntity.getClass(), "tag").set(blockEntity, tagCopy);
+            if (projectCustomBlocks) {
+                var entities = new ArrayList<>();
+                for (Object blockEntity : (Iterable<?>) value(dataCopy, "blockEntitiesData")) {
+                    Object originalTag = value(blockEntity, "tag");
+                    CompoundTag tag = originalTag instanceof Optional<?> optional
+                            ? (CompoundTag) optional.orElse(null) : (CompoundTag) originalTag;
+                    CompoundTag tagCopy = projectTag(tag);
+                    if (tagCopy != tag) {
+                        if (blockEntity.getClass().isRecord())
+                            blockEntity = replaceRecordComponent(blockEntity, "tag", Optional.of(tagCopy));
+                        else NativeCustomBlocks.field(blockEntity.getClass(), "tag").set(blockEntity, tagCopy);
+                    }
+                    entities.add(blockEntity);
                 }
-                entities.add(blockEntity);
+                NativeCustomBlocks.field(ClientboundLevelChunkPacketData.class, "blockEntitiesData").set(dataCopy, entities);
             }
-            NativeCustomBlocks.field(ClientboundLevelChunkPacketData.class, "blockEntitiesData").set(dataCopy, entities);
             return copy;
         } finally {
             input.release();
@@ -201,14 +211,14 @@ final class NativeBlockPackets {
         }
     }
 
-    private static void palette(FriendlyByteBuf input, FriendlyByteBuf output, boolean blocks) {
+    private static void palette(FriendlyByteBuf input, FriendlyByteBuf output, boolean blocks, boolean projectCustomBlocks) {
         int bits = input.readUnsignedByte();
         boolean global = bits > (blocks ? 8 : 3);
         int outputBits = global && blocks ? NativeCustomBlocks.vanillaBits() : bits;
         output.writeByte(outputBits);
         if (bits == 0) {
             int id = input.readVarInt();
-            output.writeVarInt(blocks ? NativeCustomBlocks.project(id) : id);
+            output.writeVarInt(blocks ? projectBlockState(id, projectCustomBlocks) : id);
             if (!fixedPaletteLength) {
                 if (input.readVarInt() != 0) throw new IllegalArgumentException("Nonempty single-value palette storage");
                 output.writeVarInt(0);
@@ -220,7 +230,7 @@ final class NativeBlockPackets {
             output.writeVarInt(length);
             for (int i = 0; i < length; i++) {
                 int id = input.readVarInt();
-                output.writeVarInt(blocks ? NativeCustomBlocks.project(id) : id);
+                output.writeVarInt(blocks ? projectBlockState(id, projectCustomBlocks) : id);
             }
         }
         int count = blocks ? 4096 : 64;
@@ -244,7 +254,7 @@ final class NativeBlockPackets {
             long source = input.readLong();
             for (int j = 0; j < entriesPerLong && index < count; j++, index++) {
                 int id = (int) ((source >>> (j * bits)) & mask);
-                packed |= (long) NativeCustomBlocks.project(id) << (outputIndex++ * outputBits);
+                packed |= (long) projectBlockState(id, projectCustomBlocks) << (outputIndex++ * outputBits);
                 if (outputIndex == outputEntriesPerLong) {
                     output.writeLong(packed);
                     packed = 0;
@@ -253,5 +263,9 @@ final class NativeBlockPackets {
             }
         }
         if (outputIndex != 0) output.writeLong(packed);
+    }
+
+    private static int projectBlockState(int stateId, boolean projectCustomBlocks) {
+        return projectCustomBlocks ? NativeCustomBlocks.project(stateId) : NativeCustomBlocks.projectPalette(stateId);
     }
 }

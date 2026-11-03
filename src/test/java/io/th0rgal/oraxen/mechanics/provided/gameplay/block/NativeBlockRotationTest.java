@@ -70,6 +70,16 @@ class NativeBlockRotationTest {
     }
 
     @Test
+    void persistedOrientationsRemainRecognizableAfterChangingRotationMode() {
+        assertEquals(NativeBlockRotation.HORIZONTAL.variants().get(1),
+                NativeBlockRotation.variantForIdentity("log", "log#rotation=east"));
+        assertEquals(NativeBlockRotation.AXIS.variants().get(2),
+                NativeBlockRotation.variantForIdentity("log", "log#rotation=axis_z"));
+        assertNull(NativeBlockRotation.variantForIdentity("log", "other#rotation=east"));
+        assertNull(NativeBlockRotation.variantForIdentity("log", "log"));
+    }
+
+    @Test
     void rejectsInvalidConfigurationAndInvalidPlacementInputs() {
         assertEquals(NativeBlockRotation.NONE, NativeBlockRotation.parse(null));
         assertEquals(NativeBlockRotation.HORIZONTAL, NativeBlockRotation.parse("Horizontal"));

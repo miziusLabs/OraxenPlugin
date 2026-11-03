@@ -184,7 +184,7 @@ public class ModelDefinitionGenerator {
     }
 
     private JsonObject createCrossbowModel(JsonObject baseModel, OraxenMeta oraxenMeta) {
-        // Structure based on craft-engine implementation:
+        // Build the conditional model for crossbow use and pull state:
         // Outer: condition on "using_item" (pulling)
         //   - on_false: select on "charge_type" (arrow/rocket) or base model (when not pulling)
         //   - on_true: range_dispatch on "crossbow/pull" (when pulling)
@@ -245,7 +245,7 @@ public class ModelDefinitionGenerator {
         
         JsonArray entries = new JsonArray();
         
-        // Add entries for pulling_1 and pulling_2 with thresholds (matching craft-engine: 0.58 and 1.0)
+        // Add entries for pulling_1 and pulling_2 with their pull thresholds.
         if (pullingModels.size() >= 2) {
             JsonObject entry1 = new JsonObject();
             entry1.addProperty("threshold", CROSSBOW_PULL_THRESHOLD_1);
@@ -270,7 +270,7 @@ public class ModelDefinitionGenerator {
     }
 
     private JsonObject createFishingRodModel(JsonObject baseModel, OraxenMeta oraxenMeta) {
-        // Structure based on craft-engine implementation:
+        // Build a conditional model for the fishing rod cast state:
         // Condition on "fishing_rod/cast" property
         //   - on_false: Base model (when not casting)
         //   - on_true: Cast model (when casting)
@@ -293,7 +293,7 @@ public class ModelDefinitionGenerator {
     }
 
     private JsonObject createShieldModel(JsonObject baseModel, OraxenMeta oraxenMeta) {
-        // Structure based on craft-engine implementation:
+        // Build a conditional model for shield use:
         // Condition on "using_item" property
         //   - on_false: Base model (when not blocking)
         //   - on_true: Blocking model (when blocking)

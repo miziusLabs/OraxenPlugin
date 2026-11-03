@@ -14,10 +14,23 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 
 public interface NMSHandler {
+
+    default Collection<ChunkCoordinate> loadedChunkCoordinates(org.bukkit.World world) {
+        List<ChunkCoordinate> coordinates = new ArrayList<>();
+        for (org.bukkit.Chunk chunk : world.getLoadedChunks())
+            coordinates.add(new ChunkCoordinate(chunk.getX(), chunk.getZ()));
+        return List.copyOf(coordinates);
+    }
+
+    record ChunkCoordinate(int x, int z) {
+    }
 
     default void restoreVanillaNoteBlockUpdates() {
     }
@@ -28,12 +41,26 @@ public interface NMSHandler {
     default void refreshNativeBlockLight(org.bukkit.block.Block block) {
     }
 
+    default void refreshNativeBlockAppearance(org.bukkit.block.Block block) {
+    }
+
+    default void finishNativeBlockReload() {
+    }
+
     default boolean supportsNativeCustomBlocks() {
         return false;
     }
 
-    default void registerCustomBlock(String key, BlockData appearance, int light) {
+    default void registerCustomBlock(String key, int slot, BlockData appearance, int light) {
         throw new UnsupportedOperationException("Native custom blocks are unavailable on this server");
+    }
+
+    default void registerCustomBlocks(List<CustomBlockRegistration> registrations) {
+        for (CustomBlockRegistration registration : registrations)
+            registerCustomBlock(registration.key(), registration.slot(), registration.appearance(), registration.light());
+    }
+
+    record CustomBlockRegistration(String key, int slot, BlockData appearance, int light) {
     }
 
     default BlockData customBlockData(String key) {

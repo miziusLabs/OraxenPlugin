@@ -151,7 +151,7 @@ public class BlockMechanicFactory extends MechanicFactory {
                                 .enumValues("none", "horizontal", "axis").defaultValue("none").build(),
                         "textures", MechanicConfigProperty.list("textures", "Placed block textures")
                 )),
-                MechanicConfigProperty.integer("custom-variation", "Backing-state variation ID", 1),
+                MechanicConfigProperty.integer("custom-variation", "Legacy full-block variation used for migration (0-773)", 1, 0, 773),
                 MechanicConfigProperty.list("breaking", "Ordered block breaking rules"),
                 MechanicConfigProperty.list("events", "Click events with actions to run when the placed block is clicked"),
                 MechanicConfigProperty.integer("light", "Light level emitted by the placed block (0-15, 0 disables)", 0, 0, 15),

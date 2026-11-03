@@ -152,7 +152,7 @@ public class OraxenBlocks {
      * @return true if the itemID has a NoteBlockMechanic, otherwise false
      */
     public static boolean isOraxenNoteBlock(String itemID) {
-        return NoteBlockMechanicFactory.isEnabled() && !NoteBlockMechanicFactory.getInstance().isNotImplementedIn(itemID);
+        return getNoteBlockMechanic(itemID) != null;
     }
 
     public static boolean isOraxenNoteBlock(ItemStack item) {
@@ -659,8 +659,7 @@ public class OraxenBlocks {
     @org.jetbrains.annotations.Nullable
     public static NoteBlockMechanic getNoteBlockMechanic(String itemID) {
         if (!NoteBlockMechanicFactory.isEnabled()) return null;
-        Mechanic mechanic = NoteBlockMechanicFactory.getInstance().getMechanic(itemID);
-        return mechanic instanceof NoteBlockMechanic noteBlockMechanic ? noteBlockMechanic : null;
+        return NoteBlockMechanicFactory.getItemMechanic(itemID);
     }
 
     @org.jetbrains.annotations.Nullable

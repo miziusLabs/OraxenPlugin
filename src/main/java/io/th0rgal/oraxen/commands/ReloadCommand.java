@@ -13,6 +13,7 @@ import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.hud.HudManager;
 import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureEntityIndex;
 import io.th0rgal.oraxen.recipes.RecipesManager;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
@@ -35,9 +36,14 @@ public class ReloadCommand {
     private static final String DISCS_RELOAD = "discs";
 
     public static void reloadItems(@Nullable CommandSender sender) {
+        if (!SchedulerUtil.isGlobalThread()) {
+            SchedulerUtil.runTask(() -> reloadItems(sender));
+            return;
+        }
+        NativeBlockStorage.beginReload();
         sendReloadMessage(sender, ITEMS_RELOAD);
         OraxenItems.loadItems();
-        NativeBlockStorage.initialize();
+        NativeBlockStorage.initializeForReload();
         OraxenPlugin.get().getInvManager().regen();
         new OraxenItemsLoadedEvent().callEvent();
 
@@ -57,9 +63,16 @@ public class ReloadCommand {
 
         if (Settings.UPDATE_FURNITURE.toBool() && Settings.UPDATE_FURNITURE_ON_RELOAD.toBool()) {
             Message.UPDATING_PLACED_FURNITURES.log();
-            for (World world : Bukkit.getServer().getWorlds())
-                world.getEntities().stream().filter(OraxenFurniture::isBaseEntity)
-                        .forEach(entity -> SchedulerUtil.runForEntity(entity, () -> OraxenFurniture.updateFurniture(entity)));
+            if (io.th0rgal.oraxen.utils.VersionUtil.isFoliaServer()) {
+                FurnitureEntityIndex.forEachLoaded(entity -> {
+                    if (OraxenFurniture.isBaseEntity(entity)) OraxenFurniture.updateFurniture(entity);
+                });
+            } else {
+                for (World world : Bukkit.getServer().getWorlds())
+                    world.getEntities().forEach(entity -> {
+                        if (OraxenFurniture.isBaseEntity(entity)) OraxenFurniture.updateFurniture(entity);
+                    });
+            }
         }
 
     }
@@ -109,7 +122,12 @@ public class ReloadCommand {
         OraxenPlugin.get().reloadCustomJukeboxSongs();
     }
 
-    private static void sendReloadMessage(@Nullable CommandSender sender, String reloaded) {
+    static void sendReloadMessage(@Nullable CommandSender sender, String reloaded) {
+        if (sender instanceof Player player) {
+            SchedulerUtil.runForEntity(player,
+                    () -> Message.RELOAD.send(player, AdventureUtils.tagResolver("reloaded", reloaded)));
+            return;
+        }
         Message.RELOAD.send(sender, AdventureUtils.tagResolver("reloaded", reloaded));
     }
 
@@ -120,31 +138,37 @@ public class ReloadCommand {
                 .withArguments(new TextArgument("type").replaceSuggestions(
                         ArgumentSuggestions.strings("items", "pack", "hud", "recipes", "configs", "messages", "paintings", "discs", "all")))
                 .executes((sender, args) -> {
-                    switch (((String) args.get("type")).toUpperCase()) {
-                        case "HUD" -> reloadHud(sender);
-                        case "ITEMS" -> reloadItems(sender);
-                        case "PACK" -> reloadPack(sender);
-                        case "RECIPES" -> reloadRecipes(sender);
-                        case "CONFIGS" -> reloadConfigs(sender);
-                        case "MESSAGES" -> reloadMessages(sender);
-                        case "PAINTINGS" -> reloadPaintings(sender);
-                        case "DISCS" -> reloadDiscs(sender);
-                        default -> {
-                            MechanicsManager.unloadListeners();
-                            MechanicsManager.unregisterTasks();
-                            reloadMessages(sender);
-                            reloadPaintings(sender);
-                            reloadDiscs(sender);
-                            MechanicsManager.registerNativeMechanics();
-                            reloadItems(sender);
-                            reloadPack(sender);
-                            reloadHud(sender);
-                            reloadRecipes(sender);
+                    String type = ((String) args.get("type")).toUpperCase();
+                    Runnable reload = () -> {
+                        switch (type) {
+                            case "HUD" -> reloadHud(sender);
+                            case "ITEMS" -> reloadItems(sender);
+                            case "PACK" -> reloadPack(sender);
+                            case "RECIPES" -> reloadRecipes(sender);
+                            case "CONFIGS" -> reloadConfigs(sender);
+                            case "MESSAGES" -> reloadMessages(sender);
+                            case "PAINTINGS" -> reloadPaintings(sender);
+                            case "DISCS" -> reloadDiscs(sender);
+                            default -> {
+                                NativeBlockStorage.beginReload();
+                                MechanicsManager.unloadListeners();
+                                MechanicsManager.unregisterTasks();
+                                reloadMessages(sender);
+                                reloadPaintings(sender);
+                                reloadDiscs(sender);
+                                MechanicsManager.registerNativeMechanics();
+                                reloadItems(sender);
+                                reloadPack(sender);
+                                reloadHud(sender);
+                                reloadRecipes(sender);
+                            }
                         }
-                    }
-                    for (Player player : Bukkit.getOnlinePlayers()) {
-                        OraxenPlugin.get().getFontManager().sendGlyphTabCompletion(player);
-                    }
+                        for (Player player : Bukkit.getOnlinePlayers())
+                            SchedulerUtil.runForEntity(player,
+                                    () -> OraxenPlugin.get().getFontManager().sendGlyphTabCompletion(player));
+                    };
+                    if (SchedulerUtil.isGlobalThread()) reload.run();
+                    else SchedulerUtil.runTask(reload);
                 });
     }
 
