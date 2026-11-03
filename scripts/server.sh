@@ -4,7 +4,7 @@ set -euo pipefail
 # Starts a local Paper/Folia server for a version used by VersionLoadingTest.
 #
 # Usage:
-#   ./scripts/server.sh --version Paper/26.2
+#   ./scripts/server.sh --version Paper/26.3
 #   ./scripts/server.sh --version Folia/1.21.11 --no-reset
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,7 +18,7 @@ usage() {
 Usage: ./scripts/server.sh --version <Paper|Folia>/<version> [--no-reset]
 
 Options:
-  --version, -v  Server and Minecraft version, for example Paper/26.2
+  --version, -v  Server and Minecraft version, for example Paper/26.3
   --no-reset     Keep the existing plugins and world files
   --help, -h     Show this help
 EOF
@@ -65,7 +65,7 @@ if [[ "$VERSION_SPEC" =~ ^(Paper|Folia)/([0-9]+(\.[0-9]+)*)$ ]]; then
     SERVER_NAME="${BASH_REMATCH[1]}"
     MC_VERSION="${BASH_REMATCH[2]}"
 else
-    error "version must look like Paper/26.2 or Folia/1.21.11"
+    error "version must look like Paper/26.3 or Folia/1.21.11"
 fi
 
 PROJECT_NAME="$(printf '%s' "$SERVER_NAME" | tr '[:upper:]' '[:lower:]')"
@@ -170,7 +170,7 @@ find_oraxen_jar() {
 
 known_download_url() {
     case "$PROJECT_NAME/$MC_VERSION" in
-        paper/26.3) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/ddfea9cddc8f40e33080d4d9a3e9818fd1f9ea33f6100b42ac228ef80eb7ceed/paper-26.3-31.jar' ;;
+        paper/26.3) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/989f93c29d5b61fe52804f834ea6b3a0a5775d05412e238ec78107197a6b5be6/paper-26.3-238.jar' ;;
         paper/26.2) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/36fee4f3a7020eb2e2d6f8d70d849beaf0f024d86f09302b9ccf2d96f266127e/paper-26.2-71.jar' ;;
         paper/26.1.2) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/d30fae0c74092b10855f0412ca6b265c60301a013d34bc28a2a41bf5682dd80b/paper-26.1.2-69.jar' ;;
         paper/1.21.11) printf '%s\n' 'https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar' ;;
