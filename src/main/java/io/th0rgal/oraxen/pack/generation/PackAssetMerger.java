@@ -40,12 +40,21 @@ public final class PackAssetMerger {
                 if (previous != null && previous.isJsonObject()
                         && !(event.has("replace") && event.get("replace").isJsonPrimitive()
                         && event.get("replace").getAsBoolean())) {
-                    JsonObject appended = previous.getAsJsonObject();
+                    JsonObject appended = previous.getAsJsonObject().deepCopy();
+                    boolean lowerReplaces = appended.has("replace") && appended.get("replace").isJsonPrimitive()
+                            && appended.get("replace").getAsBoolean();
+                    event.entrySet().forEach(field -> {
+                        if (field.getKey().equals("sounds")) return;
+                        if (field.getKey().equals("replace") && lowerReplaces
+                                && field.getValue().isJsonPrimitive() && !field.getValue().getAsBoolean()) return;
+                        appended.add(field.getKey(), field.getValue().deepCopy());
+                    });
                     JsonArray sounds = new JsonArray();
                     if (appended.has("sounds") && appended.get("sounds").isJsonArray())
                         appended.getAsJsonArray("sounds").forEach(sounds::add);
                     if (event.has("sounds")) event.getAsJsonArray("sounds").forEach(sound -> sounds.add(sound.deepCopy()));
                     appended.add("sounds", sounds);
+                    result.add(entry.getKey(), appended);
                 } else {
                     result.add(entry.getKey(), event.deepCopy());
                 }

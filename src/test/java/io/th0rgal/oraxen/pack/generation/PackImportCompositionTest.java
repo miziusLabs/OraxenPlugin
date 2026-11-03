@@ -188,11 +188,11 @@ class PackImportCompositionTest {
         assertEquals("test:base", modelFor(merged, Map.of("facing", "south", "powered", "false")));
     }
 
-    @Test void keepsSoundEventMetadataAndResetWhenAppending() {
+    @Test void prefersHigherSoundMetadataAndPreservesResetWhenAppending() {
         JsonObject low = JsonParser.parseString("{\"event\":{\"replace\":true,\"subtitle\":\"low\",\"sounds\":[\"a\"]}}").getAsJsonObject();
         JsonObject high = JsonParser.parseString("{\"event\":{\"replace\":false,\"subtitle\":\"high\",\"sounds\":[\"b\"]}}").getAsJsonObject();
         JsonObject event = PackAssetMerger.mergeJson("assets/test/sounds.json", low, high).getAsJsonObject("event");
-        assertEquals("low", event.get("subtitle").getAsString());
+        assertEquals("high", event.get("subtitle").getAsString());
         assertTrue(event.get("replace").getAsBoolean());
         assertEquals(JsonParser.parseString("[\"a\",\"b\"]"), event.get("sounds"));
     }
