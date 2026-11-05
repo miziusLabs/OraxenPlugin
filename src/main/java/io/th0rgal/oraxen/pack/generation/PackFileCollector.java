@@ -259,7 +259,8 @@ class PackFileCollector {
     }
 
     private void readFileToVirtuals(final Collection<VirtualFile> output, File file, String newFolder) {
-        if (exclusions.matches(packFolder.toPath().relativize(file.toPath()).toString())) return;
+        String relativePath = packFolder.toPath().relativize(file.toPath()).toString();
+        if (!relativePath.equals("pack.mcmeta") && exclusions.matches(relativePath)) return;
         try {
             final InputStream fis;
             if (file.getName().endsWith(".json"))
