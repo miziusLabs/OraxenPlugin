@@ -9,6 +9,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
 import javax.imageio.ImageIO;
@@ -22,7 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -114,5 +118,83 @@ class PackFileCollectorTest {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", output);
         return output.toByteArray();
+    }
+    @ParameterizedTest
+    @ValueSource(strings = {"modelengine:oog_pet", "modelengine:entity/oog_pet"})
+    void missingNamespacedTextureIsReportedWithoutThrowing(String reference) {
+        VirtualFile model = model("{\"textures\":{\"pet\":\"" + reference + "\"}}");
+
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+
+        assertEquals(Map.of("", Set.of(model.getPath())), malformed);
+        logs.verify(() -> Logs.logWarning(contains(reference)));
+    }
+
+    @Test
+    void existingNamespacedPngIsAcceptedAndBothStreamsRemainReadable() throws IOException {
+        byte[] png = onePixelPng();
+        String modelJson = "{\"textures\":{\"pet\":\"modelengine:entity/oog_pet\"}}";
+        VirtualFile model = model(modelJson);
+        VirtualFile texture = new VirtualFile("assets/modelengine/textures/entity", "oog_pet.png",
+                new ByteArrayInputStream(png));
+
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model, texture));
+
+        assertTrue(malformed.isEmpty());
+        assertArrayEquals(modelJson.getBytes(StandardCharsets.UTF_8), read(model));
+        assertArrayEquals(png, read(texture));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"oraxen:item/stone", "oraxen:stone"})
+    void customNamespaceDoesNotInheritVanillaMaterialExemptions(String reference) {
+        VirtualFile model = model("{\"textures\":{\"item\":\"" + reference + "\"}}");
+
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+
+        assertEquals(Map.of("", Set.of(model.getPath())), malformed);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"modelengine:entity:oog_pet", "modelengine:", ":entity/oog_pet", "modelengine:entity/oog_pet:"})
+    void malformedNamespacedReferencesAreReportedWithoutAborting(String reference) {
+        VirtualFile model = model("{\"textures\":{\"pet\":\"" + reference + "\"}}");
+
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+
+        assertEquals(Map.of("", Set.of(model.getPath())), malformed);
+    }
+
+    @Test
+    void textureVariablesAndVanillaTextureExemptionsRemainAccepted() {
+        VirtualFile model = model("{\"textures\":{"
+                + "\"variable\":\"#layer0\","
+                + "\"item\":\"item/stone\","
+                + "\"block\":\"minecraft:block/stone\","
+                + "\"entity\":\"entity/iron_golem\","
+                + "\"material\":\"minecraft:stone\""
+                + "}}");
+
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+
+        assertTrue(malformed.isEmpty());
+    }
+
+    private static VirtualFile model(String content) {
+        return new VirtualFile("assets/modelengine/models/entity", "oog_pet.json",
+                new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static byte[] onePixelPng() throws IOException {
+        BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", output);
+        return output.toByteArray();
+    }
+
+    private static byte[] read(VirtualFile file) throws IOException {
+        try (var input = file.getInputStream()) {
+            return input.readAllBytes();
+        }
     }
 }

@@ -12,7 +12,6 @@ import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.VirtualFile;
 import io.th0rgal.oraxen.utils.logs.Logs;
-import org.apache.commons.io.FilenameUtils;
 import org.bukkit.Material;
 
 import javax.imageio.ImageIO;
@@ -153,17 +152,12 @@ class PackFileCollector {
                             }
 
                             String jsonTexture = element.getAsString();
-                            if (!texturePaths.getOrDefault(layer.getKey(), Collections.emptySet())
-                                    .contains(modelPathToPackPath(jsonTexture))) {
-                                if (!jsonTexture.startsWith("#") && !jsonTexture.startsWith("item/")
-                                        && !jsonTexture.startsWith("block/") && !jsonTexture.startsWith("entity/")) {
-                                    if (Material.matchMaterial(FilenameUtils.getBaseName(jsonTexture).toUpperCase()) == null) {
-                                        Logs.logWarning("Found invalid texture-path inside model-file <blue>"
-                                                + model.getPath() + "</blue>: " + jsonTexture);
-                                        Logs.logWarning("Verify that you have a texture in said path.", true);
-                                        addMalformed(malformedFiles, assetPath, path);
-                                    }
-                                }
+                            if (isMissingTexture(jsonTexture,
+                                    texturePaths.getOrDefault(layer.getKey(), Collections.emptySet()))) {
+                                Logs.logWarning("Found invalid texture-path inside model-file <blue>"
+                                        + model.getPath() + "</blue>: " + jsonTexture);
+                                Logs.logWarning("Verify that you have a texture in said path.", true);
+                                addMalformed(malformedFiles, assetPath, path);
                             }
                         }
                     }
@@ -233,10 +227,29 @@ class PackFileCollector {
     }
 
     static String modelPathToPackPath(String modelPath) {
-        String namespace = modelPath.split(":").length == 1 ? "minecraft" : modelPath.split(":")[0];
-        String texturePath = modelPath.split(":").length == 1 ? modelPath : modelPath.split(":")[1];
+        int separator = modelPath.indexOf(':');
+        String namespace = separator < 0 ? "minecraft" : modelPath.substring(0, separator);
+        String texturePath = separator < 0 ? modelPath : modelPath.substring(separator + 1);
         texturePath = texturePath.endsWith(".png") ? texturePath : texturePath + ".png";
         return "assets/" + namespace + "/textures/" + texturePath;
+    }
+
+    private static boolean isMissingTexture(String reference, Set<String> texturePaths) {
+        if (reference.startsWith("#")) return false;
+
+        int separator = reference.indexOf(':');
+        String namespace = separator < 0 ? "minecraft" : reference.substring(0, separator);
+        String path = separator < 0 ? reference : reference.substring(separator + 1);
+        if (!namespace.matches("[a-z0-9_.-]+") || !path.matches("[a-z0-9/._-]+")) return true;
+        if (texturePaths.contains(modelPathToPackPath(reference))) return false;
+
+        // Vanilla textures are supplied by the client, but custom namespaces must exist in the pack.
+        if (!namespace.equals("minecraft")) return true;
+        if (path.startsWith("item/") || path.startsWith("block/") || path.startsWith("entity/")) return false;
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        int extension = name.lastIndexOf('.');
+        if (extension >= 0) name = name.substring(0, extension);
+        return Material.matchMaterial(name.toUpperCase(Locale.ROOT)) == null;
     }
 
     static boolean isCoreShaderPath(String path) {
