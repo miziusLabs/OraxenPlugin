@@ -8786,6 +8786,12 @@
           "type": "object",
           "description": "Placed block appearance",
           "properties": {
+            "rotation": {
+              "type": "string",
+              "description": "Full block model rotation selected on placement",
+              "values": ["none", "horizontal", "axis"],
+              "default": "none"
+            },
             "model": {
               "type": "string",
               "description": "Placed block model path"
@@ -8798,8 +8804,10 @@
         },
         "custom-variation": {
           "type": "integer",
-          "description": "Backing-state variation ID",
-          "default": 1
+          "description": "Legacy full-block variation used for migration (0-773)",
+          "default": 1,
+          "min": 0,
+          "max": 773
         },
         "breaking": {
           "type": "array",
@@ -8845,29 +8853,54 @@
             }
           }
         },
-        "block-sounds": {
+        "sounds": {
           "type": "object",
           "description": "Custom block sounds",
           "properties": {
-            "step-sound": {
-              "type": "string",
-              "description": "Sound when stepped on"
+            "place": {
+              "type": ["object", "string"],
+              "description": "Namespaced sound ID or sound, volume and pitch mapping",
+              "properties": {
+                "sound": { "type": "string" },
+                "volume": { "type": "number", "default": 1.0 },
+                "pitch": { "type": "number", "default": 1.0 }
+              }
             },
-            "place-sound": {
-              "type": "string",
-              "description": "Sound when placed"
+            "break": {
+              "type": ["object", "string"],
+              "description": "Namespaced sound ID or sound, volume and pitch mapping",
+              "properties": {
+                "sound": { "type": "string" },
+                "volume": { "type": "number", "default": 1.0 },
+                "pitch": { "type": "number", "default": 1.0 }
+              }
             },
-            "fall-sound": {
-              "type": "string",
-              "description": "Sound when fallen on"
+            "step": {
+              "type": ["object", "string"],
+              "description": "Namespaced sound ID or sound, volume and pitch mapping",
+              "properties": {
+                "sound": { "type": "string" },
+                "volume": { "type": "number", "default": 1.0 },
+                "pitch": { "type": "number", "default": 1.0 }
+              }
             },
-            "hit-sound": {
-              "type": "string",
-              "description": "Sound when hit"
+            "hit": {
+              "type": ["object", "string"],
+              "description": "Namespaced sound ID or sound, volume and pitch mapping",
+              "properties": {
+                "sound": { "type": "string" },
+                "volume": { "type": "number", "default": 1.0 },
+                "pitch": { "type": "number", "default": 1.0 }
+              }
             },
-            "break-sound": {
-              "type": "string",
-              "description": "Sound when broken"
+            "fall": {
+              "type": ["object", "string"],
+              "description": "Namespaced sound ID or sound, volume and pitch mapping",
+              "properties": {
+                "sound": { "type": "string" },
+                "volume": { "type": "number", "default": 1.0 },
+                "pitch": { "type": "number", "default": 1.0 }
+              }
             }
           }
         }

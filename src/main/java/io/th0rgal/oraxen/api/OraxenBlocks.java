@@ -1,5 +1,7 @@
 package io.th0rgal.oraxen.api;
 
+import io.th0rgal.oraxen.nms.NMSHandlers;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockRegistry;
 import com.jeff_media.morepersistentdatatypes.DataType;
 import io.th0rgal.oraxen.api.events.chorusblock.OraxenChorusBlockBreakEvent;
 import io.th0rgal.oraxen.api.events.noteblock.OraxenNoteBlockBreakEvent;
@@ -150,7 +152,7 @@ public class OraxenBlocks {
      * @return true if the itemID has a NoteBlockMechanic, otherwise false
      */
     public static boolean isOraxenNoteBlock(String itemID) {
-        return NoteBlockMechanicFactory.isEnabled() && !NoteBlockMechanicFactory.getInstance().isNotImplementedIn(itemID);
+        return getNoteBlockMechanic(itemID) != null;
     }
 
     public static boolean isOraxenNoteBlock(ItemStack item) {
@@ -633,7 +635,10 @@ public class OraxenBlocks {
     }
 
     public static NoteBlockMechanic getNoteBlockMechanic(BlockData data) {
+        if (data == null) return null;
         if (!NoteBlockMechanicFactory.isEnabled()) return null;
+        if (NativeBlockRegistry.enabled())
+            return NoteBlockMechanicFactory.getNativeMechanic(NMSHandlers.getHandler().customBlockKey(data));
         if (!(data instanceof NoteBlock noteBlock)) return null;
         return NoteBlockMechanicFactory
                 .getBlockMechanic((noteBlock.getInstrument().getType()) * 25
@@ -642,6 +647,8 @@ public class OraxenBlocks {
 
     public static NoteBlockMechanic getNoteBlockMechanic(Block block) {
         if (!NoteBlockMechanicFactory.isEnabled()) return null;
+        if (NativeBlockRegistry.enabled())
+            return getNoteBlockMechanic(block.getBlockData());
         if (block.getType() != Material.NOTE_BLOCK) return null;
         final NoteBlock noteblock = (NoteBlock) block.getBlockData();
         return NoteBlockMechanicFactory
@@ -652,8 +659,7 @@ public class OraxenBlocks {
     @org.jetbrains.annotations.Nullable
     public static NoteBlockMechanic getNoteBlockMechanic(String itemID) {
         if (!NoteBlockMechanicFactory.isEnabled()) return null;
-        Mechanic mechanic = NoteBlockMechanicFactory.getInstance().getMechanic(itemID);
-        return mechanic instanceof NoteBlockMechanic noteBlockMechanic ? noteBlockMechanic : null;
+        return NoteBlockMechanicFactory.getItemMechanic(itemID);
     }
 
     @org.jetbrains.annotations.Nullable
@@ -722,6 +728,7 @@ public class OraxenBlocks {
     }
 
     private static void createInitialLight(Block block, String itemID) {
+        if (getNoteBlockMechanic(block) != null && NativeBlockRegistry.enabled()) return;
         ToggleLightMechanic toggleLight = getToggleLightMechanic(itemID);
         if (toggleLight != null && (toggleLight.hasToggleLight() || toggleLight.getBaseLightLevel() > 0)) {
             toggleLight.updateLight(block, toggleLight.getBaseLightLevel());
@@ -732,6 +739,7 @@ public class OraxenBlocks {
     }
 
     private static void removeLight(Block block, String itemID) {
+        if (getNoteBlockMechanic(block) != null && NativeBlockRegistry.enabled()) return;
         ToggleLightMechanic toggleLight = getToggleLightMechanic(itemID);
         if (toggleLight != null && (toggleLight.hasToggleLight() || toggleLight.getBaseLightLevel() > 0)) {
             toggleLight.updateLight(block, 0);

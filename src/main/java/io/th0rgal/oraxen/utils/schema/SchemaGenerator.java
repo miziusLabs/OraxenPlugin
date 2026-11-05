@@ -1120,13 +1120,13 @@ public class SchemaGenerator {
             case DOUBLE -> "number";
             case BOOLEAN -> "boolean";
             case LIST -> "array";
-            case OBJECT, OBJECT_OR_NUMBER -> "object";
+            case OBJECT, OBJECT_OR_NUMBER, OBJECT_OR_STRING -> "object";
             case ENUM -> "string";
         };
-        if (prop.type() == MechanicConfigProperty.Type.OBJECT_OR_NUMBER) {
+        if (prop.type() == MechanicConfigProperty.Type.OBJECT_OR_NUMBER || prop.type() == MechanicConfigProperty.Type.OBJECT_OR_STRING) {
             JsonArray types = new JsonArray();
             types.add("object");
-            types.add("number");
+            types.add(prop.type() == MechanicConfigProperty.Type.OBJECT_OR_STRING ? "string" : "number");
             json.add("type", types);
         } else json.addProperty("type", type);
 

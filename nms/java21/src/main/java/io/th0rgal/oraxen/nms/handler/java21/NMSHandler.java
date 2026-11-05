@@ -93,6 +93,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     private final Listener packDispatchListener;
     private final PacketHandler packetHandler;
+    private final NativeBlockLight nativeBlockLight = new NativeBlockLight();
     private final NamespacedKey mineableTagKey;
     private final NamespacedKey blockPredictionKey;
     private static final Map<io.netty.channel.Channel, Deque<PendingBlockChange>> pendingBlockChanges = new ConcurrentHashMap<>();
@@ -138,6 +139,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                 if (msg instanceof ClientboundUpdateTagsPacket updateTagsPacket) {
                     Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload> tags = new HashMap<>(updateTagsPacket.getTags());
                     if (payload != null
+                            && !NativeCustomBlocks.enabled()
                             && NoteBlockMechanicFactory.isEnabled()
                             && NoteBlockMechanicFactory.getInstance().removeMineableTag())
                         tags.put(Registries.BLOCK, payload);
@@ -248,6 +250,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     @Override
     public void shutdown() {
+        nativeBlockLight.shutdown();
         // Unregister the listeners before touching any channel: they keep this plugin's
         // classloader alive, so a failing channel must not skip their removal.
         if (mineableTagKey != null) ChannelInitializeListenerHolder.removeListener(mineableTagKey);
@@ -277,6 +280,85 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     @Override
     public boolean tripwireUpdatesDisabled() {
         return GlobalConfiguration.get().blockUpdates.disableTripwireUpdates;
+    }
+
+    @Override
+    public void refreshNativeBlockLight(Block block) {
+        nativeBlockLight.refresh(block);
+    }
+
+    @Override
+    public void refreshNativeBlockAppearance(Block block) {
+        nativeBlockLight.refreshAppearance(block);
+    }
+
+    @Override
+    public void finishNativeBlockReload() {
+        NativeCustomBlocks.finishReload();
+    }
+
+    @Override
+    public void finishNativeBlockRegistration() {
+        // Physical slots were registered before tag loading. Copy the projected note block tags now.
+        NativeCustomBlocks.finishPhysicalBlockRegistration();
+    }
+
+    @Override
+    public boolean supportsNativeCustomBlocks() {
+        return true;
+    }
+
+    @Override
+    public Collection<io.th0rgal.oraxen.nms.NMSHandler.ChunkCoordinate> loadedChunkCoordinates(World world) {
+        if (!VersionUtil.isFoliaServer())
+            return io.th0rgal.oraxen.nms.NMSHandler.super.loadedChunkCoordinates(world);
+
+        try {
+            ServerLevel level = ((CraftWorld) world).getHandle();
+            Object chunkIndex = readLoadedChunkIndex(level.getChunkSource());
+            Method keyIteratorMethod = chunkIndex.getClass().getMethod("keyIterator");
+            PrimitiveIterator.OfLong keys = (PrimitiveIterator.OfLong) keyIteratorMethod.invoke(chunkIndex);
+            List<io.th0rgal.oraxen.nms.NMSHandler.ChunkCoordinate> coordinates = new ArrayList<>();
+            while (keys.hasNext()) {
+                long key = keys.nextLong();
+                coordinates.add(new io.th0rgal.oraxen.nms.NMSHandler.ChunkCoordinate(
+                        net.minecraft.world.level.ChunkPos.getX(key), net.minecraft.world.level.ChunkPos.getZ(key)));
+            }
+            return List.copyOf(coordinates);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not enumerate loaded chunk coordinates on Folia", exception);
+        }
+    }
+
+    private static Object readLoadedChunkIndex(Object chunkSource) throws ReflectiveOperationException {
+        Field field = chunkSource.getClass().getDeclaredField("fullChunks");
+        field.setAccessible(true);
+        return Objects.requireNonNull(field.get(chunkSource), "Folia loaded chunk index");
+    }
+
+    @Override
+    public void registerCustomBlock(String key, int slot, BlockData appearance, int light) {
+        NativeCustomBlocks.register(key, slot, appearance, light);
+    }
+
+    @Override
+    public void registerCustomBlocks(java.util.List<CustomBlockRegistration> registrations) {
+        NativeCustomBlocks.registerAll(registrations);
+    }
+
+    @Override
+    public BlockData customBlockData(String key) {
+        return NativeCustomBlocks.data(key);
+    }
+
+    @Override
+    public String customBlockKey(BlockData data) {
+        return NativeCustomBlocks.key(data);
+    }
+
+    @Override
+    public void restoreVanillaNoteBlockUpdates() {
+        GlobalConfiguration.get().blockUpdates.disableNoteblockUpdates = false;
     }
 
     @Override

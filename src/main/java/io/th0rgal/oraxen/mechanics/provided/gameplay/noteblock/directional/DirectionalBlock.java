@@ -41,7 +41,7 @@ public class DirectionalBlock {
     public String getParentBlock() { return parentBlock; }
     public NoteBlockMechanic getParentMechanic() {
         if (parentBlock == null) return null;
-        else return (NoteBlockMechanic) NoteBlockMechanicFactory.getInstance().getMechanic(parentBlock);
+        else return NoteBlockMechanicFactory.getItemMechanic(parentBlock);
     }
 
     public DirectionalType getDirectionalType() { return directionalType; }
@@ -105,7 +105,7 @@ public class DirectionalBlock {
     }
 
     private int getDirectionVariation(String id) {
-        return ((NoteBlockMechanic) NoteBlockMechanicFactory.getInstance().getMechanic(id)).getCustomVariation();
+        return NoteBlockMechanicFactory.getItemMechanic(id).getCustomVariation();
     }
 
     public String getDirectionalModel(NoteBlockMechanic mechanic) {

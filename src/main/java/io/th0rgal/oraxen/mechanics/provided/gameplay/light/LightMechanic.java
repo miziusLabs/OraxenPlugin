@@ -35,6 +35,8 @@ public class LightMechanic {
     }
 
     public void createBlockLight(Block block) {
+        if (io.th0rgal.oraxen.mechanics.provided.gameplay.block.NativeBlockRegistry.enabled()
+                && OraxenBlocks.getNoteBlockMechanic(block) != null) return;
         if (!hasLightLevel()) return;
         createBlockLight(block, lightLevel);
     }

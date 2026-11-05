@@ -752,6 +752,7 @@ public class FurnitureMechanic extends Mechanic {
             setEntityData(e, yaw, displayItem, resolvedFacing);
             if (registerText) FurnitureTextRegistry.register(e, textDefinitions);
         });
+        FurnitureEntityIndex.track(baseEntity);
         if (this.isModelEngine() && PluginUtils.isEnabled("ModelEngine")) {
             spawnModelEngineFurniture(baseEntity);
         }

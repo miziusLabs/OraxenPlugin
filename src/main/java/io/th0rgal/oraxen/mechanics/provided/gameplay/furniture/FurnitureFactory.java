@@ -30,7 +30,7 @@ import java.util.Map;
 public class FurnitureFactory extends MechanicFactory {
 
     public static FurnitureMechanic.FurnitureType defaultFurnitureType;
-    public static FurnitureFactory instance;
+    public static volatile FurnitureFactory instance;
     public final List<String> toolTypes;
     public final int evolutionCheckDelay;
     private boolean evolvingFurnitures;
@@ -91,17 +91,16 @@ public class FurnitureFactory extends MechanicFactory {
     }
 
     private static void registerLoadedFurnitureText() {
-        // OraxenItemsLoadedEvent fires on the global thread (startup) or a
-        // command thread (reload). Enumerating the world entity list is a safe
-        // snapshot read, but registering reads entity PDC and, for missing
-        // viewers, Entity#getTrackedBy, which Folia thread-checks against the
-        // owning region; hop to each entity's scheduler before touching it.
+        if (VersionUtil.isFoliaServer()) {
+            FurnitureEntityIndex.forEachLoaded(entity -> {
+                if (OraxenFurniture.isBaseEntity(entity)) registerTextEntity(entity, true);
+            });
+            return;
+        }
         for (org.bukkit.World world : Bukkit.getWorlds()) {
             for (Entity entity : world.getEntities()) {
-                SchedulerUtil.runForEntity(entity, () -> {
-                    if (!OraxenFurniture.isBaseEntity(entity)) return;
-                    registerTextEntity(entity, true);
-                });
+                if (!OraxenFurniture.isBaseEntity(entity)) continue;
+                registerTextEntity(entity, true);
             }
         }
     }

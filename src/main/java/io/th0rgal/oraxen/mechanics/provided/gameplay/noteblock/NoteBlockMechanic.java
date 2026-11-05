@@ -84,10 +84,19 @@ public class NoteBlockMechanic extends Mechanic {
         storage = storageSection != null ? new StorageMechanic(storageSection) : null;
 
         ConfigurationSection blockSoundsSection = section.getConfigurationSection("block_sounds");
-        blockSounds = blockSoundsSection != null ? new BlockSounds(blockSoundsSection) : null;
+        blockSounds = defaultBlockSounds(section, blockSoundsSection);
 
         ConfigurationSection blockLockerSection = section.getConfigurationSection("blocklocker");
         blockLocker = blockLockerSection != null ? new BlockLockerMechanic(blockLockerSection) : null;
+    }
+
+    private static BlockSounds defaultBlockSounds(ConfigurationSection section, ConfigurationSection legacy) {
+        ConfigurationSection modern = section.getConfigurationSection("sounds");
+        if (modern == null && legacy != null) return new BlockSounds(legacy);
+        ConfigurationSection defaults = new org.bukkit.configuration.file.YamlConfiguration().createSection("sounds");
+        for (String action : List.of("break", "place", "hit", "step", "fall"))
+            defaults.set(action, modern != null && modern.contains(action) ? modern.get(action) : "minecraft:block.stone." + action);
+        return BlockSounds.fromSounds(defaults);
     }
 
     public boolean canPlaceOn(org.bukkit.block.BlockFace face) { return placeable == null || placeable.canPlaceOn(face); }
@@ -129,7 +138,8 @@ public class NoteBlockMechanic extends Mechanic {
         if (model != null)
             return model;
         // use the itemstack model if block model isn't set
-        return OraxenYaml.getString(section, "pack.model");
+        String itemModel = OraxenYaml.getString(section, "pack.model");
+        return itemModel != null ? itemModel : getItemID();
     }
 
     public int getCustomVariation() {

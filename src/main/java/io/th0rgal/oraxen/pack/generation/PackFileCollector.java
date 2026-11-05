@@ -21,7 +21,6 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Collects files from the pack folder into VirtualFile objects and provides
@@ -81,82 +80,88 @@ class PackFileCollector {
         return false;
     }
 
-    static Set<String> verifyPackFormatting(List<VirtualFile> output) {
+    static Map<String, Set<String>> verifyPackFormatting(List<VirtualFile> output) {
         if (Settings.DEBUG.toBool()) Logs.logInfo("Verifying formatting for textures and models...");
-        Set<VirtualFile> textures = new HashSet<>();
+        Map<String, List<VirtualFile>> textures = new LinkedHashMap<>();
         Set<String> texturePaths = new HashSet<>();
-        Set<String> mcmeta = new HashSet<>();
-        Set<VirtualFile> models = new HashSet<>();
-        Set<VirtualFile> malformedTextures = new HashSet<>();
-        Set<VirtualFile> malformedModels = new HashSet<>();
+        Map<String, Set<String>> mcmeta = new LinkedHashMap<>();
+        Map<String, List<VirtualFile>> models = new LinkedHashMap<>();
+        Map<String, Set<String>> malformedFiles = new LinkedHashMap<>();
         for (VirtualFile virtualFile : output) {
-            String path = virtualFile.getPath();
+            PackPipeline.AssetPath assetPath = PackPipeline.splitAssetPath(virtualFile.getPath());
+            if (assetPath == null) continue;
+            String path = assetPath.path();
             if (path.matches("assets/.*/models/.*.json"))
-                models.add(virtualFile);
+                models.computeIfAbsent(assetPath.prefix(), ignored -> new ArrayList<>()).add(virtualFile);
             else if (path.matches("assets/.*/textures/.*.png.mcmeta"))
-                mcmeta.add(path);
+                mcmeta.computeIfAbsent(assetPath.prefix(), ignored -> new HashSet<>()).add(path);
             else if (path.matches("assets/.*/textures/.*.png")) {
-                textures.add(virtualFile);
+                textures.computeIfAbsent(assetPath.prefix(), ignored -> new ArrayList<>()).add(virtualFile);
                 texturePaths.add(path);
             }
         }
 
         if (models.isEmpty() && !textures.isEmpty())
-            return Collections.emptySet();
+            return Collections.emptyMap();
 
-        for (VirtualFile model : models) {
-            if (!model.getPath().matches("[a-z0-9/._-]+")) {
-                Logs.logWarning("Found invalid model at <blue>" + model.getPath());
-                Logs.logError("Model-paths must only contain characters [a-z0-9/._-]");
-                malformedModels.add(model);
-            }
-
-            String content;
-            try {
-                InputStream inputStream = model.getInputStream();
-                if (inputStream == null) {
-                    content = "";
-                } else {
-                    byte[] data;
-                    try (inputStream) {
-                        data = inputStream.readAllBytes();
-                    }
-                    // Important: restore stream for later zip writing
-                    model.setInputStream(new ByteArrayInputStream(data));
-                    content = new String(data, StandardCharsets.UTF_8);
+        for (Map.Entry<String, List<VirtualFile>> layer : models.entrySet()) {
+            for (VirtualFile model : layer.getValue()) {
+                PackPipeline.AssetPath assetPath = PackPipeline.splitAssetPath(model.getPath());
+                String path = assetPath.path();
+                if (!path.matches("[a-z0-9/._-]+")) {
+                    Logs.logWarning("Found invalid model at <blue>" + model.getPath());
+                    Logs.logError("Model-paths must only contain characters [a-z0-9/._-]");
+                    addMalformed(malformedFiles, assetPath, path);
                 }
-            } catch (Exception e) {
-                content = "";
-            }
 
-            if (!content.isEmpty()) {
-                JsonObject jsonModel;
+                String content;
                 try {
-                    jsonModel = JsonParser.parseString(content).getAsJsonObject();
-                } catch (JsonSyntaxException e) {
-                    Logs.logError("Found malformed json at <red>" + model.getPath() + "</red>");
-                    e.printStackTrace();
-                    continue;
-                }
-                if (jsonModel.has("textures")) {
-                    for (JsonElement element : jsonModel.getAsJsonObject("textures").entrySet().stream()
-                            .map(Map.Entry::getValue).toList()) {
-                        if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
-                            Logs.logWarning("Found invalid texture-path inside model-file <blue>"
-                                    + model.getPath() + "</blue>: " + element);
-                            malformedModels.add(model);
-                            continue;
+                    InputStream inputStream = model.getInputStream();
+                    if (inputStream == null) {
+                        content = "";
+                    } else {
+                        byte[] data;
+                        try (inputStream) {
+                            data = inputStream.readAllBytes();
                         }
+                        // Important: restore stream for later zip writing
+                        model.setInputStream(new ByteArrayInputStream(data));
+                        content = new String(data, StandardCharsets.UTF_8);
+                    }
+                } catch (Exception e) {
+                    content = "";
+                }
 
-                        String jsonTexture = element.getAsString();
-                        if (!texturePaths.contains(modelPathToPackPath(jsonTexture))) {
-                            if (!jsonTexture.startsWith("#") && !jsonTexture.startsWith("item/")
-                                    && !jsonTexture.startsWith("block/") && !jsonTexture.startsWith("entity/")) {
-                                if (Material.matchMaterial(FilenameUtils.getBaseName(jsonTexture).toUpperCase()) == null) {
-                                    Logs.logWarning("Found invalid texture-path inside model-file <blue>"
-                                            + model.getPath() + "</blue>: " + jsonTexture);
-                                    Logs.logWarning("Verify that you have a texture in said path.", true);
-                                    malformedModels.add(model);
+                if (!content.isEmpty()) {
+                    JsonObject jsonModel;
+                    try {
+                        jsonModel = JsonParser.parseString(content).getAsJsonObject();
+                    } catch (JsonSyntaxException e) {
+                        Logs.logError("Found malformed json at <red>" + model.getPath() + "</red>");
+                        e.printStackTrace();
+                        addMalformed(malformedFiles, assetPath, path);
+                        continue;
+                    }
+                    if (jsonModel.has("textures")) {
+                        for (JsonElement element : jsonModel.getAsJsonObject("textures").entrySet().stream()
+                                .map(Map.Entry::getValue).toList()) {
+                            if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
+                                Logs.logWarning("Found invalid texture-path inside model-file <blue>"
+                                        + model.getPath() + "</blue>: " + element);
+                                addMalformed(malformedFiles, assetPath, path);
+                                continue;
+                            }
+
+                            String jsonTexture = element.getAsString();
+                            if (!texturePaths.contains(modelPathToPackPath(jsonTexture))) {
+                                if (!jsonTexture.startsWith("#") && !jsonTexture.startsWith("item/")
+                                        && !jsonTexture.startsWith("block/") && !jsonTexture.startsWith("entity/")) {
+                                    if (Material.matchMaterial(FilenameUtils.getBaseName(jsonTexture).toUpperCase()) == null) {
+                                        Logs.logWarning("Found invalid texture-path inside model-file <blue>"
+                                                + model.getPath() + "</blue>: " + jsonTexture);
+                                        Logs.logWarning("Verify that you have a texture in said path.", true);
+                                        addMalformed(malformedFiles, assetPath, path);
+                                    }
                                 }
                             }
                         }
@@ -165,60 +170,65 @@ class PackFileCollector {
             }
         }
 
-        for (VirtualFile texture : textures) {
-            if (!texture.getPath().matches("[a-z0-9/._-]+")) {
-                Logs.logWarning("Found invalid texture at <blue>" + texture.getPath());
-                Logs.logError("Texture-paths must only contain characters [a-z0-9/._-]");
-                malformedTextures.add(texture);
-            }
-            if (!texture.getPath().matches(".*_layer_.*.png")) {
-                if (mcmeta.contains(texture.getPath() + ".mcmeta"))
-                    continue;
-                try {
-                    InputStream inputStream = texture.getInputStream();
-                    if (inputStream == null) {
-                        Logs.logWarning("Found unreadable texture at <blue>" + texture.getPath() + "</blue>");
-                        malformedTextures.add(texture);
+        for (Map.Entry<String, List<VirtualFile>> layer : textures.entrySet()) {
+            for (VirtualFile texture : layer.getValue()) {
+                PackPipeline.AssetPath assetPath = PackPipeline.splitAssetPath(texture.getPath());
+                String path = assetPath.path();
+                if (!path.matches("[a-z0-9/._-]+")) {
+                    Logs.logWarning("Found invalid texture at <blue>" + texture.getPath());
+                    Logs.logError("Texture-paths must only contain characters [a-z0-9/._-]");
+                    addMalformed(malformedFiles, assetPath, path);
+                }
+                if (!path.matches(".*_layer_.*.png")) {
+                    if (mcmeta.getOrDefault(layer.getKey(), Collections.emptySet()).contains(path + ".mcmeta"))
                         continue;
-                    }
+                    try {
+                        InputStream inputStream = texture.getInputStream();
+                        if (inputStream == null) {
+                            Logs.logWarning("Found unreadable texture at <blue>" + texture.getPath() + "</blue>");
+                            addMalformed(malformedFiles, assetPath, path);
+                            continue;
+                        }
 
-                    byte[] data;
-                    try (inputStream) {
-                        data = inputStream.readAllBytes();
-                    }
-                    // Important: restore stream for later zip writing
-                    texture.setInputStream(new ByteArrayInputStream(data));
+                        byte[] data;
+                        try (inputStream) {
+                            data = inputStream.readAllBytes();
+                        }
+                        // Important: restore stream for later zip writing
+                        texture.setInputStream(new ByteArrayInputStream(data));
 
-                    // ImageIO.read returns null if there is no suitable reader
-                    // (corrupt/unsupported)
-                    BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
-                    if (image == null) {
-                        Logs.logWarning("Found unreadable texture at <blue>" + texture.getPath() + "</blue>");
-                        Logs.logWarning("Image format may be corrupt or unsupported by ImageIO.", true);
-                        malformedTextures.add(texture);
-                        continue;
+                        // ImageIO.read returns null if there is no suitable reader
+                        BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
+                        if (image == null) {
+                            Logs.logWarning("Found unreadable texture at <blue>" + texture.getPath() + "</blue>");
+                            Logs.logWarning("Image format may be corrupt or unsupported by ImageIO.", true);
+                            addMalformed(malformedFiles, assetPath, path);
+                            continue;
+                        }
+                    } catch (Exception e) {
+                        // Be resilient when validating packs: bad files should not crash pack
+                        // generation
+                        Logs.logWarning("Failed to validate texture <blue>" + texture.getPath() + "</blue>");
+                        if (Settings.DEBUG.toBool())
+                            e.printStackTrace();
+                        addMalformed(malformedFiles, assetPath, path);
                     }
-
-                } catch (Exception e) {
-                    // Be resilient when validating packs: bad files should not crash pack
-                    // generation
-                    Logs.logWarning("Failed to validate texture <blue>" + texture.getPath() + "</blue>");
-                    if (Settings.DEBUG.toBool())
-                        e.printStackTrace();
-                    malformedTextures.add(texture);
                 }
             }
         }
 
-        if (!malformedTextures.isEmpty() || !malformedModels.isEmpty()) {
+        if (!malformedFiles.isEmpty()) {
             Logs.logError("Pack contains malformed texture(s) and/or model(s)");
             Logs.logError("These need to be fixed, otherwise the resourcepack will be broken");
         } else
             Logs.logSuccess("No broken models or textures were found in the resourcepack");
 
-        Set<String> malformedFiles = malformedTextures.stream().map(VirtualFile::getPath).collect(Collectors.toSet());
-        malformedFiles.addAll(malformedModels.stream().map(VirtualFile::getPath).collect(Collectors.toSet()));
         return malformedFiles;
+    }
+
+    private static void addMalformed(Map<String, Set<String>> malformedFiles,
+                                     PackPipeline.AssetPath assetPath, String path) {
+        malformedFiles.computeIfAbsent(assetPath.prefix(), ignored -> new HashSet<>()).add(path);
     }
 
     static String modelPathToPackPath(String modelPath) {

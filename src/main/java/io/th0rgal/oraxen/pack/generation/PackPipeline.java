@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Composes native additive resources. The first file has the highest priority. */
@@ -58,23 +59,27 @@ final class PackPipeline {
     }
 
     static void processSnapshots(List<VirtualFile> files, Consumer<List<VirtualFile>> processor) {
+        processSnapshots(files, (prefix, snapshot) -> processor.accept(snapshot));
+    }
+
+    static void processSnapshots(List<VirtualFile> files, BiConsumer<String, List<VirtualFile>> processor) {
         Map<String, List<VirtualFile>> snapshots = new LinkedHashMap<>();
         snapshots.put("", new ArrayList<>());
         List<VirtualFile> retained = new ArrayList<>();
         for (VirtualFile file : files) {
-            int assets = file.getPath().startsWith("assets/") ? 0 : file.getPath().indexOf("/assets/") + 1;
-            if (assets == 0 && !file.getPath().startsWith("assets/")) {
+            AssetPath assetPath = splitAssetPath(file.getPath());
+            if (assetPath == null) {
                 retained.add(file);
                 continue;
             }
-            String prefix = file.getPath().substring(0, assets);
-            String path = file.getPath().substring(assets);
+            String prefix = assetPath.prefix();
+            String path = assetPath.path();
             int slash = path.lastIndexOf('/');
             snapshots.computeIfAbsent(prefix, ignored -> new ArrayList<>()).add(new VirtualFile(
                     path.substring(0, slash), path.substring(slash + 1), file.getInputStream()));
         }
         snapshots.forEach((prefix, snapshot) -> {
-            processor.accept(snapshot);
+            processor.accept(prefix, snapshot);
             for (VirtualFile file : snapshot) {
                 if (!prefix.isEmpty()) file.setPath(prefix + file.getPath());
                 retained.add(file);
@@ -83,6 +88,16 @@ final class PackPipeline {
         files.clear();
         files.addAll(retained);
     }
+
+    static AssetPath splitAssetPath(String path) {
+        if (path.startsWith("assets/")) return new AssetPath("", path);
+        int assets = path.indexOf("/assets/");
+        if (assets < 0) return null;
+        int pathStart = assets + 1;
+        return new AssetPath(path.substring(0, pathStart), path.substring(pathStart));
+    }
+
+    record AssetPath(String prefix, String path) {}
 
     /** Removes generated overlay resources that already resolve from lower priority packs. */
     static void sparsifyGeneratedOverlays(List<VirtualFile> files, JsonArray generatedEntries) {

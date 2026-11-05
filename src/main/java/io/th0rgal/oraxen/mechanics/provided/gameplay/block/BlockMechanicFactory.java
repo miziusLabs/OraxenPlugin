@@ -64,7 +64,7 @@ public class BlockMechanicFactory extends MechanicFactory {
     public Mechanic parse(ConfigurationSection itemMechanicConfiguration) {
         normalizeAliases(itemMechanicConfiguration);
 
-        BlockType type = BlockType.fromConfig(itemMechanicConfiguration.getString("type"));
+        BlockType type = BlockType.fromConfig(itemMechanicConfiguration.getString("type", "FULL"));
         if (type == null) {
             Logs.logError("The block mechanic of " + itemId(itemMechanicConfiguration)
                     + " requires a valid type.");
@@ -88,6 +88,7 @@ public class BlockMechanicFactory extends MechanicFactory {
 
     private void normalizeAliases(ConfigurationSection section) {
         copyIfPresent(section, "custom-variation", "custom_variation");
+        if (section.contains("sounds")) section.set("block_sounds", section.get("sounds"));
         copyIfPresent(section, "block-sounds", "block_sounds");
         copyIfPresent(section, "limited-placing", "limited_placing");
         copyIfPresent(section, "can-ignite", "can_ignite");
@@ -145,9 +146,12 @@ public class BlockMechanicFactory extends MechanicFactory {
                         List.of("FULL", "STAIR", "SLAB", "DOOR", "TRAPDOOR", "GRATE", "BULB", "STRING", "CHORUS")),
                 MechanicConfigProperty.object("appearance", "Placed block appearance", Map.of(
                         "model", MechanicConfigProperty.string("model", "Placed block model path"),
+                        "rotation", MechanicConfigProperty.builder("rotation", MechanicConfigProperty.Type.ENUM)
+                                .description("Full block model rotation selected on placement")
+                                .enumValues("none", "horizontal", "axis").defaultValue("none").build(),
                         "textures", MechanicConfigProperty.list("textures", "Placed block textures")
                 )),
-                MechanicConfigProperty.integer("custom-variation", "Backing-state variation ID", 1),
+                MechanicConfigProperty.integer("custom-variation", "Legacy full-block variation used for migration (0-773)", 1, 0, 773),
                 MechanicConfigProperty.list("breaking", "Ordered block breaking rules"),
                 MechanicConfigProperty.list("events", "Click events with actions to run when the placed block is clicked"),
                 MechanicConfigProperty.integer("light", "Light level emitted by the placed block (0-15, 0 disables)", 0, 0, 15),
@@ -158,16 +162,25 @@ public class BlockMechanicFactory extends MechanicFactory {
                         "allow", MechanicConfigProperty.list("allow", "Vanilla block IDs this block may be placed against"),
                         "disallow", MechanicConfigProperty.list("disallow", "Vanilla block IDs this block may not be placed against")
                 )),
-                MechanicConfigProperty.object("block-sounds", "Custom block sounds", Map.of(
-                        "place-sound", MechanicConfigProperty.string("place-sound", "Sound when placed"),
-                        "break-sound", MechanicConfigProperty.string("break-sound", "Sound when broken"),
-                        "step-sound", MechanicConfigProperty.string("step-sound", "Sound when stepped on"),
-                        "hit-sound", MechanicConfigProperty.string("hit-sound", "Sound when hit"),
-                        "fall-sound", MechanicConfigProperty.string("fall-sound", "Sound when fallen on")
+                MechanicConfigProperty.object("sounds", "Custom block sounds", Map.of(
+                        "place", soundProperty("place", "Sound when placed"),
+                        "break", soundProperty("break", "Sound when broken"),
+                        "step", soundProperty("step", "Sound when stepped on"),
+                        "hit", soundProperty("hit", "Sound when hit"),
+                        "fall", soundProperty("fall", "Sound when fallen on")
                 ))
         );
     }
 
+    private static MechanicConfigProperty soundProperty(String name, String description) {
+        return MechanicConfigProperty.builder(name, MechanicConfigProperty.Type.OBJECT_OR_STRING)
+                .description(description + ", as a namespaced sound ID or a sound, volume and pitch mapping")
+                .nested(Map.of(
+                        "sound", MechanicConfigProperty.string("sound", "Namespaced sound ID"),
+                        "volume", MechanicConfigProperty.decimal("volume", "Playback volume", 1.0),
+                        "pitch", MechanicConfigProperty.decimal("pitch", "Playback pitch", 1.0)))
+                .build();
+    }
     private enum BlockType {
         FULL,
         STAIR,
