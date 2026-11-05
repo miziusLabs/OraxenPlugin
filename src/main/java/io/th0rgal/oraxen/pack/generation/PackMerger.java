@@ -19,6 +19,7 @@ public class PackMerger {
     private static final long MINOR_SCALE = 1L << 31;
     private static final long MAX_FORMAT = Integer.MAX_VALUE * MINOR_SCALE + MINOR_SCALE - 1;
     private final File uploadsDirectory;
+    private final PackExclusions exclusions;
     private final List<Layer> layers = new ArrayList<>();
     private final JsonArray mergedOverlayEntries = new JsonArray();
     private final JsonObject languageMetadata = new JsonObject();
@@ -29,7 +30,12 @@ public class PackMerger {
     private record Overlay(JsonObject declaration, long min, long max, Map<String, byte[]> files) {}
     private record Layer(Map<String, byte[]> base, List<Overlay> overlays, JsonObject metadata) {}
 
-    public PackMerger(File packFolder) { uploadsDirectory = new File(packFolder, "uploads"); }
+    public PackMerger(File packFolder) { this(packFolder, PackExclusions.load()); }
+
+    PackMerger(File packFolder, PackExclusions exclusions) {
+        uploadsDirectory = new File(packFolder, "uploads");
+        this.exclusions = exclusions;
+    }
 
     public void setConvertLegacyItemModels(boolean convertLegacyItemModels) {
         this.convertLegacyItemModels = convertLegacyItemModels;
@@ -68,7 +74,7 @@ public class PackMerger {
         }
     }
 
-    private void importEntries(Map<String, byte[]> entries, boolean includeIcon, boolean removeCoreShaders) {
+    private void importEntries(Map<String, byte[]> entries, boolean includeIcon, boolean applyExclusions) {
             List<String> roots = roots(entries);
             for (String root : roots) {
                 JsonObject metadata = object(entries.get(root + "pack.mcmeta"));
@@ -85,12 +91,12 @@ public class PackMerger {
                             if (!safePath(directory) || directory.contains("/")) continue;
                             long[] range = range(declaration);
                             if (range == null || range[0] < 0 || range[0] > range[1]) continue;
-                            overlays.add(new Overlay(declaration.deepCopy(), range[0], range[1], collect(entries, root + directory + "/", removeCoreShaders)));
+                            overlays.add(new Overlay(declaration.deepCopy(), range[0], range[1], collect(entries, root + directory + "/", applyExclusions)));
                         }
                     }
                 }
-                Map<String, byte[]> base = collect(entries, root, removeCoreShaders);
-                if (includeIcon && entries.containsKey(root + "pack.png")) base.put("pack.png", entries.get(root + "pack.png"));
+                Map<String, byte[]> base = collect(entries, root, applyExclusions);
+                if (includeIcon && (!applyExclusions || !exclusions.matches("pack.png")) && entries.containsKey(root + "pack.png")) base.put("pack.png", entries.get(root + "pack.png"));
                 layers.add(new Layer(base, overlays, metadata));
                 if (metadata.has("language") && metadata.get("language").isJsonObject())
                     metadata.getAsJsonObject("language").entrySet().forEach(entry ->
@@ -166,12 +172,12 @@ public class PackMerger {
         return new ArrayList<>(roots);
     }
 
-    private Map<String, byte[]> collect(Map<String, byte[]> entries, String prefix, boolean removeCoreShaders) {
+    private Map<String, byte[]> collect(Map<String, byte[]> entries, String prefix, boolean applyExclusions) {
         Map<String, byte[]> result = new LinkedHashMap<>();
         for (var entry : entries.entrySet()) {
             if (!entry.getKey().startsWith(prefix + "assets/")) continue;
             String path = entry.getKey().substring(prefix.length());
-            if (removeCoreShaders && Boolean.TRUE.equals(Settings.REMOVE_CORE_SHADERS_FROM_IMPORTED_PACKS.getValue()) && PackFileCollector.isCoreShaderPath(path)) continue;
+            if (applyExclusions && exclusions.matches(path)) continue;
             result.put(path, entry.getValue());
         }
         return result;

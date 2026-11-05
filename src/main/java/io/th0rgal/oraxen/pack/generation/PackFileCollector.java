@@ -29,9 +29,15 @@ import java.util.*;
 class PackFileCollector {
 
     private final File packFolder;
+    private final PackExclusions exclusions;
 
     PackFileCollector(File packFolder) {
+        this(packFolder, PackExclusions.load());
+    }
+
+    PackFileCollector(File packFolder, PackExclusions exclusions) {
         this.packFolder = packFolder;
+        this.exclusions = exclusions;
     }
 
     void getAllFiles(File dir, Collection<VirtualFile> fileList, String newFolder, String... excluded) {
@@ -252,12 +258,8 @@ class PackFileCollector {
         return Material.matchMaterial(name.toUpperCase(Locale.ROOT)) == null;
     }
 
-    static boolean isCoreShaderPath(String path) {
-        return path.startsWith("assets/minecraft/shaders/core/")
-                || path.matches("[^/]+/assets/minecraft/shaders/core/.*");
-    }
-
     private void readFileToVirtuals(final Collection<VirtualFile> output, File file, String newFolder) {
+        if (exclusions.matches(packFolder.toPath().relativize(file.toPath()).toString())) return;
         try {
             final InputStream fis;
             if (file.getName().endsWith(".json"))
@@ -266,13 +268,6 @@ class PackFileCollector {
                 fis = new FileInputStream(file);
 
             String parentPath = getZipFilePath(file.getParentFile().getCanonicalPath(), newFolder);
-            String virtualPath = parentPath.isEmpty() ? file.getName() : parentPath + "/" + file.getName();
-            if (Boolean.TRUE.equals(Settings.REMOVE_CORE_SHADERS_FROM_IMPORTED_PACKS.getValue())
-                    && isCoreShaderPath(virtualPath)) {
-                fis.close();
-                return;
-            }
-
             output.add(new VirtualFile(parentPath, file.getName(), fis));
         } catch (IOException e) {
             e.printStackTrace();

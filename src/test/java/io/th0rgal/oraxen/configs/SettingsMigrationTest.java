@@ -190,6 +190,112 @@ class SettingsMigrationTest {
     }
 
     @Test
+    void migratesBothCoreShaderBooleanPathsInBothDirections() {
+        for (String oldPath : List.of(
+                "Pack.import.remove_core_shaders_from_imported_packs",
+                "pack.import.exclude.core-shaders")) {
+            for (boolean enabled : List.of(false, true)) {
+                YamlConfiguration settings = new YamlConfiguration();
+                settings.set(oldPath, enabled);
+
+                assertTrue(SettingsMigration.migrate(settings));
+                assertEquals(enabled
+                                ? List.of("**/assets/minecraft/shaders/core/**")
+                                : List.of(),
+                        settings.getList("pack.import.exclude"));
+                assertFalse(settings.contains("Pack.import.remove_core_shaders_from_imported_packs", true));
+                assertFalse(settings.contains("pack.import.exclude.core-shaders", true));
+                String migrated = settings.saveToString();
+                assertFalse(SettingsMigration.migrate(settings));
+                assertEquals(migrated, settings.saveToString());
+            }
+        }
+    }
+
+    @Test
+    void intermediateCoreShaderBooleanWinsConflicts() {
+        for (boolean intermediateValue : List.of(false, true)) {
+            YamlConfiguration settings = new YamlConfiguration();
+            settings.set("Pack.import.remove_core_shaders_from_imported_packs", !intermediateValue);
+            settings.set("pack.import.exclude.core-shaders", intermediateValue);
+
+            assertTrue(SettingsMigration.migrate(settings));
+            assertEquals(intermediateValue
+                            ? List.of("**/assets/minecraft/shaders/core/**")
+                            : List.of(),
+                    settings.getList("pack.import.exclude"));
+            assertFalse(settings.contains("Pack.import.remove_core_shaders_from_imported_packs", true));
+            assertFalse(settings.contains("pack.import.exclude.core-shaders", true));
+        }
+    }
+
+    @Test
+    void explicitExclusionListsWinAndRemainUnchanged() {
+        for (List<String> exclusions : List.<List<String>>of(
+                List.of("custom/**/*.psd", "**/assets/minecraft/shaders/core/**"), List.of())) {
+            YamlConfiguration settings = new YamlConfiguration();
+            settings.set("pack.import.exclude", exclusions);
+            settings.set("Pack.import.remove_core_shaders_from_imported_packs", true);
+
+            assertTrue(SettingsMigration.migrate(settings));
+            assertEquals(exclusions, settings.getList("pack.import.exclude"));
+            assertFalse(settings.contains("Pack.import.remove_core_shaders_from_imported_packs", true));
+            String migrated = settings.saveToString();
+            assertFalse(SettingsMigration.migrate(settings));
+            assertEquals(migrated, settings.saveToString());
+        }
+    }
+
+    @Test
+    void migratedExclusionsSurviveDefaultInsertionAndDefaultsFillOnlyMissingChoice() throws Exception {
+        YamlConfiguration defaults = resource("/settings.yml");
+        List<?> defaultExclusions = defaults.getList("pack.import.exclude");
+        assertNotNull(defaultExclusions);
+        assertFalse(defaultExclusions.isEmpty());
+
+        // No old choice means the new defaults are inserted.
+        YamlConfiguration defaultedSettings = new YamlConfiguration();
+        assertFalse(SettingsMigration.migrate(defaultedSettings));
+        mergeSettingsDefaults(defaultedSettings, defaults);
+        assertEquals(defaultExclusions, defaultedSettings.getList("pack.import.exclude"));
+
+        for (boolean enabled : List.of(false, true)) {
+            YamlConfiguration settings = new YamlConfiguration();
+            settings.set("Pack.import.remove_core_shaders_from_imported_packs", enabled);
+            assertTrue(SettingsMigration.migrate(settings));
+            List<?> expected = enabled
+                    ? List.of("**/assets/minecraft/shaders/core/**")
+                    : List.of();
+            mergeSettingsDefaults(settings, defaults);
+            assertEquals(expected, settings.getList("pack.import.exclude"));
+
+            String withDefaults = settings.saveToString();
+            YamlConfiguration reloaded = new YamlConfiguration();
+            reloaded.loadFromString(withDefaults);
+            String reloadedSerialized = reloaded.saveToString();
+            assertFalse(SettingsMigration.migrate(reloaded));
+            assertEquals(reloadedSerialized, reloaded.saveToString());
+        }
+    }
+
+    private static void mergeSettingsDefaults(YamlConfiguration settings, YamlConfiguration defaults)
+            throws Exception {
+        OraxenPlugin plugin = mock(OraxenPlugin.class);
+        when(plugin.getResource(anyString())).thenAnswer(invocation ->
+                SettingsMigrationTest.class.getResourceAsStream("/" + invocation.getArgument(0)));
+        ConfigsManager manager = new ConfigsManager(plugin);
+        when(plugin.getConfigsManager()).thenReturn(manager);
+        var updateDefaults = ConfigsManager.class.getDeclaredMethod("updateDefaultKeys",
+                String.class, YamlConfiguration.class, YamlConfiguration.class);
+        updateDefaults.setAccessible(true);
+        try (var bukkit = mockStatic(Bukkit.class);
+             var plugins = mockStatic(OraxenPlugin.class)) {
+            plugins.when(OraxenPlugin::get).thenReturn(plugin);
+            updateDefaults.invoke(manager, "settings.yml", settings, defaults);
+        }
+    }
+
+    @Test
     void protectionDefaultsDisableSizeSpoofingAndObfuscation() throws Exception {
         YamlConfiguration defaults = resource("/settings.yml");
         assertEquals(false, defaults.get(Settings.PACK_SIZE_SPOOFING.getPath()));

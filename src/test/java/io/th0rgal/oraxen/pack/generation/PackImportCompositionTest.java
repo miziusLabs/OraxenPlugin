@@ -32,7 +32,7 @@ class PackImportCompositionTest {
         when(plugin.getConfigsManager()).thenReturn(configs);
         settings = new YamlConfiguration();
         settings.set(Settings.MERGE_DUPLICATE_FONTS.getPath(), true);
-        when(configs.getSettings()).thenReturn(settings);
+        when(configs.getSettings()).thenAnswer(ignored -> settings);
         plugins = mockStatic(OraxenPlugin.class);
         plugins.when(OraxenPlugin::get).thenReturn(plugin);
         logs = mockStatic(Logs.class);
@@ -70,6 +70,70 @@ class PackImportCompositionTest {
         assertEquals(1, json(files, "assets/test/sounds.json").getAsJsonObject("replace").getAsJsonArray("sounds").size());
         assertEquals("single", json(files, "assets/test/atlases/blocks.json").getAsJsonArray("sources").get(0).getAsJsonObject().get("type").getAsString());
         assertFalse(files.containsKey("assets/test/textures/a.png.mcmeta"));
+    }
+
+    @Test void filtersImportedBaseAndOverlayPathsAfterStrippingWrapperFolders() throws Exception {
+        settings.set("pack.import.exclude", List.of(
+                "assets/test/private.txt", "assets/minecraft/shaders/core/**"));
+        write("wrapped", Map.of(
+                "wrapper/pack.mcmeta", metadata("imported_overlay", 46, 80),
+                "wrapper/assets/test/private.txt", "excluded base",
+                "wrapper/assets/test/public.txt", "kept base",
+                "wrapper/assets/minecraft/shaders/core/base.vsh", "excluded base shader",
+                "wrapper/assets/minecraft/shaders/include/base.glsl", "kept base include",
+                "wrapper/imported_overlay/assets/test/private.txt", "excluded overlay",
+                "wrapper/imported_overlay/assets/test/public.txt", "kept overlay",
+                "wrapper/imported_overlay/assets/minecraft/shaders/core/overlay.vsh", "excluded overlay shader"));
+
+        PackMerger merger = new PackMerger(tempDir.toFile());
+        Map<String, String> files = contents(merger.mergeUploadedPacks());
+        String overlayDirectory = merger.getMergedOverlayEntries().get(0).getAsJsonObject()
+                .get("directory").getAsString();
+
+        assertFalse(files.containsKey("assets/test/private.txt"));
+        assertFalse(files.containsKey(overlayDirectory + "/assets/test/private.txt"));
+        assertFalse(files.containsKey("assets/minecraft/shaders/core/base.vsh"));
+        assertFalse(files.containsKey(overlayDirectory + "/assets/minecraft/shaders/core/overlay.vsh"));
+        assertEquals("kept base", files.get("assets/test/public.txt"));
+        assertEquals("kept overlay", files.get(overlayDirectory + "/assets/test/public.txt"));
+        assertEquals("kept base include", files.get("assets/minecraft/shaders/include/base.glsl"));
+        assertFalse(files.keySet().stream().anyMatch(path -> path.contains("wrapper/")));
+    }
+
+    @Test void uploadedZipContainersRemainImportSourcesAndNewBuildsUseRefreshedRules() throws Exception {
+        Path uploadedZip = tempDir.resolve("uploads/source.zip");
+        Files.createDirectories(uploadedZip.getParent());
+        writeZip(uploadedZip, Map.of(
+                "pack.mcmeta", "{\"pack\":{\"pack_format\":46}}",
+                "assets/test/notes.md", "documentation",
+                "assets/test/nested.zip", "nested archive bytes",
+                "assets/test/keep.txt", "kept content"));
+        settings.set("pack.import.exclude", List.of("**/*.zip"));
+
+        Map<String, String> firstBuild = contents(new PackMerger(tempDir.toFile()).mergeUploadedPacks());
+
+        assertEquals("documentation", firstBuild.get("assets/test/notes.md"));
+        assertFalse(firstBuild.containsKey("assets/test/nested.zip"));
+        assertEquals("kept content", firstBuild.get("assets/test/keep.txt"));
+
+        settings = new YamlConfiguration();
+        settings.set(Settings.MERGE_DUPLICATE_FONTS.getPath(), true);
+        settings.set("pack.import.exclude", List.of("**/*.md"));
+        Settings.invalidateCache();
+        Map<String, String> refreshedBuild = contents(new PackMerger(tempDir.toFile()).mergeUploadedPacks());
+
+        assertFalse(refreshedBuild.containsKey("assets/test/notes.md"));
+        assertEquals("nested archive bytes", refreshedBuild.get("assets/test/nested.zip"));
+        assertEquals("kept content", refreshedBuild.get("assets/test/keep.txt"));
+    }
+
+    @Test void exclusionsDoNotRemoveGeneratedHigherPriorityFiles() throws Exception {
+        settings.set("pack.import.exclude", List.of("**/*.md"));
+
+        Map<String, String> files = contents(new PackMerger(tempDir.toFile()).mergeWithHigherPriorityFiles(
+                List.of(vfile("assets/oraxen/generated/README.md", "generated Oraxen resource"))));
+
+        assertEquals("generated Oraxen resource", files.get("assets/oraxen/generated/README.md"));
     }
 
     @Test void partitionsOverlappingOverlaysAndKeepsHigherBaseAboveLowerOverlay() throws Exception {
@@ -497,6 +561,15 @@ class PackImportCompositionTest {
             Path path = tempDir.resolve("uploads").resolve(name).resolve(entry.getKey());
             Files.createDirectories(path.getParent());
             Files.writeString(path, entry.getValue());
+        }
+    }
+    private static void writeZip(Path target, Map<String, String> entries) throws IOException {
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(target))) {
+            for (var entry : entries.entrySet()) {
+                output.putNextEntry(new ZipEntry(entry.getKey()));
+                output.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                output.closeEntry();
+            }
         }
     }
     private static VirtualFile vfile(String path, String text) {
