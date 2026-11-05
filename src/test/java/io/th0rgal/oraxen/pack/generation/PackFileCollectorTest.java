@@ -18,6 +18,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -34,6 +38,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class PackFileCollectorTest {
+    @org.junit.jupiter.api.io.TempDir
+    Path tempDir;
+
     private MockedStatic<OraxenPlugin> pluginAccess;
     private MockedStatic<Logs> logs;
 
@@ -180,9 +187,44 @@ class PackFileCollectorTest {
         assertTrue(malformed.isEmpty());
     }
 
+    @Test
+    void filtersLocalFilesByPackRelativePathBeforeAddingThem() throws IOException {
+        Path pack = tempDir.resolve("pack");
+        write(pack, "assets/minecraft/models/item/README.md", "ignored documentation");
+        write(pack, "assets/minecraft/shaders/core/custom.vsh", "ignored core shader");
+        write(pack, "assets/minecraft/shaders/include/custom.glsl", "included shader");
+        write(pack, "assets/example/models/item/base.json", "{} ");
+        PackExclusions exclusions = PackExclusions.compile(List.of(
+                "**/*.md", "assets/minecraft/shaders/core/**"), ignored -> fail("Valid rules should not warn"));
+        PackFileCollector collector = new PackFileCollector(pack.toFile(), exclusions);
+        List<VirtualFile> files = new ArrayList<>();
+
+        try {
+            collector.getAllFiles(pack.resolve("assets").toFile(), files, "");
+
+            List<String> paths = files.stream().map(VirtualFile::getPath).toList();
+            assertFalse(paths.contains("assets/minecraft/models/item/README.md"));
+            assertFalse(paths.contains("assets/minecraft/shaders/core/custom.vsh"));
+            assertTrue(paths.contains("assets/minecraft/shaders/include/custom.glsl"));
+            assertTrue(paths.contains("assets/example/models/item/base.json"));
+        } finally {
+            for (VirtualFile file : files) {
+                try (var input = file.getInputStream()) {
+                    // Close filesystem streams before the temporary directory is removed on Windows.
+                }
+            }
+        }
+    }
+
     private static VirtualFile model(String content) {
         return new VirtualFile("assets/modelengine/models/entity", "oog_pet.json",
                 new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static void write(Path root, String relativePath, String content) throws IOException {
+        Path file = root.resolve(relativePath);
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, content, StandardCharsets.UTF_8);
     }
 
     private static byte[] onePixelPng() throws IOException {

@@ -58,6 +58,7 @@ public class ResourcePack {
     private final File pack = new File(packFolder, packFolder.getName() + ".zip");
     private final SoundGenerator soundGenerator = new SoundGenerator();
     private PackFileCollector fileCollector;
+    private PackExclusions packExclusions;
     private final TextShaderGenerator textShaderGenerator = new TextShaderGenerator();
     private JsonArray mergedImportOverlayEntries = new JsonArray();
     /** Resolved multi-version flag (may differ from Settings if fallback occurred). */
@@ -356,7 +357,8 @@ public class ResourcePack {
         componentArmorModels = CustomArmorType.getSetting() == CustomArmorType.COMPONENT ? new ComponentArmorModels()
                 : null;
         trimArmorDatapack = CustomArmorType.getSetting() == CustomArmorType.TRIMS ? new TrimArmorDatapack() : null;
-        fileCollector = new PackFileCollector(packFolder);
+        packExclusions = PackExclusions.load();
+        fileCollector = new PackFileCollector(packFolder, packExclusions);
 
         if (Settings.GENERATE_DEFAULT_ASSETS.toBool())
             extractDefaultFolders(missingDefaultFolders);
@@ -1454,7 +1456,7 @@ public class ResourcePack {
     private void mergeUploadedPacks(List<VirtualFile> output) {
         mergedImportOverlayEntries = new JsonArray();
         boolean preserveNativeOverlays = isMcmetaGenerationDisabled();
-        PackMerger packMerger = new PackMerger(packFolder);
+        PackMerger packMerger = new PackMerger(packFolder, packExclusions);
         packMerger.setConvertLegacyItemModels(multiVersionResolved
                 || (VersionUtil.atOrAbove("1.21.4") && AppearanceMode.shouldGenerateVanillaItemDefinitions()));
         packMerger.mergeUploadedPacks();
