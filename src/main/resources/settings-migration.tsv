@@ -13,7 +13,6 @@ Pack.receive.failed_download.actions.message.content	pack.receive.failed-downloa
 Pack.receive.failed_download.actions.commands.player	pack.receive.failed-download.actions.commands.player
 Pack.receive.discarded.actions.commands.opped_player	pack.receive.discarded.actions.commands.opped-player
 FurnitureUpdater.experimental_furniture_type_update	updater.furniture.experimental-type-update
-Pack.import.remove_core_shaders_from_imported_packs	pack.import.exclude.core-shaders
 Pack.receive.accepted.actions.commands.opped_player	pack.receive.accepted.actions.commands.opped-player
 Pack.receive.failed_reload.actions.commands.console	pack.receive.failed-reload.actions.commands.console
 FurnitureUpdater.experimental_fix_broken_furniture	updater.furniture.experimental-fix-broken

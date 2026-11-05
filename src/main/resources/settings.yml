@@ -118,8 +118,29 @@ pack:
       duplicates: true
       item-base-models: false # Attempt to merge item base model JSONs, such as paper.json, without generating item configs.
 
+    # Applies to local pack files and imported contents, not uploaded ZIP containers.
+    # Use / between folders. * matches within a name. ** matches across folders.
+    # Comment out a rule to disable it. Use exclude: [] for no configurable exclusions.
     exclude:
-      core-shaders: false # Remove imported Minecraft core shaders from pack/assets and uploads/*.zip merges.
+      # Optional core shader exclusion.
+      # - '**/assets/minecraft/shaders/core/**'
+
+      # Documentation and editable source files.
+      - '**/*.md'
+      - '**/*.psd'
+      - '**/*.bbmodel'
+
+      # Metadata and database files.
+      - '**/.DS_Store'
+      - '**/*.db'
+      - '**/*.ini'
+      - '**/__MACOSX/**'
+
+      # Archives inside the pack contents.
+      - '**/*.zip'
+      - '**/*.gz'
+      - '**/*.tar'
+      - '**/*.jar'
 
     retain-custom-model-data: true # Keep imported model data during duplicate merging. May conflict with existing items.
 

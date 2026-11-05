@@ -19,6 +19,7 @@ import org.mockito.MockedStatic;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -87,6 +88,9 @@ class ModelEnginePackPriorityTest {
         settings.set(Settings.APPEARANCE_MODEL_DATA_IDS.getPath(), false);
         settings.set(Settings.APPEARANCE_MODEL_DATA_FLOAT.getPath(), false);
         Settings.invalidateCache();
+        Field exclusionsField = ResourcePack.class.getDeclaredField("packExclusions");
+        exclusionsField.setAccessible(true);
+        exclusionsField.set(resourcePack, PackExclusions.load());
     }
 
     @AfterEach

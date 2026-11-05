@@ -58,8 +58,10 @@ class ModelEnginePackImportTest {
 
     @ParameterizedTest
     @CsvSource({"true, true", "true, false", "false, true", "false, false"})
-    void importsAssetsAndOverlaysWithoutReplacingPackMetadata(boolean zip, boolean removeCoreShaders) throws IOException {
-        settings.set(Settings.REMOVE_CORE_SHADERS_FROM_IMPORTED_PACKS.getPath(), removeCoreShaders);
+    void appliesGlobExclusionsToModelEngineAssetsAndOverlays(boolean zip, boolean excludeCoreShaders) throws IOException {
+        settings.set("pack.import.exclude", excludeCoreShaders
+                ? java.util.List.of("**/assets/minecraft/shaders/core/**")
+                : java.util.List.of());
         String overlayEntry = "{\"formats\":{\"min_inclusive\":46,\"max_inclusive\":55},\"directory\":\"overlay\"}";
         Map<String, String> source = new LinkedHashMap<>();
         source.put("pack.mcmeta", "{\"pack\":{\"pack_format\":46,\"description\":\"ModelEngine\"},\"overlays\":{\"entries\":[" + overlayEntry + "]}}");
@@ -87,12 +89,12 @@ class ModelEnginePackImportTest {
         expected.remove("pack.png");
         String overlayModel = expected.remove("overlay/assets/modelengine/models/mob.json");
         String overlayShader = expected.remove("overlay/assets/minecraft/shaders/core/rendertype_entity_cutout.vsh");
-        if (removeCoreShaders) {
+        if (excludeCoreShaders) {
             expected.remove("assets/minecraft/shaders/core/rendertype_entity_cutout.vsh");
         }
         Map<String, String> snapshot = new LinkedHashMap<>(expected);
         snapshot.put("assets/modelengine/models/mob.json", overlayModel);
-        if (!removeCoreShaders) snapshot.put("assets/minecraft/shaders/core/rendertype_entity_cutout.vsh", overlayShader);
+        if (!excludeCoreShaders) snapshot.put("assets/minecraft/shaders/core/rendertype_entity_cutout.vsh", overlayShader);
         snapshot.forEach((path, content) -> expected.put("oraxen_import_0/" + path, content));
         assertEquals(expected, imported);
         var compiled = merger.getMergedOverlayEntries();
