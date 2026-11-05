@@ -19,20 +19,21 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class PackFileCollectorTest {
-
-    private final YamlConfiguration settings = new YamlConfiguration();
     private MockedStatic<OraxenPlugin> pluginAccess;
     private MockedStatic<Logs> logs;
 
@@ -40,12 +41,13 @@ class PackFileCollectorTest {
     void setUp() {
         OraxenPlugin plugin = mock(OraxenPlugin.class);
         ConfigsManager configs = mock(ConfigsManager.class);
+        YamlConfiguration settings = new YamlConfiguration();
+        settings.set(Settings.DEBUG.getPath(), false);
         when(plugin.getConfigsManager()).thenReturn(configs);
         when(configs.getSettings()).thenReturn(settings);
         pluginAccess = mockStatic(OraxenPlugin.class);
         pluginAccess.when(OraxenPlugin::get).thenReturn(plugin);
         logs = mockStatic(Logs.class);
-        settings.set(Settings.DEBUG.getPath(), false);
         Settings.invalidateCache();
     }
 
@@ -56,14 +58,75 @@ class PackFileCollectorTest {
         pluginAccess.close();
     }
 
+    @Test
+    void validatesBaseAndImportedAssetsTogetherAndLogsOneSuccessSummary() throws IOException {
+        List<VirtualFile> files = new ArrayList<>(List.of(
+                file("assets/example/models/item/base.json", "{\"textures\":{\"layer0\":\"example:item/shared\"}}"),
+                file("assets/example/textures/item/shared.png", png()),
+                file("oraxen_import_0/assets/example/models/item/base.json", "{\"textures\":{\"layer0\":\"example:item/shared\"}}"),
+                file("oraxen_import_0/assets/example/textures/item/shared.png", png())));
+
+        Map<String, Set<String>> malformedFiles = PackFileCollector.verifyPackFormatting(files);
+
+        assertTrue(malformedFiles.isEmpty());
+        logs.verify(() -> Logs.logSuccess("No broken models or textures were found in the resourcepack"), times(1));
+    }
+
+    @Test
+    void textureInAnotherVersionLayerDoesNotHideMissingTexture() throws IOException {
+        String model = "assets/example/models/item/base.json";
+        List<VirtualFile> files = new ArrayList<>(List.of(
+                file(model, "{\"textures\":{\"layer0\":\"example:item/overlay_only\"}}"),
+                file("oraxen_import_0/" + model, "{\"textures\":{\"layer0\":\"example:item/overlay_only\"}}"),
+                file("oraxen_import_0/assets/example/textures/item/overlay_only.png", png()),
+                file("oraxen_import_1/" + model, "{\"textures\":{\"layer0\":\"example:item/overlay_only\"}}")));
+
+        Map<String, Set<String>> malformedFiles = PackFileCollector.verifyPackFormatting(files);
+
+        assertEquals(Map.of("", Set.of(model), "oraxen_import_1/", Set.of(model)), malformedFiles);
+        logs.verify(() -> Logs.logError("Pack contains malformed texture(s) and/or model(s)"), times(1));
+        logs.verify(() -> Logs.logSuccess("No broken models or textures were found in the resourcepack"), times(0));
+    }
+
+    @Test
+    void keepsMalformedTexturePathsScopedToTheirAssetLayer() throws IOException {
+        String malformedTexture = "assets/example/textures/item/broken.png";
+        List<VirtualFile> files = new ArrayList<>(List.of(
+                file("assets/example/models/item/base.json", "{\"textures\":{\"layer0\":\"block/stone\"}}"),
+                file(malformedTexture, "not a png"),
+                file("oraxen_import_0/" + malformedTexture, "also not a png")));
+
+        Map<String, Set<String>> malformedFiles = PackFileCollector.verifyPackFormatting(files);
+
+        assertEquals(Set.of(malformedTexture), malformedFiles.get(""));
+        assertEquals(Set.of(malformedTexture), malformedFiles.get("oraxen_import_0/"));
+        logs.verify(() -> Logs.logError("Pack contains malformed texture(s) and/or model(s)"), times(1));
+        logs.verify(() -> Logs.logSuccess("No broken models or textures were found in the resourcepack"), times(0));
+    }
+
+    private static VirtualFile file(String path, String content) {
+        return file(path, content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static VirtualFile file(String path, byte[] content) {
+        int slash = path.lastIndexOf('/');
+        return new VirtualFile(path.substring(0, slash), path.substring(slash + 1),
+                new ByteArrayInputStream(content));
+    }
+
+    private static byte[] png() throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", output);
+        return output.toByteArray();
+    }
     @ParameterizedTest
     @ValueSource(strings = {"modelengine:oog_pet", "modelengine:entity/oog_pet"})
     void missingNamespacedTextureIsReportedWithoutThrowing(String reference) {
         VirtualFile model = model("{\"textures\":{\"pet\":\"" + reference + "\"}}");
 
-        Set<String> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
 
-        assertEquals(Set.of(model.getPath()), malformed);
+        assertEquals(Map.of("", Set.of(model.getPath())), malformed);
         logs.verify(() -> Logs.logWarning(contains(reference)));
     }
 
@@ -75,7 +138,7 @@ class PackFileCollectorTest {
         VirtualFile texture = new VirtualFile("assets/modelengine/textures/entity", "oog_pet.png",
                 new ByteArrayInputStream(png));
 
-        Set<String> malformed = PackFileCollector.verifyPackFormatting(List.of(model, texture));
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model, texture));
 
         assertTrue(malformed.isEmpty());
         assertArrayEquals(modelJson.getBytes(StandardCharsets.UTF_8), read(model));
@@ -87,9 +150,9 @@ class PackFileCollectorTest {
     void customNamespaceDoesNotInheritVanillaMaterialExemptions(String reference) {
         VirtualFile model = model("{\"textures\":{\"item\":\"" + reference + "\"}}");
 
-        Set<String> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
 
-        assertEquals(Set.of(model.getPath()), malformed);
+        assertEquals(Map.of("", Set.of(model.getPath())), malformed);
     }
 
     @ParameterizedTest
@@ -97,9 +160,9 @@ class PackFileCollectorTest {
     void malformedNamespacedReferencesAreReportedWithoutAborting(String reference) {
         VirtualFile model = model("{\"textures\":{\"pet\":\"" + reference + "\"}}");
 
-        Set<String> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
 
-        assertEquals(Set.of(model.getPath()), malformed);
+        assertEquals(Map.of("", Set.of(model.getPath())), malformed);
     }
 
     @Test
@@ -112,7 +175,7 @@ class PackFileCollectorTest {
                 + "\"material\":\"minecraft:stone\""
                 + "}}");
 
-        Set<String> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
+        Map<String, Set<String>> malformed = PackFileCollector.verifyPackFormatting(List.of(model));
 
         assertTrue(malformed.isEmpty());
     }
