@@ -608,14 +608,14 @@ public class ResourcePack {
     private void postProcessOutputAsyncSafe(List<VirtualFile> output) {
         mergeUploadedPacks(output);
         PackPipeline.processSnapshots(output, this::convertGlobalLang);
-        PackPipeline.processSnapshots(output, this::postProcessSnapshotAsyncSafe);
+        Map<String, Set<String>> malformedFilesByLayer = Settings.VERIFY_PACK_FILES.toBool()
+                ? PackFileCollector.verifyPackFormatting(output)
+                : Collections.emptyMap();
+        PackPipeline.processSnapshots(output, (prefix, snapshot) ->
+                postProcessSnapshotAsyncSafe(snapshot, malformedFilesByLayer.getOrDefault(prefix, Collections.emptySet())));
     }
 
-    private void postProcessSnapshotAsyncSafe(List<VirtualFile> output) {
-        Set<String> malformedTextures = new HashSet<>();
-        if (Settings.VERIFY_PACK_FILES.toBool())
-            malformedTextures = PackFileCollector.verifyPackFormatting(output);
-
+    private void postProcessSnapshotAsyncSafe(List<VirtualFile> output, Set<String> malformedTextures) {
         if (Settings.GENERATE_ATLAS_FILE.toBool())
             AtlasGenerator.generateAtlasFile(output, malformedTextures);
 
