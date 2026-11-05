@@ -299,7 +299,8 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     @Override
     public void finishNativeBlockRegistration() {
-        // All physical slot states were registered in onLoad. Item reloads only rebind them.
+        // Physical slots were registered before tag loading. Copy the projected note block tags now.
+        NativeCustomBlocks.finishPhysicalBlockRegistration();
     }
 
     @Override

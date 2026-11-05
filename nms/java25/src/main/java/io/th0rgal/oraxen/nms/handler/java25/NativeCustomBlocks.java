@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /** Stable server block identities backed by slots registered before worlds load. */
 public final class NativeCustomBlocks {
@@ -214,6 +215,20 @@ public final class NativeCustomBlocks {
             }
         } catch (ReflectiveOperationException exception) {
             throw new IOException("Cannot register native block slot " + slot + " as " + key, exception);
+        }
+    }
+
+    /** Copy vanilla note-block tags after the server has loaded built-in block tags. */
+    public static void finishPhysicalBlockRegistration() {
+        final Set<?> noteBlockTags = Blocks.NOTE_BLOCK.builtInRegistryHolder().tags()
+                .collect(Collectors.toUnmodifiableSet());
+        try {
+            final Field tags = field(Holder.Reference.class, "tags");
+            for (final CustomBlock block : slotBlocks) {
+                if (block != null) tags.set(block.builtInRegistryHolder(), noteBlockTags);
+            }
+        } catch (final ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not copy vanilla note-block tags to native blocks", exception);
         }
     }
 
