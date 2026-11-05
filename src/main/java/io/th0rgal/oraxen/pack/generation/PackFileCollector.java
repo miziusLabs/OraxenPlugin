@@ -83,7 +83,7 @@ class PackFileCollector {
     static Map<String, Set<String>> verifyPackFormatting(List<VirtualFile> output) {
         if (Settings.DEBUG.toBool()) Logs.logInfo("Verifying formatting for textures and models...");
         Map<String, List<VirtualFile>> textures = new LinkedHashMap<>();
-        Set<String> texturePaths = new HashSet<>();
+        Map<String, Set<String>> texturePaths = new LinkedHashMap<>();
         Map<String, Set<String>> mcmeta = new LinkedHashMap<>();
         Map<String, List<VirtualFile>> models = new LinkedHashMap<>();
         Map<String, Set<String>> malformedFiles = new LinkedHashMap<>();
@@ -97,7 +97,7 @@ class PackFileCollector {
                 mcmeta.computeIfAbsent(assetPath.prefix(), ignored -> new HashSet<>()).add(path);
             else if (path.matches("assets/.*/textures/.*.png")) {
                 textures.computeIfAbsent(assetPath.prefix(), ignored -> new ArrayList<>()).add(virtualFile);
-                texturePaths.add(path);
+                texturePaths.computeIfAbsent(assetPath.prefix(), ignored -> new HashSet<>()).add(path);
             }
         }
 
@@ -153,7 +153,8 @@ class PackFileCollector {
                             }
 
                             String jsonTexture = element.getAsString();
-                            if (!texturePaths.contains(modelPathToPackPath(jsonTexture))) {
+                            if (!texturePaths.getOrDefault(layer.getKey(), Collections.emptySet())
+                                    .contains(modelPathToPackPath(jsonTexture))) {
                                 if (!jsonTexture.startsWith("#") && !jsonTexture.startsWith("item/")
                                         && !jsonTexture.startsWith("block/") && !jsonTexture.startsWith("entity/")) {
                                     if (Material.matchMaterial(FilenameUtils.getBaseName(jsonTexture).toUpperCase()) == null) {

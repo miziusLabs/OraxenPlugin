@@ -58,12 +58,30 @@ class PackFileCollectorTest {
     void validatesBaseAndImportedAssetsTogetherAndLogsOneSuccessSummary() throws IOException {
         List<VirtualFile> files = new ArrayList<>(List.of(
                 file("assets/example/models/item/base.json", "{\"textures\":{\"layer0\":\"example:item/shared\"}}"),
+                file("assets/example/textures/item/shared.png", png()),
+                file("oraxen_import_0/assets/example/models/item/base.json", "{\"textures\":{\"layer0\":\"example:item/shared\"}}"),
                 file("oraxen_import_0/assets/example/textures/item/shared.png", png())));
 
         Map<String, Set<String>> malformedFiles = PackFileCollector.verifyPackFormatting(files);
 
         assertTrue(malformedFiles.isEmpty());
         logs.verify(() -> Logs.logSuccess("No broken models or textures were found in the resourcepack"), times(1));
+    }
+
+    @Test
+    void textureInAnotherVersionLayerDoesNotHideMissingTexture() throws IOException {
+        String model = "assets/example/models/item/base.json";
+        List<VirtualFile> files = new ArrayList<>(List.of(
+                file(model, "{\"textures\":{\"layer0\":\"example:item/overlay_only\"}}"),
+                file("oraxen_import_0/" + model, "{\"textures\":{\"layer0\":\"example:item/overlay_only\"}}"),
+                file("oraxen_import_0/assets/example/textures/item/overlay_only.png", png()),
+                file("oraxen_import_1/" + model, "{\"textures\":{\"layer0\":\"example:item/overlay_only\"}}")));
+
+        Map<String, Set<String>> malformedFiles = PackFileCollector.verifyPackFormatting(files);
+
+        assertEquals(Map.of("", Set.of(model), "oraxen_import_1/", Set.of(model)), malformedFiles);
+        logs.verify(() -> Logs.logError("Pack contains malformed texture(s) and/or model(s)"), times(1));
+        logs.verify(() -> Logs.logSuccess("No broken models or textures were found in the resourcepack"), times(0));
     }
 
     @Test
