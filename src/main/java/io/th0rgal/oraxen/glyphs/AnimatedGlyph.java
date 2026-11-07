@@ -18,6 +18,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collection;
 import java.util.regex.Pattern;
 
 /**
@@ -100,6 +105,7 @@ public class AnimatedGlyph {
     private static final int MAX_CODEPOINT = 0xF7FF;
 
     private static int nextCodepoint = BASE_CODEPOINT;
+    private static final Map<Key, Set<Integer>> reservedCodepoints = new HashMap<>();
 
     private final String name;
     private final String texturePath;
@@ -198,8 +204,7 @@ public class AnimatedGlyph {
 
         // Parse appearance
         this.appearance = GlyphAppearance.fromConfig(glyphSection.getConfigurationSection("appearance"));
-        String fontString = glyphSection.getString("font");
-        this.targetFont = fontString == null || fontString.isBlank() ? null : GlyphAppearance.parseKey(fontString);
+        this.targetFont = GlyphAppearance.parseTargetFont(glyphSection, glyphName);
 
         // Parse chat section
         ConfigurationSection chatSection = glyphSection.getConfigurationSection("chat");
@@ -258,6 +263,7 @@ public class AnimatedGlyph {
     private void allocateFrameCodepoints() {
         frameCodepoints.clear();
         for (int i = 0; i < frameCount; i++) {
+            skipReservedCodepoints();
             if (nextCodepoint > MAX_CODEPOINT) {
                 Logs.logError("Animated glyph codepoint overflow! Too many animation frames defined.");
                 Logs.logWarning("Consider reducing total animation frames across all animated glyphs.");
@@ -267,13 +273,15 @@ public class AnimatedGlyph {
         }
 
         // Always allocate reset codepoint for the spacer character between frames.
+        skipReservedCodepoints();
         if (nextCodepoint <= MAX_CODEPOINT) {
             resetCodepoint = nextCodepoint++;
         }
 
         // Allocate offset codepoint if a custom offset was configured.
-        if (offset != 0 && offsetCodepoint < 0 && nextCodepoint <= MAX_CODEPOINT) {
-            offsetCodepoint = nextCodepoint++;
+        if (offset != 0 && offsetCodepoint < 0) {
+            skipReservedCodepoints();
+            if (nextCodepoint <= MAX_CODEPOINT) offsetCodepoint = nextCodepoint++;
         }
     }
 
@@ -282,6 +290,24 @@ public class AnimatedGlyph {
      */
     public static void resetCodepointCounter() {
         nextCodepoint = BASE_CODEPOINT;
+        reservedCodepoints.clear();
+    }
+
+    /**
+     * Reserves final static glyph characters before constructing animated glyphs.
+     */
+    public static void reserveGlyphCodepoints(Collection<Glyph> glyphs) {
+        for (Glyph glyph : glyphs) {
+            Set<Integer> reserved = reservedCodepoints.computeIfAbsent(glyph.getTargetFont(), key -> new HashSet<>());
+            for (char character : glyph.getAllChars()) reserved.add((int) character);
+        }
+    }
+
+    private void skipReservedCodepoints() {
+        Set<Integer> reserved = reservedCodepoints.get(getAnimationFont());
+        while (reserved != null && reserved.contains(nextCodepoint) && nextCodepoint <= MAX_CODEPOINT) {
+            nextCodepoint++;
+        }
     }
 
     /**
@@ -355,8 +381,9 @@ public class AnimatedGlyph {
     public void setAutoOffset(int autoOffsetPixels) {
         if (hasCustomOffset) return;
         this.autoOffset = autoOffsetPixels;
-        if (autoOffsetPixels != 0 && offsetCodepoint < 0 && nextCodepoint <= MAX_CODEPOINT) {
-            offsetCodepoint = nextCodepoint++;
+        if (autoOffsetPixels != 0 && offsetCodepoint < 0) {
+            skipReservedCodepoints();
+            if (nextCodepoint <= MAX_CODEPOINT) offsetCodepoint = nextCodepoint++;
         }
     }
 

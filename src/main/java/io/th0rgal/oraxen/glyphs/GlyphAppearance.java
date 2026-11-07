@@ -48,6 +48,18 @@ public record GlyphAppearance(@NotNull Key font, @Nullable Integer shadowColor) 
         return new GlyphAppearance(font, shadowColor);
     }
 
+    @Nullable
+    static Key parseTargetFont(ConfigurationSection section, String glyphName) {
+        String configured = section.getString("font");
+        if (configured == null || configured.isBlank()) return null;
+        Key font = parseKey(configured);
+        if (font.equals(Key.key("oraxen", "shift"))) {
+            Logs.logWarning("Glyph '" + glyphName + "' targets reserved font 'oraxen:shift'. Using the default glyph font instead.");
+            return null;
+        }
+        return font;
+    }
+
     /**
      * Parses a font key string into an Adventure Key.
      *

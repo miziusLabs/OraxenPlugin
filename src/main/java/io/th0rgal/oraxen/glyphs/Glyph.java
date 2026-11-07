@@ -83,8 +83,7 @@ public class Glyph {
 
         // Parse appearance configuration
         appearance = GlyphAppearance.fromConfig(glyphSection.getConfigurationSection("appearance"));
-        String fontString = glyphSection.getString("font");
-        targetFont = fontString == null || fontString.isBlank() ? null : GlyphAppearance.parseKey(fontString);
+        targetFont = GlyphAppearance.parseTargetFont(glyphSection, glyphName);
 
         ConfigurationSection bitmapSection = glyphSection.getConfigurationSection("bitmap");
         bitmapEntry = bitmapSection != null
