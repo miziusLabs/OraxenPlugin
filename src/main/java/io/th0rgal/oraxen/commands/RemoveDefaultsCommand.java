@@ -15,6 +15,7 @@ import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.OraxenYaml;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.IOException;
@@ -70,7 +71,6 @@ public class RemoveDefaultsCommand {
         Path dataFolder = OraxenPlugin.get().getDataFolder().toPath();
 
         SoundCleanupResult soundCleanup = removeBundledSoundEntries(
-                OraxenPlugin.get().getConfigsManager().getSound(),
                 dataFolder.resolve("sounds.yml"), failedOperations);
         deleteBundledSoundFilesIfReady(soundCleanup, dataFolder.resolve("pack/sounds"),
                 deletedFiles, failedOperations);
@@ -110,8 +110,18 @@ public class RemoveDefaultsCommand {
                 AdventureUtils.tagResolver("sounds", String.valueOf(soundCleanup.removedEntries())));
     }
 
-    SoundCleanupResult removeBundledSoundEntries(YamlConfiguration soundConfig, Path soundsFile,
-            AtomicInteger failedOperations) {
+    SoundCleanupResult removeBundledSoundEntries(Path soundsFile, AtomicInteger failedOperations) {
+        YamlConfiguration soundConfig = new YamlConfiguration();
+        soundConfig.options().parseComments(true);
+        try {
+            soundConfig.load(soundsFile.toFile());
+        } catch (IOException | InvalidConfigurationException exception) {
+            failedOperations.incrementAndGet();
+            Logs.logWarning("Failed to load sounds.yml before removing bundled sound defaults");
+            exception.printStackTrace();
+            return new SoundCleanupResult(0, Set.of(), false);
+        }
+
         YamlConfiguration bundledSoundConfig;
         try (InputStream input = OraxenPlugin.get().getResource("sounds.yml")) {
             if (input == null)
