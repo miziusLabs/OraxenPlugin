@@ -8,12 +8,9 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mockStatic;
@@ -94,7 +91,7 @@ class GlyphTest {
     }
 
     @Test
-    void configuredAnimatedGlyphFontIsUsedForGeneratedFrames() {
+    void configuredAnimatedGlyphFontIsIgnored() {
         ConfigurationSection section = mock(ConfigurationSection.class);
         ConfigurationSection animation = mock(ConfigurationSection.class);
         when(section.getString("texture")).thenReturn("loading.png");
@@ -109,8 +106,8 @@ class GlyphTest {
         AnimatedGlyph glyph = new AnimatedGlyph("loading", section);
         glyph.setProcessed("minecraft:loading.png", 8, 8);
 
-        assertEquals(Key.key("mizius", "icons"), glyph.getAnimationFont());
-        assertEquals(Key.key("mizius", "icons"), glyph.getAnimationComponent().children().getFirst().style().font());
+        assertEquals(Key.key("oraxen", "animations/loading"), glyph.getAnimationFont());
+        assertEquals(Key.key("oraxen", "animations/loading"), glyph.getAnimationComponent().children().getFirst().style().font());
     }
 
     @Test
@@ -129,81 +126,7 @@ class GlyphTest {
             assertEquals(Key.key("minecraft", "default"), glyph.getFont());
             assertEquals(Key.key("oraxen", "animations/loading"), animated.getAnimationFont());
             logs.verify(() -> Logs.logWarning("Glyph 'static' targets reserved font 'oraxen:shift'. Using the default glyph font instead."));
-            logs.verify(() -> Logs.logWarning("Glyph 'loading' targets reserved font 'oraxen:shift'. Using the default glyph font instead."));
         }
-    }
-
-    @Test
-    void animationFramesAndSpacersSkipReservedCharactersAndResetOnReload() {
-        for (int reload = 0; reload < 2; reload++) {
-            AnimatedGlyph.resetCodepointCounter();
-            ConfigurationSection section = mock(ConfigurationSection.class);
-            when(section.getString("font")).thenReturn("oraxen:animations/loading");
-            when(section.getString("texture", "required/exit_icon.png")).thenReturn("example.png");
-            Glyph reserved = new Glyph("static", section, List.of("\ue001\ue003\ue005"), GlyphGrid.SINGLE);
-            AnimatedGlyph.reserveGlyphCodepoints(List.of(reserved));
-            AnimatedGlyph animated = createAnimatedGlyph("loading");
-            animated.setAutoOffset(3);
-            animated.setProcessed("minecraft:loading.png", 8, 8);
-            JsonArray providers = animated.toFontJson().getAsJsonArray("providers");
-            assertEquals("\ue000\ue002", providers.get(0).getAsJsonObject().getAsJsonArray("chars").get(0).getAsString());
-            var advances = providers.get(1).getAsJsonObject().getAsJsonObject("advances");
-            assertEquals(2, advances.size());
-            assertEquals(-8, advances.get("\ue004").getAsInt());
-            assertEquals(3, advances.get("\ue006").getAsInt());
-        }
-        AnimatedGlyph.resetCodepointCounter();
-        assertEquals("\ue000\ue001", createAnimatedGlyph("loading").getAllFrameChars());
-    }
-
-    @Test
-    void staticCharactersInOtherFontsDoNotChangeAnimationAllocation() {
-        AnimatedGlyph.reserveGlyphCodepoints(List.of(createGlyph("static", List.of("\ue000\ue001"))));
-        assertEquals("\ue000\ue001", createAnimatedGlyph("loading").getAllFrameChars());
-    }
-
-    @Test
-    void reservationsInOneFontDoNotExhaustAnotherAndAnimationCharactersStayUnique() {
-        StringBuilder reservedChars = new StringBuilder();
-        for (int codepoint = 0xE000; codepoint <= 0xF7FB; codepoint++)
-            reservedChars.append((char) codepoint);
-
-        Glyph reserved = mock(Glyph.class);
-        when(reserved.getTargetFont()).thenReturn(Key.key("example", "crowded"));
-        when(reserved.getAllChars()).thenReturn(reservedChars.toString().toCharArray());
-        AnimatedGlyph.reserveGlyphCodepoints(List.of(reserved));
-
-        AnimatedGlyph crowdedFontAnimation = createAnimatedGlyph("crowded", "example:crowded");
-        AnimatedGlyph freeFontAnimation = createAnimatedGlyph("free", "example:free");
-        crowdedFontAnimation.setAutoOffset(4);
-        freeFontAnimation.setAutoOffset(4);
-
-        assertEquals("\uf7fc\uf7fd", crowdedFontAnimation.getAllFrameChars());
-        assertEquals("\ue000\ue001", freeFontAnimation.getAllFrameChars());
-
-        Set<Integer> crowdedCharacters = getAssignedCodepoints(crowdedFontAnimation);
-        Set<Integer> freeCharacters = getAssignedCodepoints(freeFontAnimation);
-        assertEquals(4, crowdedCharacters.size());
-        assertEquals(4, freeCharacters.size());
-        for (int codepoint : crowdedCharacters) assertFalse(freeCharacters.contains(codepoint));
-    }
-
-    @Test
-    void defaultAndUniformFontsShareReservationsOnlyWhenForceUnicodeIsEnabled() {
-        Glyph reserved = mock(Glyph.class);
-        when(reserved.getTargetFont()).thenReturn(Key.key("minecraft", "uniform"));
-        when(reserved.getAllChars()).thenReturn(new char[] {'\ue000'});
-
-        AnimatedGlyph.resetCodepointCounter(true);
-        AnimatedGlyph.reserveGlyphCodepoints(List.of(reserved));
-        AnimatedGlyph defaultAnimation = createAnimatedGlyph("default", "minecraft:default");
-        AnimatedGlyph uniformAnimation = createAnimatedGlyph("uniform", "minecraft:uniform");
-        assertEquals("\ue001\ue002", defaultAnimation.getAllFrameChars());
-        assertEquals("\ue004\ue005", uniformAnimation.getAllFrameChars());
-
-        AnimatedGlyph.resetCodepointCounter(false);
-        AnimatedGlyph.reserveGlyphCodepoints(List.of(reserved));
-        assertEquals("\ue000\ue001", createAnimatedGlyph("default_without_merge", "minecraft:default").getAllFrameChars());
     }
 
     private Glyph createGlyph(String name, List<String> unicodeRows) {
@@ -232,14 +155,4 @@ class GlyphTest {
         return new AnimatedGlyph(name, section);
     }
 
-    private Set<Integer> getAssignedCodepoints(AnimatedGlyph glyph) {
-        glyph.setProcessed("minecraft:loading.png", 8, 8);
-        JsonArray providers = glyph.toFontJson().getAsJsonArray("providers");
-        Set<Integer> codepoints = new HashSet<>();
-        String frames = providers.get(0).getAsJsonObject().getAsJsonArray("chars").get(0).getAsString();
-        frames.chars().forEach(codepoints::add);
-        providers.get(1).getAsJsonObject().getAsJsonObject("advances")
-                .keySet().forEach(character -> codepoints.add((int) character.charAt(0)));
-        return codepoints;
-    }
 }

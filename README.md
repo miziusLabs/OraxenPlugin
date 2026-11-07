@@ -222,9 +222,3 @@ See https://docs.oraxen.com/developers/contributing.
 Read the full license in [`LICENSE.md`](LICENSE.md).
 
 Oraxen is a paid plugin. You must purchase a license from [SpigotMC](https://www.spigotmc.org/resources/oraxen.72448/) or [BuiltByBit](https://builtbybit.com/resources/oraxen-custom-items-blocks-more.16594/) to use it. Public forks are permitted for contributing pull requests, provided that you comply with the license. Do not redistribute compiled builds or source code, whether modified or unmodified, except as permitted by the license.
-
-### Glyph font targets
-
-A glyph's top-level `font` setting selects the generated provider font and its component rendering font. `oraxen:shift` is reserved for internal spacing. Selecting it logs a warning and uses the glyph's default font, including the generated per-glyph font for animations.
-
-Plain-text placeholders, including anvil rename placeholders, insert characters without font metadata. Glyphs in custom fonts may render incorrectly in these text areas. Use a component-aware glyph tag where the integration supports it.
