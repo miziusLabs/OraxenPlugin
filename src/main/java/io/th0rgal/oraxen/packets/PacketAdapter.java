@@ -40,6 +40,10 @@ public interface PacketAdapter {
     void registerInventoryListener();
     void registerScoreboardListener();
     void registerTitleListener();
+    default void registerGlyphTagListener() {
+    }
+    default void removeGlyphTagListener() {
+    }
     void removeInventoryListener();
     void removeTitleListener();
 

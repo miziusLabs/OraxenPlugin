@@ -45,6 +45,16 @@ public class NativePacketAdapter implements PacketAdapter {
     }
 
     @Override
+    public void registerGlyphTagListener() {
+        handler().formatGlyphTags(true);
+    }
+
+    @Override
+    public void removeGlyphTagListener() {
+        handler().formatGlyphTags(false);
+    }
+
+    @Override
     public void removeInventoryListener() {
         handler().formatInventoryTitles(false);
     }

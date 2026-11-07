@@ -39,6 +39,11 @@ public class AdventureUtils {
             TagResolver.resolver("prefix", Tag.selfClosingInserting(MINI_MESSAGE_EMPTY.deserialize(Message.PREFIX.toString())))
     );
 
+    public static final TagResolver OraxenTagResolverWithoutGlyphs = TagResolver.resolver(TagResolver.standard(),
+            ShiftTag.RESOLVER,
+            TagResolver.resolver("prefix", Tag.selfClosingInserting(MINI_MESSAGE_EMPTY.deserialize(Message.PREFIX.toString())))
+    );
+
     public static final LegacyComponentSerializer LEGACY_SERIALIZER =
             LegacyComponentSerializer.builder().hexColors().useUnusualXRepeatedCharacterHexFormat().build();
 
@@ -46,6 +51,9 @@ public class AdventureUtils {
             LegacyComponentSerializer.builder().character('&').hexColors().useUnusualXRepeatedCharacterHexFormat().build();
 
     public static final MiniMessage MINI_MESSAGE = MiniMessage.builder().tags(OraxenTagResolver).build();
+
+    public static final MiniMessage MINI_MESSAGE_WITHOUT_GLYPHS = MiniMessage.builder()
+            .tags(OraxenTagResolverWithoutGlyphs).build();
 
 
     public static MiniMessage MINI_MESSAGE_PLAYER(Player player) {
@@ -261,7 +269,12 @@ public class AdventureUtils {
     }
 
     public static String parseMiniMessageThroughLegacy(Component message) {
-        return MINI_MESSAGE.serialize(LEGACY_SERIALIZER.deserialize(MINI_MESSAGE.serialize(message).replace("&", "§"))).replaceAll("\\\\(?!u)(?!n)(?!\")", "");
+        return parseMiniMessageThroughLegacy(message, MINI_MESSAGE);
+    }
+
+    public static String parseMiniMessageThroughLegacy(Component message, MiniMessage miniMessage) {
+        return miniMessage.serialize(LEGACY_SERIALIZER.deserialize(miniMessage.serialize(message).replace("&", "§")))
+                .replaceAll("\\\\(?!u)(?!n)(?!\")", "");
     }
 
     /**
