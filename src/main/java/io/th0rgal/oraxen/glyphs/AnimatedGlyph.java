@@ -115,6 +115,8 @@ public class AnimatedGlyph {
     private final String[] placeholders;
     private final boolean tabcomplete;
     private final GlyphAppearance appearance;
+    @Nullable
+    private final Key targetFont;
 
     /**
      * Codepoints assigned to each frame.
@@ -196,6 +198,8 @@ public class AnimatedGlyph {
 
         // Parse appearance
         this.appearance = GlyphAppearance.fromConfig(glyphSection.getConfigurationSection("appearance"));
+        String fontString = glyphSection.getString("font");
+        this.targetFont = fontString == null || fontString.isBlank() ? null : GlyphAppearance.parseKey(fontString);
 
         // Parse chat section
         ConfigurationSection chatSection = glyphSection.getConfigurationSection("chat");
@@ -295,22 +299,21 @@ public class AnimatedGlyph {
     }
 
     /**
-     * Gets the font key for this animated glyph.
-     * Animated glyphs use a separate font file.
+     * Gets the font resource key used by this animated glyph.
      *
-     * @return Font key in format oraxen:animations/<name>
+     * @return The configured target font, or the generated per-glyph animation font
      */
     @NotNull
     public Key getAnimationFont() {
-        return Key.key("oraxen", "animations/" + name);
+        return targetFont != null ? targetFont : Key.key("oraxen", "animations/" + name);
     }
 
     /**
-     * Gets the appearance font (for normal glyph rendering).
+     * Gets the configured font, falling back to the appearance font.
      */
     @NotNull
     public Key getFont() {
-        return appearance.font();
+        return targetFont != null ? targetFont : appearance.font();
     }
 
     @NotNull

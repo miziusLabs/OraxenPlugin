@@ -25,6 +25,7 @@ import io.th0rgal.oraxen.utils.customarmor.CustomArmorType;
 import io.th0rgal.oraxen.utils.customarmor.LegacyArmorTextures;
 import io.th0rgal.oraxen.utils.customarmor.TrimArmorDatapack;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import net.kyori.adventure.key.Key;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Material;
@@ -1154,37 +1155,46 @@ public class ResourcePack {
         if (!fontManager.autoGenerate)
             return;
 
-        // Generate the main default font with glyphs
-        final JsonObject output = new JsonObject();
-        final JsonArray providers = new JsonArray();
-        for (final Glyph glyph : fontManager.getGlyphs()) {
+        Map<Key, JsonArray> providersByFont = new LinkedHashMap<>();
+        for (final Glyph glyph : fontManager.getBaseGlyphs()) {
             if (glyph.hasBitmap()) continue;
             JsonObject glyphJson = glyph.toJson();
-            if (glyphJson != null) providers.add(glyphJson);
+            if (glyphJson != null) fontProviders(providersByFont, glyph.getTargetFont()).add(glyphJson);
         }
         for (FontManager.GlyphBitMap glyphBitMap : FontManager.glyphBitMaps.values()) {
-            providers.add(glyphBitMap.toJson(fontManager));
+            Set<Key> targetFonts = new HashSet<>();
+            for (Glyph glyph : fontManager.getBaseGlyphs()) {
+                if (glyph.hasBitmap() && glyph.getBitMap() != null && glyph.getBitMap().equals(glyphBitMap))
+                    targetFonts.add(glyph.getTargetFont());
+            }
+            for (Key targetFont : targetFonts)
+                fontProviders(providersByFont, targetFont).add(glyphBitMap.toJson(fontManager, targetFont));
         }
         for (final Font font : fontManager.getFonts()) {
-            providers.add(font.toJson());
+            fontProviders(providersByFont, Key.key("minecraft", "default")).add(font.toJson());
         }
 
         // Add shift provider to default font for backward compatibility.
         // This allows getShift() to work in plain strings (e.g., GUI titles)
         // without requiring the oraxen:shift font to be explicitly applied.
         ShiftProvider shiftProvider = fontManager.getShiftProvider();
-        providers.add(shiftProvider.toProviderJson());
+        fontProviders(providersByFont, Key.key("minecraft", "default")).add(shiftProvider.toProviderJson());
 
-        output.add("providers", providers);
-        writeStringToVirtual("assets/minecraft/font", "default.json", output.toString());
-        if (Settings.FIX_FORCE_UNICODE_GLYPHS.toBool())
-            writeStringToVirtual("assets/minecraft/font", "uniform.json", output.toString());
+        // Process animated glyph fonts
+        boolean hasAnimatedGlyphs = processAnimatedGlyphs(fontManager, providersByFont);
+
+        if (Settings.FIX_FORCE_UNICODE_GLYPHS.toBool()) {
+            JsonArray uniformProviders = new JsonArray();
+            fontProviders(providersByFont, Key.key("minecraft", "default"))
+                    .forEach(provider -> uniformProviders.add(provider.deepCopy()));
+            fontProviders(providersByFont, Key.key("minecraft", "uniform"))
+                    .forEach(provider -> uniformProviders.add(provider.deepCopy()));
+            providersByFont.put(Key.key("minecraft", "uniform"), uniformProviders);
+        }
+        providersByFont.forEach(this::writeFont);
 
         // Generate the dedicated shift font (still useful for explicit font references)
         generateShiftFont(fontManager);
-
-        // Process animated glyph fonts
-        boolean hasAnimatedGlyphs = processAnimatedGlyphs(fontManager);
 
         // Generate text shaders when animated glyphs are present.
         // In multi-version mode the choice depends on the *server* version:
@@ -1220,7 +1230,7 @@ public class ResourcePack {
     /**
      * Processes animated glyphs: validates sprite sheets and generates font files.
      */
-    private boolean processAnimatedGlyphs(FontManager fontManager) {
+    private boolean processAnimatedGlyphs(FontManager fontManager, Map<Key, JsonArray> providersByFont) {
         Collection<AnimatedGlyph> animatedGlyphs = fontManager.getAnimatedGlyphs();
         if (animatedGlyphs.isEmpty()) {
             return false;
@@ -1235,7 +1245,7 @@ public class ResourcePack {
         }
 
         for (AnimatedGlyph animGlyph : animatedGlyphs) {
-            processAnimatedGlyph(animGlyph);
+            processAnimatedGlyph(animGlyph, providersByFont);
         }
         return true;
     }
@@ -1243,7 +1253,7 @@ public class ResourcePack {
     /**
      * Processes a single animated glyph: validates sprite sheet and generates font.
      */
-    private void processAnimatedGlyph(AnimatedGlyph animGlyph) {
+    private void processAnimatedGlyph(AnimatedGlyph animGlyph, Map<Key, JsonArray> providersByFont) {
         File textureFile = animGlyph.getTextureFile(packFolder.toPath());
 
         if (!textureFile.exists()) {
@@ -1285,7 +1295,7 @@ public class ResourcePack {
             }
 
             animGlyph.setProcessed(spriteSheetPath, frameWidthPx, frameHeightPx);
-            generateAnimationFont(animGlyph);
+            generateAnimationFont(animGlyph, providersByFont);
         } catch (IOException e) {
             Logs.logError("Failed to process sprite sheet for: " + animGlyph.getName());
             Logs.debug(e);
@@ -1378,11 +1388,11 @@ public class ResourcePack {
     /**
      * Generates the font file for an animated glyph.
      */
-    private void generateAnimationFont(AnimatedGlyph animGlyph) {
+    private void generateAnimationFont(AnimatedGlyph animGlyph, Map<Key, JsonArray> providersByFont) {
         JsonObject fontJson = animGlyph.toFontJson();
         if (fontJson != null) {
-            writeStringToVirtual("assets/oraxen/font/animations", animGlyph.getName() + ".json",
-                    fontJson.toString());
+            fontJson.getAsJsonArray("providers").forEach(provider ->
+                    fontProviders(providersByFont, animGlyph.getAnimationFont()).add(provider));
             if (Settings.DEBUG.toBool()) {
                 Logs.logSuccess("Generated animation font for: " + animGlyph.getName() +
                         " (" + animGlyph.getFrameCount() + " frames @ " + animGlyph.getFps() + " fps)");
@@ -1390,6 +1400,17 @@ public class ResourcePack {
         }
     }
 
+    private static JsonArray fontProviders(Map<Key, JsonArray> providersByFont, Key font) {
+        return providersByFont.computeIfAbsent(font, ignored -> new JsonArray());
+    }
+
+    private void writeFont(Key font, JsonArray providers) {
+        JsonObject output = new JsonObject();
+        output.add("providers", providers);
+        String path = "assets/" + font.namespace() + "/font/" + font.value() + ".json";
+        int separator = path.lastIndexOf('/');
+        writeStringToVirtual(path.substring(0, separator), path.substring(separator + 1), output.toString());
+    }
 
     public static void writeStringToVirtual(String folder, String name, String content) {
         addOutputFiles(

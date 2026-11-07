@@ -2,6 +2,7 @@ package io.th0rgal.oraxen.glyphs;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.ConfigurationSection;
 import org.junit.jupiter.api.AfterEach;
@@ -48,13 +49,63 @@ class GlyphTest {
     }
 
     @Test
+    void configuredFontControlsGlyphProviderAndRenderingFont() {
+        ConfigurationSection section = mock(ConfigurationSection.class);
+        when(section.getString("font")).thenReturn("mizius:icons");
+        when(section.getString("texture", "required/exit_icon.png")).thenReturn("example.png");
+        when(section.getInt("ascent", 8)).thenReturn(8);
+        when(section.getInt("height", 8)).thenReturn(8);
+        Glyph glyph = new Glyph("example", section, List.of("\ue001"), GlyphGrid.SINGLE);
+
+        assertEquals(Key.key("mizius", "icons"), glyph.getTargetFont());
+        assertEquals(Key.key("mizius", "icons"), glyph.getFont());
+        assertEquals(Key.key("mizius", "icons"), glyph.getGlyphComponent().style().font());
+    }
+
+    @Test
+    void missingTargetFontPreservesAppearanceFontAndDefaultProviderFont() {
+        ConfigurationSection section = mock(ConfigurationSection.class);
+        ConfigurationSection appearance = mock(ConfigurationSection.class);
+        when(section.getConfigurationSection("appearance")).thenReturn(appearance);
+        when(section.getString("texture", "required/exit_icon.png")).thenReturn("example.png");
+        when(section.getInt("ascent", 8)).thenReturn(8);
+        when(section.getInt("height", 8)).thenReturn(8);
+        when(appearance.getString("font", "minecraft:default")).thenReturn("legacy:font");
+        Glyph glyph = new Glyph("example", section, List.of("\ue001"), GlyphGrid.SINGLE);
+
+        assertEquals(Key.key("minecraft", "default"), glyph.getTargetFont());
+        assertEquals(Key.key("legacy", "font"), glyph.getFont());
+    }
+
+    @Test
     void animatedGlyphComponentFallsBackUntilPackProcessing() {
         AnimatedGlyph glyph = createAnimatedGlyph("loading");
 
+        assertEquals(Key.key("oraxen", "animations/loading"), glyph.getAnimationFont());
         assertEquals(Component.text(glyph.getGlyphTag()), glyph.getGlyphComponent());
 
         glyph.setProcessed("minecraft:loading.png", 8, 8);
         assertEquals(glyph.getAnimationComponent(), glyph.getGlyphComponent());
+    }
+
+    @Test
+    void configuredAnimatedGlyphFontIsUsedForGeneratedFrames() {
+        ConfigurationSection section = mock(ConfigurationSection.class);
+        ConfigurationSection animation = mock(ConfigurationSection.class);
+        when(section.getString("texture")).thenReturn("loading.png");
+        when(section.getString("font")).thenReturn("mizius:icons");
+        when(section.getConfigurationSection("animation")).thenReturn(animation);
+        when(section.getInt("ascent", 8)).thenReturn(8);
+        when(section.getInt("height", 8)).thenReturn(8);
+        when(animation.getInt("frames", -1)).thenReturn(2);
+        when(animation.getInt("fps", AnimatedGlyph.DEFAULT_FPS)).thenReturn(AnimatedGlyph.DEFAULT_FPS);
+        when(animation.getBoolean("loop", true)).thenReturn(true);
+
+        AnimatedGlyph glyph = new AnimatedGlyph("loading", section);
+        glyph.setProcessed("minecraft:loading.png", 8, 8);
+
+        assertEquals(Key.key("mizius", "icons"), glyph.getAnimationFont());
+        assertEquals(Key.key("mizius", "icons"), glyph.getAnimationComponent().children().getFirst().style().font());
     }
 
     private Glyph createGlyph(String name, List<String> unicodeRows) {

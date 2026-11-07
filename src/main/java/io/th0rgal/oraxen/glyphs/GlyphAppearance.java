@@ -55,7 +55,7 @@ public record GlyphAppearance(@NotNull Key font, @Nullable Integer shadowColor) 
      * @return The parsed Key
      */
     @NotNull
-    private static Key parseKey(String fontString) {
+    static Key parseKey(String fontString) {
         if (fontString == null || fontString.isBlank()) {
             return Key.key("minecraft", "default");
         }
