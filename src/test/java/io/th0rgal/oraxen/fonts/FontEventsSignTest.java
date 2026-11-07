@@ -37,7 +37,7 @@ class FontEventsSignTest {
     }
 
     @Test
-    void restoresCorrectPlaceholdersForAnimationsInDifferentFonts() {
+    void restoresPlaceholdersForAnimationsWithDifferentConfiguredFontValues() {
         AnimatedGlyph first = createAnimatedGlyph("first", "mizius:first", ":first:");
         AnimatedGlyph second = createAnimatedGlyph("second", "mizius:second", ":second:");
         PlainTextComponentSerializer plainText = PlainTextComponentSerializer.plainText();

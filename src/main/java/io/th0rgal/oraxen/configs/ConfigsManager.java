@@ -371,7 +371,6 @@ public class ConfigsManager {
         final Map<String, Character> charPerGlyph = new HashMap<>();
         final Set<Integer> usedCodepoints = new HashSet<>();
         final List<String> invalidAscentGlyphs = new ArrayList<>();
-        final List<Runnable> pendingAnimations = new ArrayList<>();
     }
 
     /**
@@ -398,8 +397,7 @@ public class ConfigsManager {
         // Reset animated glyph codepoint counter BEFORE parsing any glyphs.
         // This ensures codepoints start fresh on each reload, preventing
         // counter overflow from accumulating across reloads.
-        AnimatedGlyph.resetCodepointCounter(getSettings().getBoolean(
-                Settings.FIX_FORCE_UNICODE_GLYPHS.getPath(), true));
+        AnimatedGlyph.resetCodepointCounter();
 
         List<File> glyphFiles = getGlyphFiles();
         GlyphParseOutput output = new GlyphParseOutput();
@@ -407,9 +405,6 @@ public class ConfigsManager {
 
         collectExistingCodepoints(glyphFiles, ctx);
         parseAllGlyphFiles(glyphFiles, output, ctx);
-        // Automatic static characters must be assigned before animation allocation.
-        AnimatedGlyph.reserveGlyphCodepoints(output.glyphs);
-        ctx.pendingAnimations.forEach(Runnable::run);
         logInvalidGlyphAscents(ctx);
 
         return output;
@@ -469,15 +464,13 @@ public class ConfigsManager {
 
             // Check for animated glyph
             if (AnimatedGlyph.isAnimatedGlyph(glyphSection)) {
-                ctx.pendingAnimations.add(() -> {
-                    try {
-                        AnimatedGlyph animGlyph = new AnimatedGlyph(key, glyphSection);
-                        collectInvalidGlyphAscent(animGlyph.getName(), animGlyph.getAscent(), animGlyph.getHeight(), file, ctx);
-                        output.animatedGlyphs.add(animGlyph);
-                    } catch (IllegalArgumentException e) {
-                        Logs.logError("Failed to parse animated glyph '" + key + "': " + e.getMessage());
-                    }
-                });
+                try {
+                    AnimatedGlyph animGlyph = new AnimatedGlyph(key, glyphSection);
+                    collectInvalidGlyphAscent(animGlyph.getName(), animGlyph.getAscent(), animGlyph.getHeight(), file, ctx);
+                    output.animatedGlyphs.add(animGlyph);
+                } catch (IllegalArgumentException e) {
+                    Logs.logError("Failed to parse animated glyph '" + key + "': " + e.getMessage());
+                }
                 continue;
             }
 
