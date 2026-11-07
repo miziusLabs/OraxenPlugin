@@ -53,8 +53,12 @@ public record GlyphAppearance(@NotNull Key font, @Nullable Integer shadowColor) 
         String configured = section.getString("font");
         if (configured == null || configured.isBlank()) return null;
         Key font = parseKey(configured);
-        if (font.equals(Key.key("oraxen", "shift"))) {
-            Logs.logWarning("Glyph '" + glyphName + "' targets reserved font 'oraxen:shift'. Using the default glyph font instead.");
+        boolean reservedShiftFont = font.equals(Key.key("oraxen", "shift"));
+        boolean reservedAnimationFont = font.namespace().equals("oraxen")
+                && font.value().startsWith("animations/");
+        if (reservedShiftFont || reservedAnimationFont) {
+            Logs.logWarning("Glyph '" + glyphName + "' targets reserved font '" + font.namespace() + ":"
+                    + font.value() + "'. Using the default glyph font instead.");
             return null;
         }
         return font;
