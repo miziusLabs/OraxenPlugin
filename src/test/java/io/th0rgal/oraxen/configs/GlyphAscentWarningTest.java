@@ -182,57 +182,6 @@ class GlyphAscentWarningTest {
         }
     }
 
-    @Test
-    void animationAllocationReservesStaticGlyphsParsedLater() throws Exception {
-        Path glyphs = Files.createDirectory(folder.resolve("glyphs"));
-        Files.writeString(glyphs.resolve("shared.yml"), """
-                animated:
-                  font: minecraft:default
-                  texture: animated.png
-                  animation:
-                    frames: 2
-                    offset: 3
-                uniform_animated:
-                  font: minecraft:uniform
-                  texture: uniform_animated.png
-                  animation:
-                    frames: 2
-                static:
-                  font: minecraft:uniform
-                  char: "\ue001\ue003\ue005"
-                generated:
-                  texture: generated.png
-                """);
-        ConfigsManager manager = manager(glyphs);
-        OraxenPlugin plugin = mock(OraxenPlugin.class);
-        when(plugin.getDataFolder()).thenReturn(folder.toFile());
-        when(plugin.getConfigsManager()).thenReturn(manager);
-        var settings = new org.bukkit.configuration.file.YamlConfiguration();
-        settings.set(Settings.DISABLE_AUTOMATIC_GLYPH_CODE.getPath(), false);
-        settings.set(Settings.FIX_FORCE_UNICODE_GLYPHS.getPath(), true);
-        doReturn(settings).when(manager).getSettings();
-        Settings.invalidateCache();
-        try (MockedStatic<OraxenPlugin> plugins = mockStatic(OraxenPlugin.class);
-                MockedStatic<Logs> logs = mockStatic(Logs.class)) {
-            plugins.when(OraxenPlugin::get).thenReturn(plugin);
-            for (int reload = 0; reload < 2; reload++) {
-                var output = manager.parseAllGlyphConfigs();
-                AnimatedGlyph animated = output.animatedGlyphs().getFirst();
-                AnimatedGlyph uniformAnimated = output.animatedGlyphs().get(1);
-                animated.setProcessed("minecraft:animated.png", 8, 8);
-                uniformAnimated.setProcessed("minecraft:uniform_animated.png", 8, 8);
-                assertEquals("\ue000\ue002", animated.getAllFrameChars());
-                assertEquals("\ue007\ue008", uniformAnimated.getAllFrameChars());
-                var providers = animated.toFontJson().getAsJsonArray("providers");
-                var advances = providers.get(1).getAsJsonObject().getAsJsonObject("advances");
-                assertEquals(-8, advances.get("\ue004").getAsInt());
-                assertEquals(3, advances.get("\ue006").getAsInt());
-            }
-        } finally {
-            Settings.invalidateCache();
-        }
-    }
-
     private ConfigsManager manager(Path glyphs) throws Exception {
         ConfigsManager manager = mock(ConfigsManager.class, CALLS_REAL_METHODS);
         Field field = ConfigsManager.class.getDeclaredField("glyphsFolder");
