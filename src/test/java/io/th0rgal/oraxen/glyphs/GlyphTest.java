@@ -13,6 +13,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockStatic;
+import io.th0rgal.oraxen.utils.logs.Logs;
 
 class GlyphTest {
 
@@ -106,6 +108,55 @@ class GlyphTest {
 
         assertEquals(Key.key("mizius", "icons"), glyph.getAnimationFont());
         assertEquals(Key.key("mizius", "icons"), glyph.getAnimationComponent().children().getFirst().style().font());
+    }
+
+    @Test
+    void reservedShiftTargetWarnsAndPreservesDefaultFonts() {
+        ConfigurationSection section = mock(ConfigurationSection.class);
+        ConfigurationSection animation = mock(ConfigurationSection.class);
+        when(section.getString("font")).thenReturn("oraxen:shift");
+        when(section.getString("texture")).thenReturn("loading.png");
+        when(section.getString("texture", "required/exit_icon.png")).thenReturn("loading.png");
+        when(section.getConfigurationSection("animation")).thenReturn(animation);
+        when(animation.getInt("frames", -1)).thenReturn(2);
+        try (var logs = mockStatic(Logs.class)) {
+            Glyph glyph = new Glyph("static", section, List.of("A"), GlyphGrid.SINGLE);
+            AnimatedGlyph animated = new AnimatedGlyph("loading", section);
+            assertEquals(Key.key("minecraft", "default"), glyph.getTargetFont());
+            assertEquals(Key.key("minecraft", "default"), glyph.getFont());
+            assertEquals(Key.key("oraxen", "animations/loading"), animated.getAnimationFont());
+            logs.verify(() -> Logs.logWarning("Glyph 'static' targets reserved font 'oraxen:shift'. Using the default glyph font instead."));
+            logs.verify(() -> Logs.logWarning("Glyph 'loading' targets reserved font 'oraxen:shift'. Using the default glyph font instead."));
+        }
+    }
+
+    @Test
+    void animationFramesAndSpacersSkipReservedCharactersAndResetOnReload() {
+        for (int reload = 0; reload < 2; reload++) {
+            AnimatedGlyph.resetCodepointCounter();
+            ConfigurationSection section = mock(ConfigurationSection.class);
+            when(section.getString("font")).thenReturn("oraxen:animations/loading");
+            when(section.getString("texture", "required/exit_icon.png")).thenReturn("example.png");
+            Glyph reserved = new Glyph("static", section, List.of("\ue001\ue003\ue005"), GlyphGrid.SINGLE);
+            AnimatedGlyph.reserveGlyphCodepoints(List.of(reserved));
+            AnimatedGlyph animated = createAnimatedGlyph("loading");
+            animated.setAutoOffset(3);
+            animated.setProcessed("minecraft:loading.png", 8, 8);
+            JsonArray providers = animated.toFontJson().getAsJsonArray("providers");
+            assertEquals("\ue000\ue002", providers.get(0).getAsJsonObject().getAsJsonArray("chars").get(0).getAsString());
+            var advances = providers.get(1).getAsJsonObject().getAsJsonObject("advances");
+            assertEquals(2, advances.size());
+            assertEquals(-8, advances.get("\ue004").getAsInt());
+            assertEquals(3, advances.get("\ue006").getAsInt());
+        }
+        AnimatedGlyph.resetCodepointCounter();
+        assertEquals("\ue000\ue001", createAnimatedGlyph("loading").getAllFrameChars());
+    }
+
+    @Test
+    void staticCharactersInOtherFontsDoNotChangeAnimationAllocation() {
+        AnimatedGlyph.reserveGlyphCodepoints(List.of(createGlyph("static", List.of("\ue000\ue001"))));
+        assertEquals("\ue000\ue001", createAnimatedGlyph("loading").getAllFrameChars());
     }
 
     private Glyph createGlyph(String name, List<String> unicodeRows) {
