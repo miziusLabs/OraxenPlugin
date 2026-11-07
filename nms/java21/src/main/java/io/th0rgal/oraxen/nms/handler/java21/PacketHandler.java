@@ -18,6 +18,7 @@ import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundBossEventPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ClientboundSetCursorItemPacket;
 import net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket;
 import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
@@ -145,6 +146,7 @@ final class PacketHandler {
             if (packet instanceof ClientboundSetEntityDataPacket entityData) return transformEntityData(entityData);
             if (packet instanceof ClientboundContainerSetContentPacket contents) return transformContainerContents(contents);
             if (packet instanceof ClientboundContainerSetSlotPacket slot) return transformContainerSlot(slot);
+            if (packet instanceof ClientboundSetCursorItemPacket cursor) return transformCursorItem(cursor);
             if (packet instanceof ClientboundSetEquipmentPacket equipment) return transformEquipment(equipment);
             if (packet instanceof ClientboundSetPlayerInventoryPacket inventory) return transformPlayerInventory(inventory);
             if (packet instanceof ClientboundSetObjectivePacket objective) return transformObjective(objective);
@@ -352,6 +354,11 @@ final class PacketHandler {
         if (!formatGlyphTags || !Settings.FORMAT_GLYPH_TAGS.toBool()) return packet;
         return new ClientboundContainerSetSlotPacket(packet.getContainerId(), packet.getStateId(), packet.getSlot(),
                 transformItem(packet.getItem()));
+    }
+
+    private ClientboundSetCursorItemPacket transformCursorItem(ClientboundSetCursorItemPacket packet) {
+        if (!formatGlyphTags || !Settings.FORMAT_GLYPH_TAGS.toBool()) return packet;
+        return new ClientboundSetCursorItemPacket(transformItem(packet.contents()));
     }
 
     private ClientboundSetEquipmentPacket transformEquipment(ClientboundSetEquipmentPacket packet) {

@@ -22,6 +22,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPl
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerListHeaderAndFooter;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerScoreboardObjective;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerServerData;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetCursorItem;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPlayerInventory;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSystemChatMessage;
@@ -47,6 +48,7 @@ import static com.github.retrooper.packetevents.protocol.packettype.PacketType.P
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.PLAYER_LIST_HEADER_AND_FOOTER;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.SCOREBOARD_OBJECTIVE;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.SERVER_DATA;
+import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.SET_CURSOR_ITEM;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.SET_PLAYER_INVENTORY;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.SET_SLOT;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.SYSTEM_CHAT_MESSAGE;
@@ -106,6 +108,10 @@ public class GlyphTagPacketListener implements PacketListener {
             var wrapper = new WrapperPlayServerSetSlot(event);
             rewriteItem(wrapper.getItem());
             wrapper.setItem(wrapper.getItem());
+        } else if (event.getPacketType() == SET_CURSOR_ITEM) {
+            var wrapper = new WrapperPlayServerSetCursorItem(event);
+            rewriteItem(wrapper.getStack());
+            wrapper.setStack(wrapper.getStack());
         } else if (event.getPacketType() == SET_PLAYER_INVENTORY) {
             var wrapper = new WrapperPlayServerSetPlayerInventory(event);
             rewriteItem(wrapper.getStack());
