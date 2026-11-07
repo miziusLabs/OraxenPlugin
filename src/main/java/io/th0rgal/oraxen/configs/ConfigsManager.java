@@ -398,7 +398,8 @@ public class ConfigsManager {
         // Reset animated glyph codepoint counter BEFORE parsing any glyphs.
         // This ensures codepoints start fresh on each reload, preventing
         // counter overflow from accumulating across reloads.
-        AnimatedGlyph.resetCodepointCounter();
+        AnimatedGlyph.resetCodepointCounter(getSettings().getBoolean(
+                Settings.FIX_FORCE_UNICODE_GLYPHS.getPath(), true));
 
         List<File> glyphFiles = getGlyphFiles();
         GlyphParseOutput output = new GlyphParseOutput();

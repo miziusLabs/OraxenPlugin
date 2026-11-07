@@ -104,9 +104,11 @@ public class AnimatedGlyph {
      */
     private static final int MAX_CODEPOINT = 0xF7FF;
 
-    // Each font resolves its own character map, so allocation must also be per font.
+    // Cursors follow generated provider groups, while assigned characters stay unique across fonts.
     private static final Map<Key, Integer> nextCodepointByFont = new HashMap<>();
     private static final Map<Key, Set<Integer>> reservedCodepoints = new HashMap<>();
+    private static final Set<Integer> allocatedCodepoints = new HashSet<>();
+    private static boolean mergeDefaultAndUniformFonts;
 
     private final String name;
     private final String texturePath;
@@ -286,8 +288,17 @@ public class AnimatedGlyph {
      * Resets the codepoint counter. Used during reload.
      */
     public static void resetCodepointCounter() {
+        resetCodepointCounter(false);
+    }
+
+    /**
+     * Resets allocation state and configures the default/uniform provider merge.
+     */
+    public static void resetCodepointCounter(boolean mergeDefaultAndUniformFonts) {
         nextCodepointByFont.clear();
         reservedCodepoints.clear();
+        allocatedCodepoints.clear();
+        AnimatedGlyph.mergeDefaultAndUniformFonts = mergeDefaultAndUniformFonts;
     }
 
     /**
@@ -295,16 +306,18 @@ public class AnimatedGlyph {
      */
     public static void reserveGlyphCodepoints(Collection<Glyph> glyphs) {
         for (Glyph glyph : glyphs) {
-            Set<Integer> reserved = reservedCodepoints.computeIfAbsent(glyph.getTargetFont(), key -> new HashSet<>());
+            Key fontGroup = getCodepointFontGroup(glyph.getTargetFont());
+            Set<Integer> reserved = reservedCodepoints.computeIfAbsent(fontGroup, key -> new HashSet<>());
             for (char character : glyph.getAllChars()) reserved.add((int) character);
         }
     }
 
     private int allocateNextCodepoint() {
-        Key font = getAnimationFont();
+        Key font = getCodepointFontGroup(getAnimationFont());
         int codepoint = nextCodepointByFont.getOrDefault(font, BASE_CODEPOINT);
         Set<Integer> reserved = reservedCodepoints.get(font);
-        while (codepoint <= MAX_CODEPOINT && reserved != null && reserved.contains(codepoint)) {
+        while (codepoint <= MAX_CODEPOINT
+                && ((reserved != null && reserved.contains(codepoint)) || allocatedCodepoints.contains(codepoint))) {
             codepoint++;
         }
         if (codepoint > MAX_CODEPOINT) {
@@ -312,7 +325,17 @@ public class AnimatedGlyph {
             return -1;
         }
         nextCodepointByFont.put(font, codepoint + 1);
+        allocatedCodepoints.add(codepoint);
         return codepoint;
+    }
+
+    private static Key getCodepointFontGroup(Key font) {
+        if (mergeDefaultAndUniformFonts
+                && font.namespace().equals("minecraft")
+                && (font.value().equals("default") || font.value().equals("uniform"))) {
+            return Key.key("minecraft", "uniform");
+        }
+        return font;
     }
 
     /**
