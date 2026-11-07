@@ -192,7 +192,13 @@ class GlyphAscentWarningTest {
                   animation:
                     frames: 2
                     offset: 3
+                uniform_animated:
+                  font: minecraft:uniform
+                  texture: uniform_animated.png
+                  animation:
+                    frames: 2
                 static:
+                  font: minecraft:uniform
                   char: "\ue001\ue003\ue005"
                 generated:
                   texture: generated.png
@@ -203,6 +209,7 @@ class GlyphAscentWarningTest {
         when(plugin.getConfigsManager()).thenReturn(manager);
         var settings = new org.bukkit.configuration.file.YamlConfiguration();
         settings.set(Settings.DISABLE_AUTOMATIC_GLYPH_CODE.getPath(), false);
+        settings.set(Settings.FIX_FORCE_UNICODE_GLYPHS.getPath(), true);
         doReturn(settings).when(manager).getSettings();
         Settings.invalidateCache();
         try (MockedStatic<OraxenPlugin> plugins = mockStatic(OraxenPlugin.class);
@@ -211,8 +218,11 @@ class GlyphAscentWarningTest {
             for (int reload = 0; reload < 2; reload++) {
                 var output = manager.parseAllGlyphConfigs();
                 AnimatedGlyph animated = output.animatedGlyphs().getFirst();
+                AnimatedGlyph uniformAnimated = output.animatedGlyphs().get(1);
                 animated.setProcessed("minecraft:animated.png", 8, 8);
+                uniformAnimated.setProcessed("minecraft:uniform_animated.png", 8, 8);
                 assertEquals("\ue000\ue002", animated.getAllFrameChars());
+                assertEquals("\ue007\ue008", uniformAnimated.getAllFrameChars());
                 var providers = animated.toFontJson().getAsJsonArray("providers");
                 var advances = providers.get(1).getAsJsonObject().getAsJsonObject("advances");
                 assertEquals(-8, advances.get("\ue004").getAsInt());
@@ -228,6 +238,9 @@ class GlyphAscentWarningTest {
         Field field = ConfigsManager.class.getDeclaredField("glyphsFolder");
         field.setAccessible(true);
         field.set(manager, glyphs.toFile());
+        var settings = new org.bukkit.configuration.file.YamlConfiguration();
+        settings.set(Settings.FIX_FORCE_UNICODE_GLYPHS.getPath(), true);
+        doReturn(settings).when(manager).getSettings();
         return manager;
     }
 }
