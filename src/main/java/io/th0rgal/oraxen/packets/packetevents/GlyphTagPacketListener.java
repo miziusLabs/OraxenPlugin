@@ -5,13 +5,10 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.advancements.AdvancementHolder;
 import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemLore;
-import com.github.retrooper.packetevents.protocol.component.builtin.item.WritableBookContent;
-import com.github.retrooper.packetevents.protocol.component.builtin.item.WrittenBookContent;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.item.ItemStack;
 import com.github.retrooper.packetevents.protocol.player.Equipment;
 import com.github.retrooper.packetevents.protocol.recipe.data.MerchantOffer;
-import com.github.retrooper.packetevents.util.Filterable;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBossBar;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDisguisedChat;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDisconnect;
@@ -31,12 +28,10 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUp
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateScore;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowItems;
 import io.th0rgal.oraxen.configs.Settings;
-import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.GlyphTagRewriter;
 import net.kyori.adventure.text.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.BOSS_BAR;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.DISGUISED_CHAT;
@@ -192,37 +187,6 @@ public class GlyphTagPacketListener implements PacketListener {
         item.getComponent(ComponentTypes.BUNDLE_CONTENTS).ifPresent(bundle ->
                 bundle.getItems().forEach(GlyphTagPacketListener::rewriteItem));
 
-        if (!Settings.FORMAT_BOOKS.toBool()) return;
-        item.getComponent(ComponentTypes.WRITTEN_BOOK_CONTENT).ifPresent(GlyphTagPacketListener::rewriteWrittenBook);
-        item.getComponent(ComponentTypes.WRITABLE_BOOK_CONTENT).ifPresent(GlyphTagPacketListener::rewriteWritableBook);
-    }
-
-    private static void rewriteWrittenBook(WrittenBookContent book) {
-        if (book.getTitle() != null) {
-            Filterable<String> title = book.getTitle();
-            book.setTitle(new Filterable<>(rewriteBookTitle(title.getRaw()),
-                    title.getFiltered() == null ? Optional.empty() : Optional.of(rewriteBookTitle(title.getFiltered()))));
-        }
-        book.setPages(book.getPages().stream().map(page -> new Filterable<>(rewrite(page.getRaw()),
-                page.getFiltered() == null ? Optional.empty() : Optional.of(rewrite(page.getFiltered())))).toList());
-    }
-
-    private static void rewriteWritableBook(WritableBookContent book) {
-        book.setPages(book.getPages().stream().map(page -> new Filterable<>(rewriteBookString(page.getRaw()),
-                page.getFiltered() == null ? Optional.empty() : Optional.of(rewriteBookString(page.getFiltered())))).toList());
-    }
-
-    private static String rewriteBookString(String input) {
-        try {
-            Component component = AdventureUtils.GSON_SERIALIZER.deserialize(input);
-            return AdventureUtils.GSON_SERIALIZER.serialize(rewrite(component));
-        } catch (RuntimeException ignored) {
-            Component component = rewrite(Component.text(input));
-            return AdventureUtils.PLAIN_TEXT.serialize(component);
-        }
-    }
-
-    private static String rewriteBookTitle(String title) {
-        return AdventureUtils.PLAIN_TEXT.serialize(rewrite(Component.text(title)));
+        // Book pages are formatted when opened, where the reader's glyph permissions are available.
     }
 }

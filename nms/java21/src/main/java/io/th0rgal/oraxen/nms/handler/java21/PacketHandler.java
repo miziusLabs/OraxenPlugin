@@ -38,8 +38,6 @@ import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemLore;
-import net.minecraft.world.item.component.WrittenBookContent;
-import net.minecraft.world.item.component.WritableBookContent;
 import net.minecraft.world.item.trading.ItemCost;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
@@ -382,7 +380,7 @@ final class PacketHandler {
         Objective nativeObjective = new Objective(new Scoreboard(), packet.getObjectiveName(), ObjectiveCriteria.DUMMY,
                 glyphTags ? transform(packet.getDisplayName(), false, true) : packet.getDisplayName(),
                 packet.getRenderType(), false,
-                hideNumbers ? BlankFormat.INSTANCE : packet.getNumberFormat().orElse(BlankFormat.INSTANCE));
+                hideNumbers ? BlankFormat.INSTANCE : packet.getNumberFormat().orElse(null));
         return new ClientboundSetObjectivePacket(nativeObjective, packet.getMethod());
     }
 
@@ -410,37 +408,6 @@ final class PacketHandler {
                     lore.lines().stream().map(line -> transform(line, false, true)).toList(),
                     lore.styledLines().stream().map(line -> transform(line, false, true)).toList()));
 
-        if (Settings.FORMAT_BOOKS.toBool()) {
-            WrittenBookContent writtenBook = transformed.get(DataComponents.WRITTEN_BOOK_CONTENT);
-            if (writtenBook != null)
-                transformed.set(DataComponents.WRITTEN_BOOK_CONTENT, new WrittenBookContent(
-                        writtenBook.title().map(PacketHandler::transformBookTitle), writtenBook.author(),
-                        writtenBook.generation(), writtenBook.pages().stream()
-                        .map(page -> page.map(value -> transform(value, false, true))).toList(), writtenBook.resolved()));
-            WritableBookContent writableBook = transformed.get(DataComponents.WRITABLE_BOOK_CONTENT);
-            if (writableBook != null)
-                transformed.set(DataComponents.WRITABLE_BOOK_CONTENT, writableBook.withReplacedPages(
-                        writableBook.pages().stream().map(page -> page.map(PacketHandler::transformBookPage)).toList()));
-        }
-    }
-
-    private static String transformBookPage(String page) {
-        try {
-            net.kyori.adventure.text.Component component =
-                    io.th0rgal.oraxen.utils.AdventureUtils.GSON_SERIALIZER.deserialize(page);
-            return io.th0rgal.oraxen.utils.AdventureUtils.GSON_SERIALIZER.serialize(
-                    io.th0rgal.oraxen.utils.GlyphTagRewriter.rewrite(component));
-        } catch (RuntimeException ignored) {
-            net.kyori.adventure.text.Component component = io.th0rgal.oraxen.utils.GlyphTagRewriter.rewrite(
-                    PaperAdventure.asAdventure(Component.literal(page)));
-            return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(
-                    component);
-        }
-    }
-
-    private static String transformBookTitle(String title) {
-        return io.th0rgal.oraxen.utils.AdventureUtils.PLAIN_TEXT.serialize(
-                io.th0rgal.oraxen.utils.GlyphTagRewriter.rewrite(
-                        net.kyori.adventure.text.Component.text(title)));
+        // Book pages are formatted when opened, where the reader's glyph permissions are available.
     }
 }

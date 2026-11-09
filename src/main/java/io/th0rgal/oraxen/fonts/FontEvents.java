@@ -11,6 +11,7 @@ import io.th0rgal.oraxen.compatibilities.provided.placeholderapi.PapiAliases;
 import io.th0rgal.oraxen.configs.Message;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.utils.AdventureUtils;
+import io.th0rgal.oraxen.utils.GlyphTagRewriter;
 import io.th0rgal.oraxen.utils.ItemUtils;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.VersionUtil;
@@ -146,7 +147,7 @@ public class FontEvents implements Listener {
         if (event.useInteractedBlock() == Event.Result.ALLOW) return;
 
         Book book = Book.book(
-                meta.title() != null ? meta.title() : Component.empty(),
+                meta.title() != null ? formatBookPage(meta.title(), player) : Component.empty(),
                 meta.author() != null ? meta.author() : Component.empty(),
                 meta.pages().stream().map(page -> formatBookPage(page, player)).toList()
         );
@@ -391,7 +392,7 @@ public class FontEvents implements Listener {
                 }
             }
 
-        return message;
+        return GlyphTagRewriter.rewrite(message, player);
     }
 
 }

@@ -11,12 +11,16 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
-import org.bukkit.configuration.file.YamlConfiguration;
+
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.atLeastOnce;
@@ -80,6 +84,33 @@ class GlyphTagRewriterTest {
             assertEquals(NamedTextColor.RED, result.style().color());
             verify(glyph, atLeastOnce()).hasPermission(null);
         }
+    }
+
+    @Test
+    void respectsPermissionsOnlyWithPlayerContext() {
+        Glyph glyph = regularGlyph("A");
+        when(glyph.getPermission()).thenReturn("oraxen.glyph.heart");
+        Player player = mock(Player.class);
+        when(glyph.hasPermission(player)).thenReturn(false);
+
+        try (var plugin = configuredPlugin(glyph, null, null)) {
+            Component input = Component.text("<glyph:heart:colorable>");
+
+            assertEquals("A", AdventureUtils.PLAIN_TEXT.serialize(GlyphTagRewriter.rewrite(input)));
+            assertEquals("<glyph:heart:colorable>",
+                    AdventureUtils.PLAIN_TEXT.serialize(GlyphTagRewriter.rewrite(input, player)));
+            verify(glyph).hasPermission(player);
+        }
+    }
+
+    @Test
+    void rejectsLongUnfinishedTagsWithoutPathologicalBacktracking() {
+        String input = "<g:a" + ":a".repeat(6_000);
+
+        assertTimeout(Duration.ofMillis(250), () -> {
+            Component result = GlyphTagRewriter.rewrite(Component.text(input), ignored -> Component.text("resolved"));
+            assertEquals(input, AdventureUtils.PLAIN_TEXT.serialize(result));
+        });
     }
 
     @Test
