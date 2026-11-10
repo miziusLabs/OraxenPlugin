@@ -147,7 +147,7 @@ final class PacketHandler {
     }
 
     private Object transformFurnitureGhastSpawn(ClientboundAddEntityPacket spawn) {
-        if (!spawn.getUUID().equals(furnitureGhasts.get(spawn.getId()))) return spawn;
+        if (!spawn.getUUID().equals(furnitureGhasts.get(spawn.getId())) || Settings.DEBUG.toBool()) return spawn;
         // A client can render the spawn before a separate invisibility update arrives.
         // Bundle them so the first rendered frame already has the invisible flag.
         var invisible = SynchedEntityData.DataValue.create(
