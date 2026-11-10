@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Existing servers are temporary and used for validation. Agents should reset them.
 set -euo pipefail
 
 # Starts a local Paper/Folia server for a version used by VersionLoadingTest.
