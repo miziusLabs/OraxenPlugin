@@ -1,10 +1,12 @@
 package io.th0rgal.oraxen.mechanics;
 
 import io.th0rgal.oraxen.api.OraxenFurniture;
+import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.configs.AppearanceMode;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.items.ModelData;
+import io.th0rgal.oraxen.items.OraxenMeta;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic;
 import io.th0rgal.oraxen.utils.CustomModelDataHelper;
@@ -24,9 +26,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 class ItemUpdaterFurnitureTest extends MechanicTestSupport {
 
@@ -64,6 +70,49 @@ class ItemUpdaterFurnitureTest extends MechanicTestSupport {
             verify(renderedItem).setItemMeta(meta);
             verify(entity).setItemStack(renderedItem);
             updater.verify(() -> ItemUpdater.updateItem(oldItem));
+        }
+    }
+
+    @Test
+    void entityInventoryUpdatePreservesBaseModelWhenGrowthStageHasNoModelKey() {
+        ConfigurationSection section = mechanicSection("furniture", "stages", List.of(
+                Map.of("model", "seedling"),
+                Map.of()));
+        FurnitureMechanic mechanic = new FurnitureMechanic(mock(FurnitureFactory.class), section);
+
+        ItemDisplay entity = mock(ItemDisplay.class);
+        PersistentDataContainer pdc = mock(PersistentDataContainer.class);
+        when(entity.getPersistentDataContainer()).thenReturn(pdc);
+        when(pdc.getOrDefault(FurnitureMechanic.STAGE_INDEX_KEY, PersistentDataType.INTEGER, 0)).thenReturn(1);
+
+        ItemStack oldItem = item(Material.PAPER);
+        ItemStack updatedItem = item(Material.PAPER);
+        ItemStack renderedItem = mock(ItemStack.class);
+        ItemMeta meta = mock(ItemMeta.class);
+        NamespacedKey baseModel = new NamespacedKey("custom", "base/model");
+        AtomicReference<NamespacedKey> itemModel = new AtomicReference<>(baseModel);
+        when(entity.getItemStack()).thenReturn(oldItem);
+        when(updatedItem.clone()).thenReturn(renderedItem);
+        when(updatedItem.getItemMeta()).thenReturn(meta);
+        when(renderedItem.getItemMeta()).thenReturn(meta);
+        when(meta.hasItemModel()).thenAnswer(invocation -> itemModel.get() != null);
+        when(meta.getItemModel()).thenAnswer(invocation -> itemModel.get());
+        doAnswer(invocation -> {
+            itemModel.set(invocation.getArgument(0));
+            return null;
+        }).when(meta).setItemModel(any());
+
+        try (var versions = mockStatic(VersionUtil.class);
+             var furniture = mockStatic(OraxenFurniture.class);
+             var updater = mockStatic(ItemUpdater.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> VersionUtil.atOrAbove("1.21.2")).thenReturn(true);
+            furniture.when(() -> OraxenFurniture.getFurnitureMechanic(entity)).thenReturn(mechanic);
+            updater.when(() -> ItemUpdater.updateItem(oldItem)).thenReturn(updatedItem);
+
+            ItemUpdater.updateEntityInventories(entity);
+
+            assertEquals(baseModel, itemModel.get());
+            verify(entity).setItemStack(renderedItem);
         }
     }
 
@@ -116,6 +165,40 @@ class ItemUpdaterFurnitureTest extends MechanicTestSupport {
             verify(appearanceMeta).setItemModel(new NamespacedKey("oraxen", "furniture/test_item/grown"));
             verify(entity).setItemStack(appearanceResult);
             verify(renderItem).getItemMeta();
+        }
+    }
+
+    @Test
+    void entityInventoryUpdateDoesNotApplyAppearanceToNoAutoUpdateFurniture() {
+        ConfigurationSection section = mechanicSection("furniture");
+        section.createSection("appearance").set("model", "plants/seed");
+        FurnitureMechanic mechanic = spy(new FurnitureMechanic(mock(FurnitureFactory.class), section));
+
+        ItemDisplay entity = mock(ItemDisplay.class);
+        ItemStack oldItem = item(Material.PAPER);
+        ItemStack appearanceItem = item(Material.PAPER);
+        when(entity.getItemStack()).thenReturn(oldItem);
+        ItemMeta oldMeta = mock(ItemMeta.class);
+        PersistentDataContainer pdc = mock(PersistentDataContainer.class);
+        when(oldItem.getItemMeta()).thenReturn(oldMeta);
+        when(oldMeta.getPersistentDataContainer()).thenReturn(pdc);
+
+        ItemBuilder builder = mock(ItemBuilder.class);
+        OraxenMeta oraxenMeta = new OraxenMeta();
+        oraxenMeta.setNoUpdate(true);
+        when(builder.getOraxenMeta()).thenReturn(oraxenMeta);
+        doReturn(appearanceItem).when(mechanic).applyAppearance(entity, oldItem);
+
+        try (var items = mockStatic(OraxenItems.class);
+             var furniture = mockStatic(OraxenFurniture.class)) {
+            items.when(() -> OraxenItems.getIdByItem(oldItem)).thenReturn("test_item");
+            items.when(() -> OraxenItems.getOptionalItemById("test_item")).thenReturn(Optional.of(builder));
+            furniture.when(() -> OraxenFurniture.getFurnitureMechanic(entity)).thenReturn(mechanic);
+
+            assertSame(oldItem, ItemUpdater.updateItem(oldItem));
+            ItemUpdater.updateEntityInventories(entity);
+
+            verify(entity, never()).setItemStack(any());
         }
     }
 
