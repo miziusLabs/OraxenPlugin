@@ -84,12 +84,15 @@ final class FurnitureGhastEntities implements Listener {
             data.set(BASE_ENTITY_KEY, DataType.UUID, baseId);
             data.set(GHAST_OFFSET_KEY, DataType.asList(PersistentDataType.DOUBLE), List.of(hitbox.x(), hitbox.y(), hitbox.z()));
             data.set(GHAST_ROOT_KEY, DataType.LOCATION, root);
+            NMSHandlers.getHandler().trackFurnitureGhast(entity);
         });
         if (ghast == null || !ghast.isValid() || !activate(ghast)) return null;
         return ghast;
     }
 
     private static boolean activate(Entity ghast) {
+        NMSHandlers.getHandler().trackFurnitureGhast(ghast);
+        ghast.setInvisible(true);
         ghast.setNoPhysics(true);
         NMSHandler handler = NMSHandlers.getHandler();
         if (!handler.keepGhastStationary(ghast)) {
@@ -116,7 +119,10 @@ final class FurnitureGhastEntities implements Listener {
         if (!data.has(GHASTS_KEY)) return;
         for (UUID id : links(base)) {
             Entity ghast = Bukkit.getEntity(id);
-            if (ghast != null) SchedulerUtil.runOnOwningThread(ghast, ghast::remove);
+            if (ghast != null) SchedulerUtil.runOnOwningThread(ghast, () -> {
+                NMSHandlers.getHandler().untrackFurnitureGhast(ghast);
+                ghast.remove();
+            });
         }
         data.remove(GHASTS_KEY);
         data.remove(GHAST_YAW_KEY);
@@ -157,7 +163,8 @@ final class FurnitureGhastEntities implements Listener {
     @EventHandler
     public void onEntitiesLoad(EntitiesLoadEvent event) {
         for (Entity ghast : event.getEntities()) {
-            if (!isHitbox(ghast) || !activate(ghast)) continue;
+            if (!isHitbox(ghast)) continue;
+            if (!activate(ghast)) continue;
             PersistentDataContainer data = ghast.getPersistentDataContainer();
             UUID baseId = data.get(BASE_ENTITY_KEY, DataType.UUID);
             Location root = data.get(GHAST_ROOT_KEY, DataType.LOCATION);
@@ -202,6 +209,8 @@ final class FurnitureGhastEntities implements Listener {
 
     @EventHandler
     public void onEntityRemove(EntityRemoveEvent event) {
+        if (isHitbox(event.getEntity()) && event.getCause() != EntityRemoveEvent.Cause.UNLOAD)
+            NMSHandlers.getHandler().untrackFurnitureGhast(event.getEntity());
         if (event.getCause() != EntityRemoveEvent.Cause.UNLOAD) remove(event.getEntity());
     }
 }

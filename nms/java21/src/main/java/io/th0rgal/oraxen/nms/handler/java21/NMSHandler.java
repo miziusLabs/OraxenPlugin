@@ -96,6 +96,16 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         return GhastCollision.keepStationary(entity);
     }
 
+    @Override
+    public void trackFurnitureGhast(org.bukkit.entity.Entity entity) {
+        packetHandler.trackFurnitureGhast(entity);
+    }
+
+    @Override
+    public void untrackFurnitureGhast(org.bukkit.entity.Entity entity) {
+        packetHandler.untrackFurnitureGhast(entity);
+    }
+
     private final Listener packDispatchListener;
     private final PacketHandler packetHandler;
     private final NamespacedKey mineableTagKey;
