@@ -12,15 +12,21 @@ import static com.github.retrooper.packetevents.protocol.packettype.PacketType.P
 public class TitlePacketListener implements PacketListener {
     @Override
     public void onPacketSend(PacketSendEvent event) {
-        if(event.getPacketType() == SET_TITLE_TEXT  && Settings.FORMAT_TITLES.toBool()) {
+        if(event.getPacketType() == SET_TITLE_TEXT
+                && (Settings.FORMAT_TITLES.toBool() || Settings.FORMAT_GLYPH_TAGS.toBool())) {
             var wrapper = new WrapperPlayServerJsonComponent(event);
-            wrapper.setComponentJson(PacketHelpers.translateJson(wrapper.getComponentJson()));
-        } else if(event.getPacketType() == SET_TITLE_SUBTITLE && Settings.FORMAT_SUBTITLES.toBool()) {
+            wrapper.setComponentJson(PacketHelpers.translateJson(wrapper.getComponentJson(),
+                    Settings.FORMAT_TITLES.toBool(), Settings.FORMAT_GLYPH_TAGS.toBool()));
+        } else if(event.getPacketType() == SET_TITLE_SUBTITLE
+                && (Settings.FORMAT_SUBTITLES.toBool() || Settings.FORMAT_GLYPH_TAGS.toBool())) {
             var wrapper = new WrapperPlayServerJsonComponent(event);
-            wrapper.setComponentJson(PacketHelpers.translateJson(wrapper.getComponentJson()));
-        } else if(event.getPacketType() == ACTION_BAR && Settings.FORMAT_ACTION_BAR.toBool()) {
+            wrapper.setComponentJson(PacketHelpers.translateJson(wrapper.getComponentJson(),
+                    Settings.FORMAT_SUBTITLES.toBool(), Settings.FORMAT_GLYPH_TAGS.toBool()));
+        } else if(event.getPacketType() == ACTION_BAR
+                && (Settings.FORMAT_ACTION_BAR.toBool() || Settings.FORMAT_GLYPH_TAGS.toBool())) {
             var wrapper = new WrapperPlayServerJsonComponent(event);
-            wrapper.setComponentJson(PacketHelpers.translateJson(wrapper.getComponentJson()));
+            wrapper.setComponentJson(PacketHelpers.translateJson(wrapper.getComponentJson(),
+                    Settings.FORMAT_ACTION_BAR.toBool(), Settings.FORMAT_GLYPH_TAGS.toBool()));
         }
     }
 }

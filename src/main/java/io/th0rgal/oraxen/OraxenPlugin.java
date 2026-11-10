@@ -214,8 +214,8 @@ public class OraxenPlugin extends JavaPlugin {
             packetAdapter = new PacketAdapter.EmptyAdapter();
         }
         packetAdapter.whenEnabled(adapter -> {
-            if (Settings.FORMAT_INVENTORY_TITLES.toBool())
-                packetAdapter.registerInventoryListener();
+            adapter.registerGlyphTagListener();
+            adapter.registerInventoryListener();
             packetAdapter.registerTitleListener();
         });
     }
@@ -261,6 +261,8 @@ public class OraxenPlugin extends JavaPlugin {
     }
 
     private void cleanupRuntimeResources() {
+        if (packetAdapter != null)
+            packetAdapter.removeGlyphTagListener();
         setUploadManager(null);
         setMultiVersionUploadManager(null);
         setHudManager(null);

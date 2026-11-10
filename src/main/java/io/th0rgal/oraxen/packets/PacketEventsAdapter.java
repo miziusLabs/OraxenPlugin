@@ -14,6 +14,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.packets.packetevents.InventoryPacketListener;
+import io.th0rgal.oraxen.packets.packetevents.GlyphTagPacketListener;
 import io.th0rgal.oraxen.packets.packetevents.ScoreboardPacketListener;
 import io.th0rgal.oraxen.packets.packetevents.TitlePacketListener;
 import io.th0rgal.oraxen.utils.SnapshotVersion;
@@ -35,6 +36,7 @@ public class PacketEventsAdapter implements PacketAdapter {
 
     private PacketListenerCommon titlePacketListener;
     private PacketListenerCommon inventoryPacketListener;
+    private PacketListenerCommon glyphTagPacketListener;
 
     @Override
     public boolean isEnabled() {
@@ -71,6 +73,22 @@ public class PacketEventsAdapter implements PacketAdapter {
             return;
         }
         titlePacketListener = register(new TitlePacketListener(), PacketListenerPriority.MONITOR);
+    }
+
+    @Override
+    public void registerGlyphTagListener() {
+        if (glyphTagPacketListener != null) {
+            OraxenPlugin.get().getLogger().severe("[PacketEventsAdapter]: Glyph Tag Listener is already registered!");
+            return;
+        }
+        glyphTagPacketListener = register(new GlyphTagPacketListener(), PacketListenerPriority.MONITOR);
+    }
+
+    @Override
+    public void removeGlyphTagListener() {
+        if (glyphTagPacketListener != null)
+            PacketEvents.getAPI().getEventManager().unregisterListener(glyphTagPacketListener);
+        glyphTagPacketListener = null;
     }
 
     @Override

@@ -33,6 +33,9 @@ public interface NMSHandler {
     default void formatTitles(boolean enabled) {
     }
 
+    default void formatGlyphTags(boolean enabled) {
+    }
+
     default void hideScoreboardNumbers(boolean enabled) {
     }
 

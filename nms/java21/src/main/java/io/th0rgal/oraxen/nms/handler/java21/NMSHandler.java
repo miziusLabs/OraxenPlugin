@@ -242,6 +242,11 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     @Override
+    public void formatGlyphTags(boolean enabled) {
+        packetHandler.formatGlyphTags(enabled);
+    }
+
+    @Override
     public void hideScoreboardNumbers(boolean enabled) {
         packetHandler.hideScoreboardNumbers(enabled);
     }

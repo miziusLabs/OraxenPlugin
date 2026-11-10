@@ -16,6 +16,7 @@ general:
     console-sent: false # Internal flag; set to true after the welcome message has been shown.
 
   formatting: # Uses MiniMessage formatting; legacy colors such as §c and &c are not supported.
+    glyph-tags: true # Resolve glyph tags in outgoing text sent by plugins.
     inventory-titles: true # Format inventory titles made by any plugin.
     titles: true # Format titles made by any plugin.
     subtitles: true # Format subtitles made by any plugin.

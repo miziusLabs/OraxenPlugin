@@ -22,6 +22,7 @@ public enum Settings {
     AUTO_UPDATE_PAPER_CONFIG("general.auto-update.paper-config"),
     GENERATE_DEFAULT_ASSETS("configuration.defaults.assets"),
     GENERATE_DEFAULT_CONFIGS("configuration.defaults.configs"),
+    FORMAT_GLYPH_TAGS("general.formatting.glyph-tags"),
     FORMAT_INVENTORY_TITLES("general.formatting.inventory-titles"),
     FORMAT_TITLES("general.formatting.titles"),
     FORMAT_SUBTITLES("general.formatting.subtitles"),

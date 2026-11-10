@@ -18,9 +18,15 @@ public class PacketHelpers {
     }
 
     public static String translateJson(String json) {
+        return translateJson(json, true, true);
+    }
+
+    public static String translateJson(String json, boolean formatMiniMessage, boolean resolveGlyphTags) {
         if (json == null) return null;
         try {
-            return toJson(readJson(json));
+            Component component = AdventureUtils.GSON_SERIALIZER.deserialize(json);
+            component = translateOutgoingText(component, formatMiniMessage, resolveGlyphTags);
+            return AdventureUtils.GSON_SERIALIZER.serialize(component).replaceAll(BACKSLASH_REMOVAL_REGEX, "");
         } catch (RuntimeException exception) {
             if (Settings.DEBUG.toBool()) {
                 Logs.logWarning("PacketHelpers.translateJson failed, returning original payload: " + exception.getMessage());
@@ -30,9 +36,17 @@ public class PacketHelpers {
     }
 
     public static Component translateTitle(Component component) {
-        return AdventureUtils.MINI_MESSAGE.deserialize(
-            AdventureUtils.parseMiniMessageThroughLegacy(component)
-                .replaceAll(BACKSLASH_REMOVAL_REGEX, "")
-        );
+        return translateOutgoingText(component, true, true);
+    }
+
+    public static Component translateOutgoingText(Component component, boolean formatMiniMessage, boolean resolveGlyphTags) {
+        var miniMessage = AdventureUtils.MINI_MESSAGE_WITHOUT_GLYPHS;
+        Component translated = component;
+        if (formatMiniMessage) {
+            translated = miniMessage.deserialize(
+                    AdventureUtils.parseMiniMessageThroughLegacy(component, miniMessage)
+                            .replaceAll(BACKSLASH_REMOVAL_REGEX, ""));
+        }
+        return resolveGlyphTags ? GlyphTagRewriter.rewrite(translated) : translated;
     }
 }

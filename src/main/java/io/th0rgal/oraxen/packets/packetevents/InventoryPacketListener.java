@@ -3,12 +3,15 @@ package io.th0rgal.oraxen.packets.packetevents;
 import com.github.retrooper.packetevents.event.PacketListener;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.utils.PacketHelpers;
 
 public class InventoryPacketListener implements PacketListener {
     @Override public void onPacketSend(PacketSendEvent event) {
-        if(event.getPacketType() != PacketType.Play.Server.OPEN_WINDOW) return;
+        if (event.getPacketType() != PacketType.Play.Server.OPEN_WINDOW
+                || (!Settings.FORMAT_INVENTORY_TITLES.toBool() && !Settings.FORMAT_GLYPH_TAGS.toBool())) return;
         var wrapper = new WrapperPlayServerJsonOpenWindow(event);
-        wrapper.setTitleJson(PacketHelpers.translateJson(wrapper.getTitleJson()));
+        wrapper.setTitleJson(PacketHelpers.translateJson(wrapper.getTitleJson(),
+                Settings.FORMAT_INVENTORY_TITLES.toBool(), Settings.FORMAT_GLYPH_TAGS.toBool()));
     }
 }
