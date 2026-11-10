@@ -95,6 +95,11 @@ import java.util.function.Supplier;
 
 public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
+    @Override
+    public boolean keepGhastStationary(org.bukkit.entity.Entity entity) {
+        return GhastCollision.keepStationary(entity);
+    }
+
     private final Listener packDispatchListener;
     private final boolean is263OrAbove;
     private final PacketHandler packetHandler;

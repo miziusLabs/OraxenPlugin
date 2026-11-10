@@ -27,6 +27,10 @@ public interface NMSHandler {
         return false;
     }
 
+    default boolean keepGhastStationary(org.bukkit.entity.Entity entity) {
+        return false;
+    }
+
     default void formatInventoryTitles(boolean enabled) {
     }
 
