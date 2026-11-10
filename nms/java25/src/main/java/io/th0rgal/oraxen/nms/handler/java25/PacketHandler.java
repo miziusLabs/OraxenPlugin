@@ -15,6 +15,8 @@ import net.minecraft.network.chat.numbers.BlankFormat;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetObjectivePacket;
@@ -23,17 +25,25 @@ import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
+import org.bukkit.entity.Entity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 final class PacketHandler {
 
     private final NamespacedKey key;
     private final TridentPacketHandler tridents = new TridentPacketHandler();
+    private final Map<Integer, UUID> furnitureGhasts = new ConcurrentHashMap<>();
     private volatile boolean formatInventoryTitles;
     private volatile boolean formatTitles;
     private volatile boolean hideScoreboardNumbers;
@@ -70,6 +80,7 @@ final class PacketHandler {
 
     void shutdown() {
         tridents.shutdown();
+        furnitureGhasts.clear();
         ChannelInitializeListenerHolder.removeListener(key);
         for (var player : Bukkit.getOnlinePlayers()) {
             try {
@@ -93,9 +104,18 @@ final class PacketHandler {
         hideScoreboardNumbers = enabled;
     }
 
+    void trackFurnitureGhast(Entity entity) {
+        furnitureGhasts.put(entity.getEntityId(), entity.getUniqueId());
+    }
+
+    void untrackFurnitureGhast(Entity entity) {
+        furnitureGhasts.remove(entity.getEntityId(), entity.getUniqueId());
+    }
+
     private Object transform(Object packet) {
         try {
             if (packet instanceof ClientboundBundlePacket bundle) return transformBundle(bundle);
+            if (packet instanceof ClientboundAddEntityPacket spawn) return transformFurnitureGhastSpawn(spawn);
             if (packet instanceof ClientboundOpenScreenPacket openScreen) return transformOpenScreen(openScreen);
             if (packet instanceof ClientboundSetTitleTextPacket title) return transformTitle(title);
             if (packet instanceof ClientboundSetSubtitleTextPacket subtitle) return transformSubtitle(subtitle);
@@ -115,11 +135,25 @@ final class PacketHandler {
         for (Packet<? super ClientGamePacketListener> subPacket : bundle.subPackets()) {
             Object transformed = transform(subPacket);
             if (transformed != subPacket) changed = true;
-            packets.add(transformed instanceof Packet<?> packet
-                    ? (Packet<? super ClientGamePacketListener>) packet
-                    : subPacket);
+            if (transformed instanceof ClientboundBundlePacket expanded) {
+                expanded.subPackets().forEach(packets::add);
+            } else {
+                packets.add(transformed instanceof Packet<?> packet
+                        ? (Packet<? super ClientGamePacketListener>) packet
+                        : subPacket);
+            }
         }
         return changed ? new ClientboundBundlePacket(packets) : bundle;
+    }
+
+    private Object transformFurnitureGhastSpawn(ClientboundAddEntityPacket spawn) {
+        if (!spawn.getUUID().equals(furnitureGhasts.get(spawn.getId()))) return spawn;
+        // A client can render the spawn before a separate invisibility update arrives.
+        // Bundle them so the first rendered frame already has the invisible flag.
+        var invisible = SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(0, EntityDataSerializers.BYTE), (byte) 0x20);
+        return new ClientboundBundlePacket(List.of(spawn,
+                new ClientboundSetEntityDataPacket(spawn.getId(), List.of(invisible))));
     }
 
     private ClientboundOpenScreenPacket transformOpenScreen(ClientboundOpenScreenPacket packet) {
