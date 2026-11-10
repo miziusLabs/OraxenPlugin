@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.jar.Attributes;
 
 public class VersionUtil {
     private static final boolean isPaper;
@@ -110,16 +111,24 @@ public class VersionUtil {
         return isFolia;
     }
 
-    private final static String manifest = JarReader.getManifestContent();
+    private static final Attributes manifest = JarReader.getManifestAttributes();
 
     public static boolean isCompiled() {
-        List<String> split = Arrays.stream(manifest.split(":|\n")).map(String::trim).toList();
-        return Boolean.parseBoolean(split.get(split.indexOf("Compiled") + 1)) && !isValidCompiler();
+        return isCompiled(manifest);
+    }
+
+    static boolean isCompiled(Attributes attributes) {
+        String compiled = attributes.getValue("Compiled");
+        return compiled != null && Boolean.parseBoolean(compiled.trim()) && !isValidCompiler(attributes);
     }
 
     public static boolean isValidCompiler() {
-        List<String> split = Arrays.stream(manifest.split(":|\n")).map(String::trim).toList();
-        return Set.of("sivert", "thomas").contains(split.get(split.indexOf("Built-By") + 1).toLowerCase(Locale.ROOT));
+        return isValidCompiler(manifest);
+    }
+
+    static boolean isValidCompiler(Attributes attributes) {
+        String builtBy = attributes.getValue("Built-By");
+        return builtBy != null && Set.of("sivert", "thomas").contains(builtBy.trim().toLowerCase(Locale.ROOT));
     }
 
     private static boolean hasClass(String className) {
