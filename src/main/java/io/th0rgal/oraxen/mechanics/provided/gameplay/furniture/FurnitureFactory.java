@@ -80,7 +80,7 @@ public class FurnitureFactory extends MechanicFactory {
         addToImplemented(mechanic);
         if (!warnedAboutGhastDebugVisibility && mechanic.hasGhastHitboxes() && Settings.DEBUG.toBool()) {
             warnedAboutGhastDebugVisibility = true;
-            Logs.logWarning("Ghast hitboxes are visible while in debug mode.");
+            Logs.logWarning("Ghast type furniture hitboxes are visible while in debug mode.");
         }
         return mechanic;
     }
