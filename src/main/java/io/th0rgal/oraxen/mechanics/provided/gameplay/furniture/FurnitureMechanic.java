@@ -657,6 +657,10 @@ public class FurnitureMechanic extends Mechanic {
         return hitboxes;
     }
 
+    boolean hasGhastHitboxes() {
+        return !ghasts.isEmpty();
+    }
+
     public static boolean isGhastHitbox(Entity entity) {
         return VersionUtil.atOrAbove("1.21.6") && FurnitureGhastEntities.isHitbox(entity);
     }

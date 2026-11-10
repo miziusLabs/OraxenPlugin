@@ -2,11 +2,15 @@ package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
 import com.jeff_media.morepersistentdatatypes.DataType;
 import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.api.OraxenItems;
+import io.th0rgal.oraxen.api.events.OraxenItemsLoadedEvent;
+import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.nms.NMSHandler;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.BlockHelpers;
 import io.th0rgal.oraxen.utils.EntityUtils;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
+import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -23,6 +27,7 @@ import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import static io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic.*;
@@ -70,7 +75,7 @@ final class FurnitureGhastEntities implements Listener {
     private static Entity spawnHitbox(UUID baseId, Location root, Location location, String itemId, FurnitureGhastHitbox hitbox) {
         HappyGhast ghast = EntityUtils.spawnEntity(location, HappyGhast.class, entity -> {
             entity.setAdult();
-            entity.setInvisible(true);
+            entity.setInvisible(!Settings.DEBUG.toBool());
             entity.setSilent(true);
             entity.setAI(false);
             entity.setGravity(false);
@@ -92,15 +97,18 @@ final class FurnitureGhastEntities implements Listener {
 
     private static boolean activate(Entity ghast) {
         NMSHandlers.getHandler().trackFurnitureGhast(ghast);
-        ghast.setInvisible(true);
+        ghast.setInvisible(!Settings.DEBUG.toBool());
         ghast.setNoPhysics(true);
         NMSHandler handler = NMSHandlers.getHandler();
         if (!handler.keepGhastStationary(ghast)) {
             ghast.remove();
             return false;
         }
-        SchedulerUtil.runForEntityTimer(ghast, 5L, 5L,
-                () -> handler.keepGhastStationary(ghast), null);
+        SchedulerUtil.runForEntityTimer(ghast, 5L, 5L, () -> {
+            boolean invisible = !Settings.DEBUG.toBool();
+            if (ghast.isInvisible() != invisible) ghast.setInvisible(invisible);
+            handler.keepGhastStationary(ghast);
+        }, null);
         return true;
     }
 
@@ -158,6 +166,16 @@ final class FurnitureGhastEntities implements Listener {
 
     private static Location hitboxLocation(Location root, Vector offset, float yaw) {
         return BlockHelpers.toCenterBlockLocation(root).add(rotateGroundOffset(offset, yaw));
+    }
+
+    @EventHandler
+    public void onItemsLoaded(OraxenItemsLoadedEvent event) {
+        if (Settings.DEBUG.toBool() && OraxenItems.getNames().stream()
+                .map(FurnitureFactory.getInstance()::getMechanic)
+                .filter(Objects::nonNull)
+                .anyMatch(FurnitureMechanic::hasGhastHitboxes)) {
+            Logs.logWarning("Ghast hitboxes are visible while in debug mode.");
+        }
     }
 
     @EventHandler
