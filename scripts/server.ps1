@@ -1,3 +1,4 @@
+# Existing servers are temporary and used for validation. Agents should reset them.
 # Starts a local Paper/Folia server for a version used by VersionLoadingTest.
 # Usage: ./scripts/server.ps1 --version Paper/26.3 [--no-reset]
 $ErrorActionPreference = 'Stop'
