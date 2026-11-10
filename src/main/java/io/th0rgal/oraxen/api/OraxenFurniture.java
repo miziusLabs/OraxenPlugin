@@ -91,7 +91,7 @@ public class OraxenFurniture {
         FurnitureMechanic mechanic = getFurnitureMechanic(entity);
         // Commented out as this breaks FurnitureUpdating when type is different
         //return mechanic != null && mechanic.getFurnitureEntityType() == entity.getType();
-        return mechanic != null && entity.getType() != EntityType.INTERACTION;
+        return mechanic != null && entity.getType() != EntityType.INTERACTION && !FurnitureMechanic.isGhastHitbox(entity);
     }
 
     public static boolean isInteractionEntity(@NotNull Entity entity) {
@@ -211,8 +211,12 @@ public class OraxenFurniture {
         if (!FurnitureFactory.isEnabled() || baseEntity == null) return false;
         FurnitureMechanic mechanic = getFurnitureMechanic(baseEntity);
         if (mechanic == null) return removeOrphanFurniture(baseEntity);
-        // Ensure the baseEntity is baseEntity and not interactionEntity
-        if (OraxenFurniture.isInteractionEntity(baseEntity)) baseEntity = mechanic.getBaseEntity(baseEntity);
+        if (FurnitureMechanic.isGhastHitbox(baseEntity)) {
+            baseEntity = mechanic.getBaseEntity(baseEntity);
+            if (baseEntity == null || !Bukkit.isOwnedByCurrentRegion(baseEntity)) return false;
+        } else if (OraxenFurniture.isInteractionEntity(baseEntity)) {
+            baseEntity = mechanic.getBaseEntity(baseEntity);
+        }
         if (baseEntity == null) return false;
 
         return removeFurniture(baseEntity, mechanic, player, drop, mechanic.hasBarriers(baseEntity));
@@ -267,6 +271,8 @@ public class OraxenFurniture {
         if (!hasFurnitureEntityMarker(entity)) return false;
 
         Entity baseEntity = resolveBaseEntity(entity);
+        if (baseEntity != null && FurnitureMechanic.isGhastHitbox(entity)
+                && !Bukkit.isOwnedByCurrentRegion(baseEntity)) return false;
         if (baseEntity == null) {
             removeOrphanSeat(entity.getPersistentDataContainer());
             if (!entity.isDead()) entity.remove();
@@ -301,7 +307,7 @@ public class OraxenFurniture {
             if (baseEntity != null) return baseEntity;
         }
 
-        return entity.getType() == EntityType.INTERACTION ? null : entity;
+        return entity.getType() == EntityType.INTERACTION || FurnitureMechanic.isGhastHitbox(entity) ? null : entity;
     }
 
     private static void removeOrphanBarriers(@NotNull Entity baseEntity) {

@@ -52,6 +52,8 @@ public class FurnitureFactory extends MechanicFactory {
         );
         if (VersionUtil.atOrAbove("1.21.5"))
             MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new FurniturePickItemListener());
+        if (VersionUtil.atOrAbove("1.21.6"))
+            MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new FurnitureGhastEntities());
         evolvingFurnitures = false;
         instance = this;
         FurniturePacketDispatcher.init();
@@ -203,6 +205,7 @@ public class FurnitureFactory extends MechanicFactory {
                 MechanicConfigProperty.bool("rotatable", "Whether furniture can be rotated after placement", true),
                 MechanicConfigProperty.bool("small", "Whether an armor stand furniture uses the small variant", true),
                 MechanicConfigProperty.list("hitboxes", "List of hitbox offsets and dimensions formatted '<x>,<y>,<z> <width>,<height>'"),
+                MechanicConfigProperty.list("ghasts", "List of solid hitboxes formatted '<x>,<y>,<z> <scale>'. Requires Minecraft 1.21.6 or newer"),
                 MechanicConfigProperty.list("seats", "List of seat offsets relative to the furniture center formatted '<x>,<y>,<z>' or '<x>,<y>,<z> <yaw>'"),
                 MechanicConfigProperty.list("barriers", "List of barrier block offsets relative to furniture formatted '<x>,<y>,<z>' with integer coordinates"),
                 MechanicConfigProperty.list("events", "Click events with actions to run when furniture barriers or hitboxes are clicked"),
