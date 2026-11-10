@@ -786,10 +786,11 @@ public class FurnitureMechanic extends Mechanic {
     public ItemStack applyAppearance(Entity entity, ItemStack item) {
         int stageIndex = entity.getPersistentDataContainer().getOrDefault(STAGE_INDEX_KEY, PersistentDataType.INTEGER, 0);
         GrowthStage stage = hasGrowthStages() ? getGrowthStage(stageIndex) : null;
-        if (appearance == null && stage != null && VersionUtil.atOrAbove("1.21.2")) {
+        String modelKey = stage != null ? stage.getModelKey() : null;
+        if (appearance == null && modelKey != null && !modelKey.isEmpty() && VersionUtil.atOrAbove("1.21.2")) {
             ItemStack result = item.clone();
             ItemUtils.editItemMeta(result, meta -> meta.setItemModel(new NamespacedKey("oraxen",
-                    getItemID() + (stage.getModelKey() != null ? "/" + stage.getModelKey() : ""))));
+                    getItemID() + "/" + modelKey)));
             return result;
         }
         return applyAppearance(item, stage != null ? stage.getModelKey() : null);

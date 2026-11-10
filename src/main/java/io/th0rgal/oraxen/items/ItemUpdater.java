@@ -475,6 +475,11 @@ public class ItemUpdater implements Listener {
     }
 
     private static ItemStack updateFurnitureItem(Entity entity, ItemStack oldItem) {
+        String id = OraxenItems.getIdByItem(oldItem);
+        if (OraxenItems.getOptionalItemById(id)
+                .map(builder -> builder.getOraxenMeta().isNoUpdate())
+                .orElse(false)) return oldItem;
+
         ItemStack updatedItem = updateItem(oldItem);
         if (ItemUtils.isEmpty(updatedItem)) return updatedItem;
         FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(entity);
