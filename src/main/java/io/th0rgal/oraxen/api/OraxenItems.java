@@ -70,6 +70,8 @@ public class OraxenItems {
                 }
             }
 
+            FurnitureFactory furnitureFactory = FurnitureFactory.isEnabled() ? FurnitureFactory.getInstance() : null;
+            if (furnitureFactory != null) furnitureFactory.resetGhastDebugWarning();
             Map<File, Map<String, ItemBuilder>> loadedMap = OraxenPlugin.get().getConfigsManager().parseItemConfig();
             Map<String, ItemBuilder> loadedItemsById = new HashMap<>();
             Set<String> loadedItems = new HashSet<>();
@@ -83,7 +85,6 @@ public class OraxenItems {
             ensureComponentDataHandled(loadedMap, loadedItemsById);
             // Allocate render model data during item loading, before Folia regions or async
             // pack generation can request furniture variants concurrently.
-            FurnitureFactory furnitureFactory = FurnitureFactory.isEnabled() ? FurnitureFactory.getInstance() : null;
             for (String itemId : loadedItemsById.keySet()) {
                 var furniture = furnitureFactory == null ? null : furnitureFactory.getMechanic(itemId);
                 if (furniture != null) furniture.initializeAppearance(loadedItemsById);
