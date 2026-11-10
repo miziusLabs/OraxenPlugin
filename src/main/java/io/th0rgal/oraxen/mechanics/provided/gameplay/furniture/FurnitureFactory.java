@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenFurniture;
 import io.th0rgal.oraxen.api.events.OraxenItemsLoadedEvent;
+import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicConfigProperty;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
@@ -16,6 +17,7 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.text.FurnitureTex
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
+import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Entity;
@@ -34,6 +36,7 @@ public class FurnitureFactory extends MechanicFactory {
     public final List<String> toolTypes;
     public final int evolutionCheckDelay;
     private boolean evolvingFurnitures;
+    private boolean warnedAboutGhastDebugVisibility;
     private static EvolutionTask evolutionTask;
     public final boolean customSounds;
     public final boolean detectViabackwards;
@@ -73,9 +76,17 @@ public class FurnitureFactory extends MechanicFactory {
 
     @Override
     public Mechanic parse(ConfigurationSection itemMechanicConfiguration) {
-        Mechanic mechanic = new FurnitureMechanic(this, itemMechanicConfiguration);
+        FurnitureMechanic mechanic = new FurnitureMechanic(this, itemMechanicConfiguration);
         addToImplemented(mechanic);
+        if (!warnedAboutGhastDebugVisibility && mechanic.hasGhastHitboxes() && Settings.DEBUG.toBool()) {
+            warnedAboutGhastDebugVisibility = true;
+            Logs.logWarning("Ghast hitboxes are visible while in debug mode.");
+        }
         return mechanic;
+    }
+
+    public void resetGhastDebugWarning() {
+        warnedAboutGhastDebugVisibility = false;
     }
 
     public static boolean isEnabled() {
