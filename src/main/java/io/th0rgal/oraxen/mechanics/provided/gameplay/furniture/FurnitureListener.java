@@ -465,26 +465,22 @@ public class FurnitureListener implements Listener {
         Entity baseEntity = event.getRightClicked();
         final Player player = event.getPlayer();
         EquipmentSlot hand = event.getHand();
+        boolean ghastHitbox = FurnitureMechanic.isGhastHitbox(baseEntity);
+        if (ghastHitbox) event.setCancelled(true);
 
         if (!AntiGriefLib.canInteract(player, baseEntity.getLocation()))
             return;
         FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(baseEntity);
         if (mechanic == null)
             return;
-        Entity resolvedBaseEntity = baseEntity instanceof Interaction interactionEntity
-                ? mechanic.getBaseEntity(interactionEntity) : baseEntity;
+        Entity resolvedBaseEntity = baseEntity instanceof Interaction || ghastHitbox
+                ? mechanic.getBaseEntity(baseEntity) : baseEntity;
+        if (ghastHitbox && (resolvedBaseEntity == null || !Bukkit.isOwnedByCurrentRegion(resolvedBaseEntity))) return;
         if (!BlockLockerCompatibility.canInteract(player, blockLockerBlock(mechanic, resolvedBaseEntity, baseEntity.getLocation().getBlock()), mechanic)) {
             event.setCancelled(true);
             return;
         }
-        // Swap baseEntity to the baseEntity if interacted with entity is Interaction
-        // type
-        Entity interaction = null;
-        if (baseEntity instanceof Interaction interactionEntity) {
-            interaction = interactionEntity;
-            baseEntity = resolvedBaseEntity != null ? resolvedBaseEntity : interaction;
-        }
-
+        if (resolvedBaseEntity != null) baseEntity = resolvedBaseEntity;
         ItemStack itemInHand = hand == EquipmentSlot.HAND ? player.getInventory().getItemInMainHand()
                 : player.getInventory().getItemInOffHand();
         new OraxenFurnitureInteractEvent(mechanic, baseEntity, player, itemInHand, hand).callEvent();
@@ -541,6 +537,10 @@ public class FurnitureListener implements Listener {
     public void onPlayerAttackFurniture(PrePlayerAttackEntityEvent event) {
         if (!FurnitureFactory.isEnabled()) return;
         Entity entity = event.getAttacked();
+        if (FurnitureMechanic.isGhastHitbox(entity)) {
+            if (!event.isCancelled()) onGhastAttack(event, entity);
+            return;
+        }
         if (event.isCancelled() && !(entity instanceof Interaction)) return;
         Player player = event.getPlayer();
         FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(entity);
@@ -550,6 +550,25 @@ public class FurnitureListener implements Listener {
         if (!BlockLockerCompatibility.canInteract(player,
                 blockLockerBlock(mechanic, baseEntity, entity.getLocation().getBlock()), mechanic)) return;
         mechanic.runEvents(player, Action.LEFT_CLICK_BLOCK);
+    }
+
+    private void onGhastAttack(PrePlayerAttackEntityEvent event, Entity ghast) {
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(ghast);
+        if (mechanic == null) {
+            if (AntiGriefLib.canBreak(player, ghast.getLocation())) OraxenFurniture.remove(ghast, player);
+            return;
+        }
+        Entity baseEntity = mechanic.getBaseEntity(ghast);
+        if (baseEntity == null || !Bukkit.isOwnedByCurrentRegion(baseEntity)) return;
+        if (AntiGriefLib.canInteract(player, ghast.getLocation()) && BlockLockerCompatibility.canInteract(player,
+                blockLockerBlock(mechanic, baseEntity, ghast.getLocation().getBlock()), mechanic))
+            mechanic.runEvents(player, Action.LEFT_CLICK_BLOCK);
+        if (!mechanic.isBreakable() || !AntiGriefLib.canBreak(player, baseEntity.getLocation())) return;
+        OraxenFurnitureBreakEvent breakEvent = new OraxenFurnitureBreakEvent(mechanic, baseEntity, player,
+                baseEntity.getLocation().getBlock());
+        if (breakEvent.callEvent()) OraxenFurniture.remove(baseEntity, player, breakEvent.getDrop());
     }
 
     private Block blockLockerBlock(FurnitureMechanic mechanic, Entity baseEntity, Block fallback) {
