@@ -2,7 +2,6 @@ package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
 import com.jeff_media.morepersistentdatatypes.DataType;
 import io.th0rgal.oraxen.OraxenPlugin;
-import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.api.events.OraxenItemsLoadedEvent;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.nms.NMSHandler;
@@ -10,10 +9,10 @@ import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.BlockHelpers;
 import io.th0rgal.oraxen.utils.EntityUtils;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
-import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HappyGhast;
@@ -27,7 +26,6 @@ import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 import static io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic.*;
@@ -170,11 +168,13 @@ final class FurnitureGhastEntities implements Listener {
 
     @EventHandler
     public void onItemsLoaded(OraxenItemsLoadedEvent event) {
-        if (Settings.DEBUG.toBool() && OraxenItems.getNames().stream()
-                .map(FurnitureFactory.getInstance()::getMechanic)
-                .filter(Objects::nonNull)
-                .anyMatch(FurnitureMechanic::hasGhastHitboxes)) {
-            Logs.logWarning("Ghast hitboxes are visible while in debug mode.");
+        // Spawn chunks can already contain ghasts before this listener is registered.
+        for (World world : Bukkit.getWorlds()) {
+            for (HappyGhast ghast : world.getEntitiesByClass(HappyGhast.class)) {
+                SchedulerUtil.runOnOwningThread(ghast, () -> {
+                    if (isHitbox(ghast)) ghast.setInvisible(!Settings.DEBUG.toBool());
+                });
+            }
         }
     }
 
