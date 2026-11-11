@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.mechanics;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.Color;
+import org.bukkit.GameEvent;
 import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
@@ -32,6 +33,9 @@ public class TestRegistryAccess implements RegistryAccess {
     @Override
     @SuppressWarnings({"unchecked", "removal"})
     public <T extends Keyed> Registry<T> getRegistry(RegistryKey<T> key) {
+        if (key == RegistryKey.GAME_EVENT) {
+            return new TestRegistry<>((Class<T>) GameEvent.class);
+        }
         if (key == RegistryKey.SOUND_EVENT) {
             return new TestRegistry<>((Class<T>) Sound.class);
         }
@@ -54,6 +58,18 @@ public class TestRegistryAccess implements RegistryAccess {
         @Override
         @SuppressWarnings("unchecked")
         public T get(NamespacedKey key) {
+            if (type == GameEvent.class) {
+                return (T) new GameEvent() {
+                    @Override
+                    public NamespacedKey getKey() { return key; }
+
+                    @Override
+                    public int getRange() { return 16; }
+
+                    @Override
+                    public int getVibrationLevel() { return 0; }
+                };
+            }
             if (type != null && PotionEffectType.class.isAssignableFrom(type)) {
                 return (T) new TestPotionEffectType(key);
             }

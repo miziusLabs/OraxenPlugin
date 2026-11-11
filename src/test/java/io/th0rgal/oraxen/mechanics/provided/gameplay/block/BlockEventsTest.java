@@ -104,6 +104,7 @@ class BlockEventsTest {
 
         try (MockedStatic<CompatibilitiesManager> compatibilities = mockStatic(CompatibilitiesManager.class)) {
             assertFalse(events.hasLeftClickEvent());
+            assertTrue(events.hasClickEvents());
             assertFalse(events.run(player, Action.LEFT_CLICK_BLOCK));
             assertTrue(events.run(player, Action.RIGHT_CLICK_BLOCK));
             verify(player).performCommand("say clicked");
@@ -144,6 +145,7 @@ class BlockEventsTest {
         BlockEvents events = new BlockEvents(config, "test", "furniture.events");
 
         assertFalse(events.isEmpty());
+        assertFalse(events.hasClickEvents());
         assertFalse(events.hasLeftClickEvent());
         assertFalse(events.run(mock(Player.class), Action.LEFT_CLICK_BLOCK));
         assertFalse(events.run(mock(Player.class), Action.RIGHT_CLICK_BLOCK));
