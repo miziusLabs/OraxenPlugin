@@ -73,7 +73,6 @@ import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Listener;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -106,7 +105,6 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         packetHandler.untrackFurnitureGhast(entity);
     }
 
-    private final Listener packDispatchListener;
     private final PacketHandler packetHandler;
     private final NamespacedKey mineableTagKey;
     private final NamespacedKey blockPredictionKey;
@@ -119,13 +117,6 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         this.packetHandler = new PacketHandler();
         this.mineableTagKey = NamespacedKey.fromString("mineable_with_key", OraxenPlugin.get());
         this.blockPredictionKey = NamespacedKey.fromString("block_prediction_key", OraxenPlugin.get());
-        // Paper exposed the configuration/reconfiguration events used by the pre-join
-        // dispatcher starting with 1.21.7. Do not load that listener earlier: its class
-        // references APIs that do not exist on 1.21.2 through 1.21.6.
-        this.packDispatchListener = VersionUtil.atOrAbove("1.21.7")
-                ? new PackDispatchListener()
-                : null;
-
         if (mineableTagKey != null && !ChannelInitializeListenerHolder.hasListener(mineableTagKey))
             ChannelInitializeListenerHolder.addListener(mineableTagKey,
                     channel -> installHandler(channel, mineableTagKey, this::createMineableTagHandler));
@@ -234,11 +225,6 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         pending.removeIf(change -> change.sequence() <= sequence);
         SchedulerUtil.runOnOwningThread(player, () ->
                 ((CraftPlayer) player).getHandle().connection.send(new ClientboundBlockChangedAckPacket(sequence)));
-    }
-
-    @Override
-    public Listener packDispatchListener() {
-        return packDispatchListener;
     }
 
     @Override
