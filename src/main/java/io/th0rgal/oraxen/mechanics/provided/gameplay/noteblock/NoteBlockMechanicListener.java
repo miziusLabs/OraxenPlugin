@@ -507,7 +507,7 @@ public class NoteBlockMechanicListener implements Listener {
             final Material material = newData.getMaterial();
 
             if (!player.isSneaking() && againstMechanic != null
-                    && (againstMechanic.isStorage() || againstMechanic.hasBlockEvents()))
+                    && (againstMechanic.isStorage() || againstMechanic.hasClickEvents()))
                 blockPlaceEvent.setCancelled(true);
             if (BlockHelpers.isStandingInside(player, target) || !AntiGriefLib.canBuild(player, target.getLocation()))
                 blockPlaceEvent.setCancelled(true);

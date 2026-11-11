@@ -1,27 +1,33 @@
 package io.th0rgal.oraxen.mechanics;
 
+import io.th0rgal.oraxen.api.OraxenFurniture;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.items.ItemBuilder;
-import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.items.ItemProperties;
+import io.th0rgal.oraxen.items.ItemUpdater;
 import io.th0rgal.oraxen.items.OraxenMeta;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.ArmorStandProperties;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic;
 import io.th0rgal.oraxen.utils.VersionUtil;
-import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import io.th0rgal.oraxen.utils.drops.Loot;
+import io.th0rgal.oraxen.utils.logs.Logs;
+import java.util.List;
+import java.util.Map;
 import net.kyori.adventure.text.Component;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.junit.jupiter.api.Test;
@@ -29,16 +35,18 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,6 +66,48 @@ class FurnitureMechanicTest extends MechanicTestSupport {
         try (var compatibilities = mockStatic(CompatibilitiesManager.class)) {
             mechanic.runBreakEvents(player);
             verify(player).performCommand("say broken");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void removalOfMultiBarrierFurnitureRunsBreakActionsOnceOnlyWithPlayer(boolean hasPlayer) {
+        ConfigurationSection section = mechanicSection("furniture", "barriers", List.of("0,0,0", "1,0,0"));
+        section.set("events", List.of(Map.of("trigger", "break", "actions", List.of(Map.of("command", "say broken")))));
+        FurnitureMechanic mechanic = spy(new FurnitureMechanic(mechanicFactory(), section));
+        ItemDisplay entity = mock(ItemDisplay.class);
+        World world = mock(World.class);
+        Location location = new Location(world, 0, 64, 0);
+        Player player = hasPlayer ? mock(Player.class) : null;
+        when(entity.getWorld()).thenReturn(world);
+        when(entity.getLocation()).thenReturn(location);
+        doNothing().when(mechanic).removeSolid(entity, location, 0f);
+        if (hasPlayer) {
+            when(player.getName()).thenReturn("testPlayer");
+            when(player.getGameMode()).thenReturn(GameMode.CREATIVE);
+            when(player.getInventory()).thenReturn(mock(PlayerInventory.class));
+        }
+
+        try (var furniture = mockStatic(OraxenFurniture.class, CALLS_REAL_METHODS);
+                var factory = mockStatic(FurnitureFactory.class);
+                var furnitureStatics = mockStatic(FurnitureMechanic.class);
+                var compatibilities = mockStatic(CompatibilitiesManager.class)) {
+            factory.when(FurnitureFactory::isEnabled).thenReturn(true);
+            furniture.when(() -> OraxenFurniture.getFurnitureMechanic(entity)).thenReturn(mechanic);
+            furniture.when(() -> OraxenFurniture.isInteractionEntity(entity)).thenReturn(false);
+
+            assertEquals(2, mechanic.getBarriers().size());
+            assertTrue(OraxenFurniture.remove(entity, player, null));
+
+            verify(mechanic).removeSolid(entity, location, 0f);
+            if (hasPlayer) {
+                var order = inOrder(mechanic, player);
+                order.verify(mechanic).removeSolid(entity, location, 0f);
+                order.verify(player).performCommand("say broken");
+                verify(player, times(1)).performCommand("say broken");
+            } else {
+                verify(mechanic, never()).runBreakEvents(any());
+            }
         }
     }
 
