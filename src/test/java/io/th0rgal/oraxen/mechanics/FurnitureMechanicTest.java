@@ -45,6 +45,23 @@ import static org.mockito.Mockito.when;
 class FurnitureMechanicTest extends MechanicTestSupport {
 
     @Test
+    void breakActionsKeepFurnitureBreakableAndDoNotRunOnClicks() {
+        ConfigurationSection section = mechanicSection("furniture", "events", List.of(Map.of(
+                "trigger", "break", "actions", List.of(Map.of("command", "say broken")))));
+        FurnitureMechanic mechanic = new FurnitureMechanic(mechanicFactory(), section);
+        Player player = mock(Player.class);
+
+        when(player.getName()).thenReturn("testPlayer");
+        assertTrue(mechanic.isBreakable());
+        assertFalse(mechanic.runEvents(player, Action.LEFT_CLICK_BLOCK));
+        assertFalse(mechanic.runEvents(player, Action.RIGHT_CLICK_BLOCK));
+        try (var compatibilities = mockStatic(CompatibilitiesManager.class)) {
+            mechanic.runBreakEvents(player);
+            verify(player).performCommand("say broken");
+        }
+    }
+
+    @Test
     void readsBarrierOffsetsAndDisablesDefaultInteractionHitbox() {
         ConfigurationSection section = mechanicSection("furniture", "barriers",
                 List.of("0,0,0", " -2, 1, 3 "));

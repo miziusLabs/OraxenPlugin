@@ -240,6 +240,7 @@ public class OraxenFurniture {
         if (hasBarriers)
             mechanic.removeSolid(baseEntity, baseEntity.getLocation(), FurnitureMechanic.getFurnitureYaw(baseEntity));
         else mechanic.removeNonSolidFurniture(baseEntity);
+        if (player != null) mechanic.runBreakEvents(player);
         return true;
     }
 

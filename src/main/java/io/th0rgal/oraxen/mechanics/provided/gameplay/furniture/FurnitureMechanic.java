@@ -1425,6 +1425,10 @@ public class FurnitureMechanic extends Mechanic {
         return Rotation.values()[Math.round(yaw / 45f) & 0x7];
     }
 
+    public void runBreakEvents(Player player) {
+        events.runBreak(player);
+    }
+
     public boolean runEvents(Player player, Action action) {
         return events.run(player, action);
     }
