@@ -222,3 +222,5 @@ See https://docs.oraxen.com/developers/contributing.
 Read the full license in [`LICENSE.md`](LICENSE.md).
 
 Oraxen is a paid plugin. You must purchase a license from [SpigotMC](https://www.spigotmc.org/resources/oraxen.72448/) or [BuiltByBit](https://builtbybit.com/resources/oraxen-custom-items-blocks-more.16594/) to use it. Public forks are permitted for contributing pull requests, provided that you comply with the license. Do not redistribute compiled builds or source code, whether modified or unmodified, except as permitted by the license.
+
+<!-- Test PR marker. No product behavior changes. -->
