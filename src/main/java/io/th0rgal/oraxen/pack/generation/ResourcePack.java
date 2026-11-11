@@ -331,7 +331,7 @@ public class ResourcePack {
 
     private void handleGenerationFailure(ExecutorService packWorker, String phase, Exception exception) {
         Logs.logError("Failed during " + phase);
-        exception.printStackTrace();
+        Logs.debug(exception);
         packWorker.shutdown();
         // Reset directly — do not rely on scheduler which may be unavailable during shutdown
         finishGeneration();
@@ -378,7 +378,8 @@ public class ResourcePack {
         try {
             Files.deleteIfExists(pack.toPath());
         } catch (IOException e) {
-            e.printStackTrace();
+            Logs.logWarning("Failed to delete an obsolete resource pack archive.");
+            Logs.debug(e);
         }
 
         if (!isMcmetaGenerationDisabled()) {
@@ -581,7 +582,8 @@ public class ResourcePack {
             handleCustomArmor(output);
             Collections.sort(output);
         } catch (IOException e) {
-            e.printStackTrace();
+            Logs.logError("Failed to collect resource pack files; generated output may be incomplete.");
+            Logs.debug(e);
         }
     }
 
@@ -748,7 +750,7 @@ public class ResourcePack {
             Files.writeString(mcmetaPath, gson.toJson(root), StandardCharsets.UTF_8);
         } catch (Exception e) {
             if (Settings.DEBUG.toBool())
-                e.printStackTrace();
+                Logs.debug(e);
             Logs.logWarning("Failed to update pack.mcmeta with shader overlays. Keeping existing file.");
         }
     }
@@ -1453,7 +1455,8 @@ public class ResourcePack {
         } catch (IOException e) {
             Logs.logError("Failed to write generated texture: " + folder + "/" + name);
             if (Settings.DEBUG.toBool())
-                e.printStackTrace();
+                Logs.logWarning("Failed to generate or copy a resource pack texture.");
+                Logs.debug(e);
         }
     }
 

@@ -96,7 +96,7 @@ public class OraxenItems {
             Logs.logError("Failed to load Oraxen items.");
             Logs.logError("Error; " + e.getMessage());
             if (Settings.DEBUG.toBool()) {
-                e.printStackTrace();
+                Logs.debug(e);
             }
         }
     }

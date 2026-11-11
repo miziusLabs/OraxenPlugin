@@ -62,7 +62,7 @@ public class NMSHandlers {
             }
         } catch (ReflectiveOperationException | LinkageError e) {
             Logs.logWarning("Failed to load guarded NMS handler; NMS features will be disabled...");
-            if (Settings.DEBUG.toBool()) e.printStackTrace();
+            Logs.debug(e);
             handler = new NMSHandler.EmptyNMSHandler();
         }
     }
