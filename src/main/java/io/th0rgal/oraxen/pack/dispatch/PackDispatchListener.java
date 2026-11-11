@@ -1,4 +1,4 @@
-package io.th0rgal.oraxen.nms.handler.java25;
+package io.th0rgal.oraxen.pack.dispatch;
 
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
@@ -6,8 +6,6 @@ import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConf
 import io.papermc.paper.event.connection.configuration.PlayerConnectionReconfigureEvent;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.configs.Settings;
-import io.th0rgal.oraxen.pack.dispatch.PackDispatchFilter;
-import io.th0rgal.oraxen.pack.dispatch.PackSender;
 import io.th0rgal.oraxen.pack.generation.PackVersion;
 import io.th0rgal.oraxen.pack.receive.PackReceiver;
 import io.th0rgal.oraxen.utils.AdventureUtils;

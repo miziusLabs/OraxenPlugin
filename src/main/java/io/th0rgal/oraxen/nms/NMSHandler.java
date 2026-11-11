@@ -6,7 +6,6 @@ import org.bukkit.Location;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Listener;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -18,10 +17,6 @@ import java.util.Set;
 import java.util.UUID;
 
 public interface NMSHandler {
-
-    default Listener packDispatchListener() {
-        return null;
-    }
 
     default boolean supportsNativePacketHandling() {
         return false;
