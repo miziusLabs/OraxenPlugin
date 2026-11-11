@@ -35,6 +35,10 @@ public class BlockEvents {
         return events.isEmpty();
     }
 
+    public boolean hasClickEvents() {
+        return events.stream().anyMatch(event -> event.trigger() == Trigger.CLICK);
+    }
+
     public boolean hasLeftClickEvent() {
         return events.stream().anyMatch(event -> event.trigger() == Trigger.CLICK && event.click().matches(Action.LEFT_CLICK_BLOCK));
     }
