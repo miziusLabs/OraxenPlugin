@@ -8604,7 +8604,7 @@
         },
         "events": {
           "type": "array",
-          "description": "Click events with actions to run when furniture barriers or hitboxes are clicked"
+          "description": "Actions for furniture clicks or successful player breaks. Use trigger: click with type: LEFT, RIGHT, or BOTH, or trigger: break. The trigger defaults to click; the legacy click filter remains supported."
         },
         "properties": {
           "type": "object",
@@ -8807,7 +8807,7 @@
         },
         "events": {
           "type": "array",
-          "description": "Click events with actions to run when the placed block is clicked"
+          "description": "Actions for placed block clicks or successful player breaks. Use trigger: click with type: LEFT, RIGHT, or BOTH, or trigger: break. The trigger defaults to click; the legacy click filter remains supported."
         },
         "light": {
           "type": "integer",

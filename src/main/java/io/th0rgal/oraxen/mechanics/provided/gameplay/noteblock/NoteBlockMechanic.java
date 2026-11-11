@@ -204,6 +204,10 @@ public class NoteBlockMechanic extends Mechanic {
 
     public boolean hasBlockEvents() { return !blockEvents.isEmpty(); }
 
+    public void runBreakEvents(Player player) {
+        blockEvents.runBreak(player);
+    }
+
     public boolean runBlockEvents(final Player player, final Action action) { return blockEvents.run(player, action); }
 
     public boolean isInteractable() {
