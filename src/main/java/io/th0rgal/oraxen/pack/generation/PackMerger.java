@@ -70,7 +70,7 @@ public class PackMerger {
             importEntries(entries, includeIcon, true);
         } catch (IOException exception) {
             Logs.logError("Failed to import resource pack " + pack.getName());
-            exception.printStackTrace();
+            Logs.debug(exception);
         }
     }
 
@@ -225,7 +225,7 @@ public class PackMerger {
                 }
             } catch (IOException exception) {
                 Logs.logError("Failed to read resource " + file.getPath());
-                exception.printStackTrace();
+                Logs.debug(exception);
             }
         }
         Map<String, byte[]> preservedOverlayFiles = preserveNativeOverlays

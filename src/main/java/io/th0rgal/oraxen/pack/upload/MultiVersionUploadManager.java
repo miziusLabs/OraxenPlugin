@@ -82,7 +82,7 @@ public class MultiVersionUploadManager {
                 SchedulerUtil.runTask(() -> distributePacksToPlayers(vm, sendToPlayers, contentChanged));
             } catch (Exception e) {
                 Logs.logError("Failed to upload and send multi-version packs: " + e.getMessage());
-                if (Settings.DEBUG.toBool()) e.printStackTrace();
+                Logs.debug(e);
             }
         });
     }
@@ -144,7 +144,7 @@ public class MultiVersionUploadManager {
             } catch (Exception e) {
                 Logs.logError("Failed to upload pack for " + packVersion.getMinecraftVersion() + ": " + e.getMessage());
                 if (Settings.DEBUG.toBool()) {
-                    e.printStackTrace();
+                    Logs.debug(e);
                 }
             }
         }

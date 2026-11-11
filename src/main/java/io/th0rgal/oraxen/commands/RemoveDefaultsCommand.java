@@ -118,7 +118,7 @@ public class RemoveDefaultsCommand {
         } catch (IOException | InvalidConfigurationException exception) {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to load sounds.yml before removing bundled sound defaults");
-            exception.printStackTrace();
+            Logs.debug(exception);
             return new SoundCleanupResult(0, Set.of(), false);
         }
 
@@ -130,7 +130,7 @@ public class RemoveDefaultsCommand {
         } catch (IOException exception) {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to load bundled sound defaults");
-            exception.printStackTrace();
+            Logs.debug(exception);
             return new SoundCleanupResult(0, Set.of(), false);
         }
 
@@ -171,7 +171,7 @@ public class RemoveDefaultsCommand {
                 soundConfig.set("sounds", currentSounds);
                 failedOperations.incrementAndGet();
                 Logs.logWarning("Failed to save sounds.yml while removing bundled sound entries");
-                exception.printStackTrace();
+                Logs.debug(exception);
                 return new SoundCleanupResult(0, Set.of(), false);
             }
         }
@@ -264,7 +264,7 @@ public class RemoveDefaultsCommand {
         } catch (URISyntaxException exception) {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to locate bundled sound files in the Oraxen JAR");
-            exception.printStackTrace();
+            Logs.debug(exception);
             return;
         }
         deleteBundledSoundFiles(soundFolder, retainedSoundFiles, bundledJar, deletedFiles, failedOperations);
@@ -301,7 +301,7 @@ public class RemoveDefaultsCommand {
         } catch (IOException exception) {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to enumerate bundled sound files in the Oraxen JAR");
-            exception.printStackTrace();
+            Logs.debug(exception);
             return;
         }
 
@@ -351,7 +351,7 @@ public class RemoveDefaultsCommand {
         } catch (IOException | IllegalArgumentException exception) {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to remove bundled language entries from " + globalLanguage.getFileName());
-            if (Settings.DEBUG.toBool()) exception.printStackTrace();
+            Logs.debug(exception);
         }
     }
 
@@ -382,7 +382,7 @@ public class RemoveDefaultsCommand {
         } catch (IOException exception) {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to remove default inventory entries from settings.yml");
-            if (Settings.DEBUG.toBool()) exception.printStackTrace();
+            Logs.debug(exception);
         }
     }
 
@@ -433,7 +433,7 @@ public class RemoveDefaultsCommand {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to delete default path: " + path.getFileName());
             if (Settings.DEBUG.toBool())
-                e.printStackTrace();
+                Logs.debug(e);
         }
     }
 
@@ -445,7 +445,7 @@ public class RemoveDefaultsCommand {
             failedOperations.incrementAndGet();
             Logs.logWarning("Failed to delete default file: " + path.getFileName());
             if (Settings.DEBUG.toBool())
-                e.printStackTrace();
+                Logs.debug(e);
         }
     }
 }

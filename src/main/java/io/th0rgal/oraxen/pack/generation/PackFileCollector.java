@@ -143,7 +143,8 @@ class PackFileCollector {
                         jsonModel = JsonParser.parseString(content).getAsJsonObject();
                     } catch (JsonSyntaxException e) {
                         Logs.logError("Found malformed json at <red>" + model.getPath() + "</red>");
-                        e.printStackTrace();
+                        Logs.logWarning("Skipping a resource pack model that could not be processed.");
+                        Logs.debug(e);
                         addMalformed(malformedFiles, assetPath, path);
                         continue;
                     }
@@ -211,7 +212,8 @@ class PackFileCollector {
                         // generation
                         Logs.logWarning("Failed to validate texture <blue>" + texture.getPath() + "</blue>");
                         if (Settings.DEBUG.toBool())
-                            e.printStackTrace();
+                            Logs.logWarning("Skipping a resource pack texture that could not be processed.");
+                            Logs.debug(e);
                         addMalformed(malformedFiles, assetPath, path);
                     }
                 }
@@ -271,7 +273,8 @@ class PackFileCollector {
             String parentPath = getZipFilePath(file.getParentFile().getCanonicalPath(), newFolder);
             output.add(new VirtualFile(parentPath, file.getName(), fis));
         } catch (IOException e) {
-            e.printStackTrace();
+            Logs.logWarning("Skipping a resource pack file after an I/O failure.");
+            Logs.debug(e);
         }
     }
 

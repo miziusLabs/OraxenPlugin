@@ -52,7 +52,7 @@ public final class PackObfuscator {
             new Pass(type, logSummary).run(output);
         } catch (Exception exception) {
             Logs.logError("Failed to obfuscate resource pack. Keeping readable pack output.");
-            if (Settings.DEBUG.toBool()) exception.printStackTrace();
+            Logs.debug(exception);
         }
     }
 

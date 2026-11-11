@@ -127,7 +127,7 @@ public class ResourcesManager {
             }
         } catch (URISyntaxException | IOException e) {
             Logs.logError("Failed to browse plugin JAR file");
-            e.printStackTrace();
+            Logs.debug(e);
         }
     }
 

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import io.th0rgal.oraxen.utils.logs.Logs;
 
 public abstract class RecipeBuilder {
 
@@ -94,7 +95,8 @@ public abstract class RecipeBuilder {
         try {
             config.save(configFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            Logs.logError("Failed to save the recipe configuration.");
+            Logs.debug(e);
         }
     }
 
