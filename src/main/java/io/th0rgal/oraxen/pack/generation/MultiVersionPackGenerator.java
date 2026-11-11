@@ -157,7 +157,7 @@ public class MultiVersionPackGenerator {
             } catch (Exception e) {
                 Logs.logError("Failed to generate pack for " + packVersion.getMinecraftVersion() + ": " + e.getMessage());
                 if (Settings.DEBUG.toBool()) {
-                    e.printStackTrace();
+                    Logs.debug(e);
                 }
             }
         }
@@ -259,7 +259,7 @@ public class MultiVersionPackGenerator {
         } catch (Exception e) {
             Logs.logWarning("Failed to refresh legacy pack.zip in multi-version mode: " + e.getMessage());
             if (Settings.DEBUG.toBool()) {
-                e.printStackTrace();
+                Logs.debug(e);
             }
         }
     }

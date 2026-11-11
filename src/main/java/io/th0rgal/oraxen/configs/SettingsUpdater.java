@@ -24,7 +24,8 @@ public class SettingsUpdater {
             settings.save(OraxenPlugin.get().getDataFolder().getAbsoluteFile().toPath().resolve("settings.yml").toFile());
             Logs.logSuccess("Successfully updated settings.yml", true);
         } catch (Exception e) {
-            e.printStackTrace();
+            Logs.logError("Failed to save settings.yml after applying migrations.");
+            Logs.debug(e);
         }
     }
 

@@ -1028,7 +1028,7 @@ public class ItemBuilder {
             } catch (NoSuchMethodError | UnsupportedOperationException e) {
                 if (Settings.DEBUG.toBool()) {
                     Logs.logWarning("Failed to set JukeboxPlayable - this feature requires Paper");
-                    e.printStackTrace();
+                    Logs.debug(e);
                 }
             }
         }
@@ -1249,7 +1249,8 @@ public class ItemBuilder {
                         yamlConfiguration.save(entry.getKey());
                     } catch (IOException e) {
                         if (Settings.DEBUG.toBool())
-                            e.printStackTrace();
+                            Logs.logError("Failed to save the generated item configuration.");
+                            Logs.debug(e);
                     }
                 });
     }

@@ -49,7 +49,7 @@ class SoundGenerator {
                 }
             } catch (IOException e) {
                 Logs.logError("Failed to read imported sounds file " + soundFile.getPath());
-                e.printStackTrace();
+                Logs.debug(e);
                 continue;
             }
             output.remove(soundFile);
@@ -77,7 +77,7 @@ class SoundGenerator {
                 soundInput.close();
             } catch (IOException e) {
                 Logs.logError("Failed to close generated sounds file for " + entry.getKey());
-                e.printStackTrace();
+                Logs.debug(e);
             }
         }
     }

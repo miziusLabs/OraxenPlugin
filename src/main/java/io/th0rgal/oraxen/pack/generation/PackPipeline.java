@@ -193,7 +193,7 @@ final class PackPipeline {
             files.removeAll(redundantFiles);
         } catch (IOException | RuntimeException exception) {
             Logs.logWarning("Failed to sparsify generated resource pack overlays. Keeping the full overlays.");
-            if (io.th0rgal.oraxen.configs.Settings.DEBUG.toBool()) exception.printStackTrace();
+            Logs.debug(exception);
         }
     }
 
