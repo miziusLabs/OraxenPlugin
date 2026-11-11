@@ -26,12 +26,15 @@ import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic.*;
 
 final class FurnitureGhastEntities implements Listener {
 
+    private static final Set<Integer> activeGhasts = ConcurrentHashMap.newKeySet();
     private static final NamespacedKey GHAST_OFFSET_KEY = new NamespacedKey(OraxenPlugin.get(), "ghast_offset");
     private static final NamespacedKey GHAST_ROOT_KEY = new NamespacedKey(OraxenPlugin.get(), "ghast_root");
     private static final NamespacedKey GHAST_YAW_KEY = new NamespacedKey(OraxenPlugin.get(), "ghast_yaw");
@@ -102,11 +105,16 @@ final class FurnitureGhastEntities implements Listener {
             ghast.remove();
             return false;
         }
-        SchedulerUtil.runForEntityTimer(ghast, 5L, 5L, () -> {
+        int entityId = ghast.getEntityId();
+        if (!activeGhasts.add(entityId)) return true;
+        if (SchedulerUtil.runForEntityTimer(ghast, 5L, 5L, () -> {
             boolean invisible = !Settings.DEBUG.toBool();
             if (ghast.isInvisible() != invisible) ghast.setInvisible(invisible);
             handler.keepGhastStationary(ghast);
-        }, null);
+        }, () -> activeGhasts.remove(entityId)) == null) {
+            activeGhasts.remove(entityId);
+            return false;
+        }
         return true;
     }
 
@@ -172,7 +180,7 @@ final class FurnitureGhastEntities implements Listener {
         for (World world : Bukkit.getWorlds()) {
             for (HappyGhast ghast : world.getEntitiesByClass(HappyGhast.class)) {
                 SchedulerUtil.runOnOwningThread(ghast, () -> {
-                    if (isHitbox(ghast)) ghast.setInvisible(!Settings.DEBUG.toBool());
+                    if (isHitbox(ghast)) activate(ghast);
                 });
             }
         }
@@ -227,8 +235,10 @@ final class FurnitureGhastEntities implements Listener {
 
     @EventHandler
     public void onEntityRemove(EntityRemoveEvent event) {
-        if (isHitbox(event.getEntity()) && event.getCause() != EntityRemoveEvent.Cause.UNLOAD)
+        if (isHitbox(event.getEntity())) {
+            activeGhasts.remove(event.getEntity().getEntityId());
             NMSHandlers.getHandler().untrackFurnitureGhast(event.getEntity());
+        }
         if (event.getCause() != EntityRemoveEvent.Cause.UNLOAD) remove(event.getEntity());
     }
 }
