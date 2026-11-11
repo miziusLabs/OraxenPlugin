@@ -562,8 +562,9 @@ public class FurnitureListener implements Listener {
         }
         Entity baseEntity = mechanic.getBaseEntity(ghast);
         if (baseEntity == null || !Bukkit.isOwnedByCurrentRegion(baseEntity)) return;
-        if (AntiGriefLib.canInteract(player, ghast.getLocation()) && BlockLockerCompatibility.canInteract(player,
-                blockLockerBlock(mechanic, baseEntity, ghast.getLocation().getBlock()), mechanic))
+        if (!BlockLockerCompatibility.canInteract(player,
+                blockLockerBlock(mechanic, baseEntity, ghast.getLocation().getBlock()), mechanic)) return;
+        if (AntiGriefLib.canInteract(player, ghast.getLocation()))
             mechanic.runEvents(player, Action.LEFT_CLICK_BLOCK);
         if (!mechanic.isBreakable() || !AntiGriefLib.canBreak(player, baseEntity.getLocation())) return;
         OraxenFurnitureBreakEvent breakEvent = new OraxenFurnitureBreakEvent(mechanic, baseEntity, player,
