@@ -237,6 +237,7 @@ public class StringBlockMechanicListener implements Listener {
                     mechanic.getBlockSounds().getPlacePitch());
         }
 
+        mechanic.runPlaceEvents(player);
         return true;
     }
 
