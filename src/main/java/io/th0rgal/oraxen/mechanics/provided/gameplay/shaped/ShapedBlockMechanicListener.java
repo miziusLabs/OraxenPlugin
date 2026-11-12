@@ -570,6 +570,7 @@ public class ShapedBlockMechanicListener implements Listener {
                         if (player.getGameMode() != GameMode.CREATIVE) {
                             item.setAmount(item.getAmount() - 1);
                         }
+                        shapedMechanic.runPlaceEvents(player);
                         return true;
                     }
                 }
