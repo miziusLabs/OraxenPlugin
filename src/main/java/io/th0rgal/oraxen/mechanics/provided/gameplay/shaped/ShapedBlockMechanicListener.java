@@ -555,8 +555,17 @@ public class ShapedBlockMechanicListener implements Listener {
                         }
 
                         event.setCancelled(true);
+                        var replacedState = clickedBlock.getState();
+                        BlockData oldData = slab.clone();
                         slab.setType(Slab.Type.DOUBLE);
                         clickedBlock.setBlockData(slab);
+
+                        BlockPlaceEvent placeEvent = new BlockPlaceEvent(clickedBlock, replacedState,
+                                clickedBlock, item, player, true, event.getHand());
+                        if (!placeEvent.callEvent() || !placeEvent.canBuild()) {
+                            clickedBlock.setBlockData(oldData);
+                            return true;
+                        }
 
                         if (shapedMechanic.hasBlockSounds()) {
                             BlockSounds sounds = shapedMechanic.getBlockSounds();
