@@ -372,6 +372,10 @@ paper {
         description = "Allows the player to use the /oraxen command"
         default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
     }
+    permissions.create("oraxen.command.convert") {
+        description = "Allows converting offline plugin setups"
+        default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+    }
     permissions.create("oraxen.introduction") {
         description = "Allows the player to receive Oraxen's first-run introduction guide"
         default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
