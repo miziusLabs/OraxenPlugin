@@ -151,6 +151,28 @@ class BlockEventsTest {
         assertFalse(events.run(mock(Player.class), Action.RIGHT_CLICK_BLOCK));
     }
 
+    @Test
+    void placeTriggerRunsOnlyOnPlacement() {
+        Player player = mock(Player.class);
+        when(player.getName()).thenReturn("testPlayer");
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("events", List.of(
+                Map.of("trigger", "PLACE", "actions", List.of(Map.of("command", "say placed <player>"))),
+                Map.of("trigger", "break", "actions", List.of(Map.of("command", "say broken")))));
+        BlockEvents events = new BlockEvents(config, "test");
+
+        try (MockedStatic<CompatibilitiesManager> compatibilities = mockStatic(CompatibilitiesManager.class)) {
+            assertFalse(events.hasClickEvents());
+            assertFalse(events.hasLeftClickEvent());
+            assertFalse(events.run(player, Action.RIGHT_CLICK_BLOCK));
+            assertTrue(events.runBreak(player));
+            verify(player, never()).performCommand("say placed testPlayer");
+            assertTrue(events.runPlace(player));
+            verify(player).performCommand("say placed testPlayer");
+            verify(player, times(1)).performCommand("say broken");
+        }
+    }
+
     private static BlockEvents opPlayerEvents() {
         YamlConfiguration config = new YamlConfiguration();
         config.set("events", List.of(Map.of(

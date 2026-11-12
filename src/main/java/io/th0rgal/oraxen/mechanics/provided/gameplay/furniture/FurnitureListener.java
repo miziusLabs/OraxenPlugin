@@ -236,6 +236,7 @@ public class FurnitureListener implements Listener {
             item.setAmount(item.getAmount() - 1);
         event.setUseInteractedBlock(Event.Result.DENY);
         baseEntity.getWorld().sendGameEvent(player, GameEvent.BLOCK_PLACE, baseEntity.getLocation().toVector());
+        mechanic.runPlaceEvents(player);
     }
 
     private Block getTarget(Block placedAgainst, BlockFace blockFace) {

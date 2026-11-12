@@ -178,6 +178,10 @@ public class ShapedBlockMechanic extends Mechanic {
         blockEvents.runBreak(player);
     }
 
+    public void runPlaceEvents(Player player) {
+        blockEvents.runPlace(player);
+    }
+
     public boolean runBlockEvents(Player player, Action action) {
         return blockEvents.run(player, action);
     }
