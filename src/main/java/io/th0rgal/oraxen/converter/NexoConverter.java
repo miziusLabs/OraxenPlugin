@@ -1,6 +1,7 @@
 package io.th0rgal.oraxen.converter;
 
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.th0rgal.oraxen.configs.FurnitureConfigMigration;
 import io.th0rgal.oraxen.configs.MiningConfigMigration;
@@ -18,6 +19,8 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +36,8 @@ public final class NexoConverter {
             "consumable", "consumable_potion_effects", "aura", "skin", "skinnable", "block", "mining");
     private final List<String> warnings = new ArrayList<>();
     private final Map<String, ConfigurationSection> items = new LinkedHashMap<>();
+    // Unconverted copies, so template lookups do not depend on conversion order.
+    private final Map<String, ConfigurationSection> sourceItems = new HashMap<>();
     private final Map<Path, YamlConfiguration> configs = new LinkedHashMap<>();
     private Path staging;
 
@@ -41,6 +46,7 @@ public final class NexoConverter {
     public Result convert(Path input, Path output) throws IOException {
         warnings.clear();
         items.clear();
+        sourceItems.clear();
         configs.clear();
         input = input.toAbsolutePath().normalize();
         output = output.toAbsolutePath().normalize();
@@ -77,6 +83,9 @@ public final class NexoConverter {
                     YamlConfiguration yaml = load(file);
                     configs.put(relative, yaml);
                     if (root.equals("items")) {
+                        YamlConfiguration source = load(file);
+                        for (String id : source.getKeys(false))
+                            if (source.isConfigurationSection(id)) sourceItems.put(id, source.getConfigurationSection(id));
                         for (String id : yaml.getKeys(false)) {
                             ConfigurationSection item = yaml.getConfigurationSection(id);
                             if (item != null && items.putIfAbsent(id, item) != null)
@@ -232,8 +241,8 @@ public final class NexoConverter {
             }
             if (!furniture.contains("barriers")) furniture.set("barriers", barriers);
         }
-        if (!furniture.contains("hitboxes"))
-            furniture.set("hitboxes", interactions == null ? List.of() : strings(interactions));
+        // An empty list would replace interaction hitboxes inherited from a template.
+        if (interactions != null && !furniture.contains("hitboxes")) furniture.set("hitboxes", strings(interactions));
         furniture.set("hitbox", null);
         for (String key : List.of("seats", "lights")) {
             if (furniture.isString(key)) furniture.set(key, List.of(furniture.getString(key)));
@@ -294,14 +303,12 @@ public final class NexoConverter {
     }
 
     private void convertTrident(ConfigurationSection item, ConfigurationSection trident, String context) {
-        String model = item.getString("pack.model");
-        String charging = item.getString("pack.throwing_model", model);
+        String model = inheritedString(item.getName(), "pack.model");
+        String charging = inheritedString(item.getName(), "pack.throwing_model");
+        if (charging == null) charging = model;
         String thrown = charging;
         String thrownItem = trident.getString("thrown_item");
-        if (thrownItem != null) {
-            ConfigurationSection definition = items.get(thrownItem);
-            thrown = definition == null ? null : definition.getString("Pack.model", definition.getString("pack.model"));
-        }
+        if (thrownItem != null) thrown = inheritedString(thrownItem, "pack.model");
         if (model == null || thrown == null) {
             warn(context + ".trident", "missing model or thrown model; mechanic was skipped, supply Oraxen appearance manually");
             item.set("mechanics.trident", null);
@@ -357,12 +364,19 @@ public final class NexoConverter {
                 continue;
             }
             Path destination = safeTarget(Path.of("pack/assets/nexo/textures/entity/equipment/" + type + "/" + id + ".png"));
-            Files.createDirectories(destination.getParent());
-            if (!source.equals(destination)) Files.copy(source, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             Path metadata = source.resolveSibling(source.getFileName() + ".mcmeta");
-            if (Files.isRegularFile(metadata)) Files.copy(metadata, destination.resolveSibling(destination.getFileName() + ".mcmeta"),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            layers.add(type, new GsonBuilder().create().toJsonTree(List.of(Map.of("texture", "nexo:" + id))));
+            Path destinationMetadata = destination.resolveSibling(destination.getFileName() + ".mcmeta");
+            JsonElement generated = new GsonBuilder().create().toJsonTree(List.of(Map.of("texture", "nexo:" + id)));
+            // Supplied equipment assets win; only fill in what is missing or identical.
+            if ((layers.has(type) && !layers.get(type).equals(generated)) || differs(source, destination)
+                    || (Files.isRegularFile(metadata) && differs(metadata, destinationMetadata))) {
+                warn(context + ".CustomArmor.layer" + layer, "conflicts with supplied equipment assets; kept the supplied files, review them manually");
+                continue;
+            }
+            Files.createDirectories(destination.getParent());
+            if (!Files.exists(destination)) Files.copy(source, destination);
+            if (Files.isRegularFile(metadata) && !Files.exists(destinationMetadata)) Files.copy(metadata, destinationMetadata);
+            layers.add(type, generated);
         }
         if (!layers.isEmpty()) {
             equipment.add("layers", layers);
@@ -473,6 +487,19 @@ public final class NexoConverter {
             throw new IOException("Invalid YAML in " + path.getFileName() + ". No output was written.", e);
         }
         return yaml;
+    }
+    /** Returns the first value found on the source item or its template chain. */
+    private String inheritedString(String id, String path) {
+        Set<String> visited = new HashSet<>();
+        for (ConfigurationSection item = sourceItems.get(id); item != null && visited.add(item.getName());
+             item = item.isString("template") ? sourceItems.get(item.getString("template")) : null) {
+            String value = OraxenYaml.getString(item, path);
+            if (value != null) return value;
+        }
+        return null;
+    }
+    private static boolean differs(Path source, Path target) throws IOException {
+        return Files.exists(target) && !source.equals(target) && Files.mismatch(source, target) != -1;
     }
     private Path safeTarget(Path relative) throws IOException {
         Path target = staging.resolve(relative).normalize();

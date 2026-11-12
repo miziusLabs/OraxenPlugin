@@ -308,6 +308,79 @@ class NexoConverterTest {
         assertEquals("forest:placed", chairs.getString("explicit.mechanics.furniture.appearance.model"));
     }
 
+    @Test void keepsInheritedHitboxesAndTridentModelsFromTemplates() throws Exception {
+        source("items/templates.yml", """
+                base_chair:
+                  template: true
+                  Mechanics:
+                    furniture:
+                      hitbox:
+                        interaction: '0,0.5,0 1,1.5'
+                base_spear:
+                  template: true
+                  Pack:
+                    model: forest:item/spear
+                    throwing_model: forest:item/spear_charging
+                  Mechanics:
+                    trident:
+                      thrown_item: thrown_spear
+                thrown_base:
+                  template: true
+                  Pack:
+                    model: forest:item/spear_thrown
+                """);
+        source("items/children.yml", """
+                chair:
+                  template: base_chair
+                  Mechanics:
+                    furniture:
+                      storage:
+                        rows: 3
+                spear:
+                  template: base_spear
+                  material: TRIDENT
+                  Mechanics:
+                    trident:
+                      thrown_item: thrown_spear
+                thrown_spear:
+                  template: thrown_base
+                """);
+        new NexoConverter().convert(input(), output());
+        var templates = result("items/templates.yml");
+        var children = result("items/children.yml");
+        assertEquals(List.of("0,0.5,0 1,1.5"), templates.getStringList("base_chair.mechanics.furniture.hitboxes"));
+        assertFalse(children.contains("chair.mechanics.furniture.hitboxes"));
+        String trident = "spear.mechanics.trident.appearance.";
+        assertEquals("forest:item/spear", children.getString(trident + "model"));
+        assertEquals("forest:item/spear_charging", children.getString(trident + "charging-model"));
+        assertEquals("forest:item/spear_thrown", children.getString(trident + "thrown-model"));
+    }
+
+    @Test void keepsSuppliedArmorAssetsAndReportsConflicts() throws Exception {
+        source("items/armor.yml", """
+                helmet:
+                  material: CHAINMAIL_HELMET
+                  CustomArmor:
+                    id: forest
+                    layer1: forest:item/armor_layer_1
+                    layer2: forest:item/armor_layer_2
+                """);
+        source("pack/assets/forest/textures/item/armor_layer_1.png", "layer-one");
+        source("pack/assets/forest/textures/item/armor_layer_2.png", "layer-two");
+        source("pack/assets/nexo/textures/entity/equipment/humanoid/forest.png", "supplied");
+        source("pack/assets/nexo/equipment/forest.json", """
+                {"layers": {"humanoid_leggings": [{"texture": "forest:supplied"}]}}
+                """);
+        var converted = new NexoConverter().convert(input(), output());
+        assertEquals("supplied", Files.readString(output().resolve("pack/assets/nexo/textures/entity/equipment/humanoid/forest.png")));
+        assertFalse(Files.exists(output().resolve("pack/assets/nexo/textures/entity/equipment/humanoid_leggings/forest.png")));
+        var layers = JsonParser.parseString(Files.readString(output().resolve("pack/assets/nexo/equipment/forest.json")))
+                .getAsJsonObject().getAsJsonObject("layers");
+        assertEquals("forest:supplied", layers.getAsJsonArray("humanoid_leggings").get(0).getAsJsonObject().get("texture").getAsString());
+        assertFalse(layers.has("humanoid"));
+        assertEquals(2, converted.warnings().stream().filter(w -> w.contains("supplied equipment assets")).count());
+    }
+
     @Test void convertsGhastsAndReportsUnsupportedOptionsWithoutLosingOtherHitboxes() throws Exception {
         source("items/furniture.yml", """
                 chair:
