@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.mechanics;
 
+import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.events.stringblock.OraxenStringBlockPlaceEvent;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanicFactory;
@@ -8,11 +9,19 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMech
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicListener;
 import io.th0rgal.oraxen.protection.AntiGriefLib;
+import io.th0rgal.oraxen.utils.BlockDataListener;
+import io.th0rgal.oraxen.utils.BlockHelpers;
+import io.th0rgal.oraxen.utils.SchedulerUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -25,7 +34,10 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.PluginManager;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -34,6 +46,17 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class AddedBlockPlacementTest extends MechanicTestSupport {
+
+    @BeforeAll
+    static void initialiseBlockHelpers() throws Exception {
+        when(Bukkit.getServer().getTag(anyString(), any(NamespacedKey.class), any())).thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            Tag<Material> tag = mock(Tag.class);
+            when(tag.getValues()).thenReturn(Set.of());
+            return tag;
+        });
+        Class.forName(BlockHelpers.class.getName());
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"success", "cancel", "denyBuild", "cancelOraxen"})
@@ -101,12 +124,30 @@ class AddedBlockPlacementTest extends MechanicTestSupport {
         when(slab.getType()).thenReturn(Slab.Type.BOTTOM);
         when(slab.clone()).thenReturn(oldData);
         when(interaction.getHand()).thenReturn(EquipmentSlot.HAND);
-        when(block.getWorld()).thenReturn(mock(World.class));
+        World world = mock(World.class);
+        when(world.getUID()).thenReturn(UUID.randomUUID());
+        when(block.getWorld()).thenReturn(world);
+        Chunk chunk = mock(Chunk.class);
+        PersistentDataContainer chunkData = mock(PersistentDataContainer.class);
+        PersistentDataContainer blockData = mock(PersistentDataContainer.class);
+        when(block.getChunk()).thenReturn(chunk);
+        when(chunk.getPersistentDataContainer()).thenReturn(chunkData);
+        when(chunkData.get(any(NamespacedKey.class), eq(PersistentDataType.TAG_CONTAINER))).thenReturn(blockData);
+        when(chunkData.has(any(NamespacedKey.class), eq(PersistentDataType.TAG_CONTAINER))).thenReturn(true);
+        when(mechanic.getItemID()).thenReturn("custom_slab");
+        when(OraxenPlugin.get().isEnabled()).thenReturn(true);
         when(item.getAmount()).thenReturn(3);
         when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
         List<Object> events = placementEvents(outcome);
 
-        try (var protection = mockStatic(AntiGriefLib.class)) {
+        List<Runnable> delayedTasks = new ArrayList<>();
+        try (var protection = mockStatic(AntiGriefLib.class);
+             var scheduler = mockStatic(SchedulerUtil.class)) {
+            scheduler.when(() -> SchedulerUtil.runTaskLater(any(), eq(1L), any(Runnable.class)))
+                    .thenAnswer(invocation -> {
+                        delayedTasks.add(invocation.getArgument(2));
+                        return null;
+                    });
             protection.when(() -> AntiGriefLib.canBuild(eq(player), any())).thenReturn(true);
             var method = ShapedBlockMechanicListener.class.getDeclaredMethod("handleSlabPlacement",
                     PlayerInteractEvent.class, Player.class, ItemStack.class, ShapedBlockMechanic.class,
@@ -116,6 +157,9 @@ class AddedBlockPlacementTest extends MechanicTestSupport {
                     player, item, mechanic, block, BlockFace.UP, block));
         }
 
+        delayedTasks.forEach(Runnable::run);
+        verify(blockData).set(ShapedBlockMechanic.SHAPED_BLOCK_KEY, PersistentDataType.STRING, "custom_slab");
+        verify(chunkData, never()).remove(any(NamespacedKey.class));
         assertEquals(1, events.size());
         assertSame(state, ((BlockPlaceEvent) events.getFirst()).getBlockReplacedState());
         verify(interaction).setCancelled(true);
@@ -140,6 +184,8 @@ class AddedBlockPlacementTest extends MechanicTestSupport {
             if (event instanceof BlockPlaceEvent place) {
                 if (outcome.equals("cancel")) place.setCancelled(true);
                 if (outcome.equals("denyBuild")) place.setBuild(false);
+                if (!place.isCancelled() && place.canBuild() && place.getBlock().getChunk() != null)
+                    new BlockDataListener(OraxenPlugin.get()).onPlace(place);
             }
             if (event instanceof OraxenStringBlockPlaceEvent place && outcome.equals("cancelOraxen"))
                 place.setCancelled(true);
