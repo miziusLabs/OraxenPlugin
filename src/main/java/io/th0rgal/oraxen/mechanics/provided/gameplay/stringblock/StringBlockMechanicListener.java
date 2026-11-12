@@ -694,6 +694,7 @@ public class StringBlockMechanicListener implements Listener {
             if (player.getGameMode() != GameMode.CREATIVE)
                 item.setAmount(item.getAmount() - 1);
             Utils.swingHand(player, hand);
+            mechanic.runPlaceEvents(player);
         } else {
             target.setType(Material.AIR);
             BlockHelpers.correctAllBlockStates(placedAgainst, player, hand, face, item, newData);

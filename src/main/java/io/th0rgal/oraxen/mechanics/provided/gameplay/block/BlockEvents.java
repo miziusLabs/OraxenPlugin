@@ -54,9 +54,17 @@ public class BlockEvents {
     }
 
     public boolean runBreak(Player player) {
+        return runTrigger(player, Trigger.BREAK);
+    }
+
+    public boolean runPlace(Player player) {
+        return runTrigger(player, Trigger.PLACE);
+    }
+
+    private boolean runTrigger(Player player, Trigger trigger) {
         boolean ran = false;
         for (BlockEvent event : events) {
-            if (event.trigger() != Trigger.BREAK) continue;
+            if (event.trigger() != trigger) continue;
             event.run(player);
             ran = true;
         }
@@ -250,7 +258,8 @@ public class BlockEvents {
 
     private enum Trigger {
         CLICK,
-        BREAK;
+        BREAK,
+        PLACE;
 
         private static Trigger from(Object value, String sourceID, String eventPath) {
             if (value == null) return CLICK;

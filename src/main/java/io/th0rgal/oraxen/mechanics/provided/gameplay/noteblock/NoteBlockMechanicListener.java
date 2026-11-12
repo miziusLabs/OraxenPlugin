@@ -546,6 +546,7 @@ public class NoteBlockMechanicListener implements Listener {
 
             if (player.getGameMode() != GameMode.CREATIVE) item.setAmount(item.getAmount() - 1);
             Utils.swingHand(player, hand);
+            targetOraxen.runPlaceEvents(player);
         } else {
             target.setBlockData(oldData);
             BlockHelpers.correctAllBlockStates(placedAgainst, player, hand, face, item, newData);

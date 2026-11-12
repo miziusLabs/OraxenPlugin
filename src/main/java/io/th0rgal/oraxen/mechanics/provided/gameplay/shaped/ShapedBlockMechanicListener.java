@@ -434,6 +434,7 @@ public class ShapedBlockMechanicListener implements Listener {
         }
 
         consumeItem(player, item);
+        shapedMechanic.runPlaceEvents(player);
         if (Settings.DEBUG.toBool()) {
             Logs.logSuccess("[ShapedBlock] Placed " + itemId + " as " + shapedMechanic.getBlockType());
         }
