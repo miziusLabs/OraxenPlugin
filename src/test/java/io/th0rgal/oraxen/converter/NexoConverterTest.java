@@ -76,7 +76,7 @@ class NexoConverterTest {
         String original = Files.readString(input().resolve("items/nested/tools.yml"));
         new NexoConverter().convert(input(), output());
         YamlConfiguration item = result("items/nested/tools.yml");
-        assertEquals("<gold>Forest sword", item.getString("sword.itemname"));
+        assertEquals("<gold>Forest sword", item.getString("sword.name"));
         assertEquals(List.of("forest:item/sword"), item.getStringList("sword.pack.textures"));
         assertTrue(item.getBoolean("sword.pack.generate_model"));
         assertEquals(1056, item.getInt("sword.pack.custom_model_data"));
@@ -86,7 +86,7 @@ class NexoConverterTest {
         var plugin = org.mockito.Mockito.mock(io.th0rgal.oraxen.OraxenPlugin.class);
         var configs = org.mockito.Mockito.mock(io.th0rgal.oraxen.configs.ConfigsManager.class);
         var settings = new YamlConfiguration();
-        settings.set("Pack.generation.auto_generated_models_follow_texture_path", false);
+        settings.set("pack.generation.auto-generated-models-follow-texture-path", false);
         org.mockito.Mockito.when(plugin.getConfigsManager()).thenReturn(configs);
         org.mockito.Mockito.when(configs.getSettings()).thenReturn(settings);
         io.th0rgal.oraxen.configs.Settings.invalidateCache();
@@ -151,8 +151,7 @@ class NexoConverterTest {
         var yaml = result("items/furniture.yml");
         String base = "chair.mechanics.furniture.";
         assertEquals("DISPLAY_ENTITY", yaml.getString(base + "type"));
-        assertEquals(2, yaml.getMapList(base + "barriers").size());
-        assertEquals(1, yaml.getMapList(base + "barriers").get(1).get("y"));
+        assertEquals(List.of("0,0,0", "0,1,0"), yaml.getStringList(base + "barriers"));
         assertEquals(List.of("0,0.5,0 1,1.5"), yaml.getStringList(base + "hitboxes"));
         assertEquals(List.of("0,0.5,0 90"), yaml.getStringList(base + "seats"));
         assertEquals(5, yaml.getInt(base + "storage.rows"));
@@ -261,6 +260,129 @@ class NexoConverterTest {
         assertTrue(result("paintings.yml").getBoolean("paintings.forest:landscape.random_place"));
     }
 
+    @Test void emitsCurrentNamesAndInheritedFurnitureAppearanceAcrossFiles() throws Exception {
+        source("items/templates.yml", """
+                base:
+                  template: true
+                  itemname: Old base name
+                  Pack:
+                    model: forest:chair
+                    custom_model_data: 1234
+                  Mechanics:
+                    furniture:
+                      display_entity_properties:
+                        display_transform: FIXED
+                """);
+        source("items/chairs.yml", """
+                inherited:
+                  template: base
+                  customname: Custom name
+                explicit:
+                  itemname: Old name
+                  displayname: Older name
+                  customname: Old custom name
+                  name: Current name
+                  custom-name: Current custom name
+                  Pack:
+                    model: forest:inventory
+                  Mechanics:
+                    furniture:
+                      appearance:
+                        model: forest:placed
+                """);
+        new NexoConverter().convert(input(), output());
+        var templates = result("items/templates.yml");
+        assertEquals("Old base name", templates.getString("base.name"));
+        assertFalse(templates.contains("base.itemname"));
+        assertFalse(templates.contains("base.mechanics.furniture.appearance"));
+        var chairs = result("items/chairs.yml");
+        assertEquals("Custom name", chairs.getString("inherited.custom-name"));
+        assertEquals("forest:chair", chairs.getString("inherited.mechanics.furniture.appearance.model"));
+        assertEquals(1234, chairs.getInt("inherited.mechanics.furniture.appearance.custom_model_data"));
+        assertEquals("FIXED", templates.getString("base.mechanics.furniture.properties.display_transform"));
+        assertEquals("Current name", chairs.getString("explicit.name"));
+        assertEquals("Current custom name", chairs.getString("explicit.custom-name"));
+        assertFalse(chairs.contains("explicit.itemname"));
+        assertFalse(chairs.contains("explicit.displayname"));
+        assertFalse(chairs.contains("explicit.customname"));
+        assertEquals("forest:placed", chairs.getString("explicit.mechanics.furniture.appearance.model"));
+    }
+
+    @Test void convertsGhastsAndReportsUnsupportedOptionsWithoutLosingOtherHitboxes() throws Exception {
+        source("items/furniture.yml", """
+                chair:
+                  Mechanics:
+                    furniture:
+                      hitbox:
+                        ghast:
+                          - '0,0.5,0'
+                          - '1,0,0 0.5 90 true'
+                          - '0,0,0 2'
+                          - 'NaN,0,0 0.25'
+                        shulker: '0,0,0'
+                        barrier: origin
+                        interaction: '0,0,0 1,1'
+                """);
+        var converted = new NexoConverter().convert(input(), output());
+        var chair = result("items/furniture.yml").getConfigurationSection("chair.mechanics.furniture");
+        assertEquals(List.of("0,0.5,0 0.25", "1,0,0 0.5"), chair.getStringList("ghasts"));
+        assertEquals(List.of("0,0,0"), chair.getStringList("barriers"));
+        assertEquals(List.of("0,0,0 1,1"), chair.getStringList("hitboxes"));
+        assertFalse(chair.contains("hitbox"));
+        assertTrue(converted.warnings().stream().anyMatch(w -> w.contains("rotation and visibility")));
+        assertEquals(2, converted.warnings().stream().filter(w -> w.contains("invalid offset or scale")).count());
+        assertTrue(converted.warnings().stream().anyMatch(w -> w.contains("1.21.6")));
+        assertTrue(converted.warnings().stream().anyMatch(w -> w.contains("shulker")));
+    }
+
+    @Test void migratesSharedSettingsAndMiningToCurrentPathsWithExplicitValuesWinning() throws Exception {
+        source("settings.yml", """
+                Plugin:
+                  language: english
+                Glyphs:
+                  unicode_completions: false
+                CustomArmor:
+                  type: COMPONENT
+                Pack:
+                  generation:
+                    generate: true
+                  upload:
+                    s3:
+                      secret-key: do-not-copy
+                pack:
+                  generation:
+                    generate: false
+                  upload:
+                    enabled: true
+                    s3:
+                      secret-key: do-not-copy
+                """);
+        source("mechanics.yml", """
+                bigmining:
+                  enabled: true
+                """);
+        source("items/tool.yml", """
+                tool:
+                  Mechanics:
+                    bigmining:
+                      radius: 2
+                      depth: 3
+                """);
+        new NexoConverter().convert(input(), output());
+        var settings = result("settings.yml");
+        assertEquals("english", settings.getString("general.language"));
+        assertFalse(settings.getBoolean("glyphs.unicode-completions", true));
+        assertEquals("COMPONENT", settings.getString("custom-armor.type"));
+        assertFalse(settings.getBoolean("pack.generation.generate", true));
+        assertFalse(settings.contains("Pack"));
+        assertFalse(settings.contains("pack.upload"));
+        assertTrue(result("mechanics.yml").getBoolean("mining.enabled"));
+        var tool = result("items/tool.yml");
+        assertEquals(2, tool.getInt("tool.mechanics.mining.radius"));
+        assertEquals(3, tool.getInt("tool.mechanics.mining.depth"));
+        assertFalse(tool.contains("tool.mechanics.bigmining"));
+    }
+
     @Test void filtersSettingsAndPreservesExplicitTargetValues() throws Exception {
         source("settings.yml", """
                 debug: true
@@ -285,11 +407,11 @@ class NexoConverterTest {
                       slot: HEAD
                 """);
         var converted = new NexoConverter().convert(input(), output());
-        assertFalse(result("settings.yml").getBoolean("Pack.generation.generate"));
+        assertFalse(result("settings.yml").getBoolean("pack.generation.generate"));
         assertFalse(result("settings.yml").contains("NexoOnly"));
-        assertFalse(result("settings.yml").getBoolean("Pack.upload.enabled", true));
-        assertFalse(result("settings.yml").getBoolean("Pack.dispatch.send", true));
-        assertTrue(converted.warnings().stream().anyMatch(w -> w.contains("Pack.server.type")));
+        assertFalse(result("settings.yml").getBoolean("pack.upload.enabled", true));
+        assertFalse(result("settings.yml").getBoolean("pack.dispatch.send", true));
+        assertTrue(converted.warnings().stream().anyMatch(w -> w.contains("pack.server.type")));
         assertEquals("forest:item/new", result("items/example.yml").getString("item.pack.model"));
         assertEquals("forest:explicit", result("items/example.yml").getString("item.components.equippable.model"));
     }
@@ -322,7 +444,7 @@ class NexoConverterTest {
         assertEquals("forest.glyph.heart", glyph.getString("heart.chat.permission"));
         assertEquals("#11000000", glyph.getString("heart.appearance.shadow_color"));
         var block = result("items/blocks.yml");
-        assertEquals(4, block.getMapList("chair.mechanics.furniture.barriers").size());
+        assertEquals(4, block.getStringList("chair.mechanics.furniture.barriers").size());
         assertEquals("STRING", block.getString("plant.mechanics.block.type"));
         assertEquals(4, block.getInt("plant.mechanics.block.custom_variation"));
     }

@@ -2,6 +2,11 @@ package io.th0rgal.oraxen.converter;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import io.th0rgal.oraxen.configs.FurnitureConfigMigration;
+import io.th0rgal.oraxen.configs.MiningConfigMigration;
+import io.th0rgal.oraxen.configs.SettingsMigration;
+import io.th0rgal.oraxen.items.ItemMigrator;
+import io.th0rgal.oraxen.utils.OraxenYaml;
 import com.google.gson.JsonParser;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -25,7 +30,7 @@ public final class NexoConverter {
     private static final Set<String> SHARED_CONFIGS = Set.of("settings.yml", "mechanics.yml", "font.yml", "hud.yml");
     private static final Set<String> MECHANICS = Set.of("furniture", "trident", "music_disc", "durability",
             "food", "repair", "hat", "soulbound", "backpack", "armor_effects", "commands", "misc",
-            "consumable", "consumable_potion_effects", "aura", "skin", "skinnable", "block");
+            "consumable", "consumable_potion_effects", "aura", "skin", "skinnable", "block", "mining");
     private final List<String> warnings = new ArrayList<>();
     private final Map<String, ConfigurationSection> items = new LinkedHashMap<>();
     private final Map<Path, YamlConfiguration> configs = new LinkedHashMap<>();
@@ -85,15 +90,19 @@ public final class NexoConverter {
                 }
             }
             for (var entry : configs.entrySet()) {
+                if (!entry.getKey().getName(0).toString().equals("items")) continue;
+                for (String id : entry.getValue().getKeys(false)) {
+                    ConfigurationSection item = entry.getValue().getConfigurationSection(id);
+                    if (item != null) convertItem(item, entry.getKey() + " / " + id);
+                }
+            }
+            FurnitureConfigMigration.migrateBarriers(new ArrayList<>(items.values()));
+            for (ConfigurationSection item : items.values()) FurnitureConfigMigration.migrate(item);
+            for (var entry : configs.entrySet()) {
                 Path relative = entry.getKey();
                 YamlConfiguration yaml = entry.getValue();
                 switch (relative.getName(0).toString()) {
-                    case "items" -> {
-                        for (String id : yaml.getKeys(false)) {
-                            ConfigurationSection item = yaml.getConfigurationSection(id);
-                            if (item != null) convertItem(item, relative + " / " + id);
-                        }
-                    }
+                    case "items" -> { /* Converted together for cross-file furniture templates. */ }
                     case "glyphs" -> convertGlyphs(yaml, relative.toString());
                     case "recipes" -> renameReferences(yaml);
                     case "sounds.yml" -> convertSounds(yaml);
@@ -124,6 +133,7 @@ public final class NexoConverter {
     }
 
     private void convertItem(ConfigurationSection item, String context) throws IOException {
+        ItemMigrator.migrateNames(item);
         rename(item, "Pack", "pack");
         rename(item, "Components", "components");
         rename(item, "Mechanics", "mechanics");
@@ -159,6 +169,7 @@ public final class NexoConverter {
                 if (!mechanics.contains("block.type")) mechanics.set("block.type", legacy.getValue());
             }
         }
+        MiningConfigMigration.migrateItem(item);
         for (String key : new ArrayList<>(mechanics.getKeys(false))) {
             if (!MECHANICS.contains(key)) unsupported(mechanics, key, context + ".mechanics");
         }
@@ -202,8 +213,11 @@ public final class NexoConverter {
         if (hitbox != null) {
             barrier = hitbox.get("barrier", hitbox.get("barriers"));
             interactions = hitbox.get("interaction", hitbox.get("interactions"));
+            Object ghasts = hitbox.get("ghast", hitbox.get("ghasts"));
+            if (ghasts != null && !furniture.contains("ghasts"))
+                furniture.set("ghasts", convertGhasts(ghasts, context));
             for (String key : hitbox.getKeys(false)) {
-                if (!Set.of("barrier", "barriers", "interaction", "interactions").contains(key))
+                if (!Set.of("barrier", "barriers", "interaction", "interactions", "ghast", "ghasts").contains(key))
                     warn(context + ".hitbox." + key, "unsupported hitbox setting was skipped");
             }
         } else if (furniture.contains("hitbox")) barrier = furniture.get("hitbox");
@@ -216,9 +230,10 @@ public final class NexoConverter {
                     warn(context + ".hitbox", "barrier expression needs manual conversion");
                 }
             }
-            furniture.set("barriers", barriers);
+            if (!furniture.contains("barriers")) furniture.set("barriers", barriers);
         }
-        furniture.set("hitboxes", interactions == null ? List.of() : strings(interactions));
+        if (!furniture.contains("hitboxes"))
+            furniture.set("hitboxes", interactions == null ? List.of() : strings(interactions));
         furniture.set("hitbox", null);
         for (String key : List.of("seats", "lights")) {
             if (furniture.isString(key)) furniture.set(key, List.of(furniture.getString(key)));
@@ -231,6 +246,29 @@ public final class NexoConverter {
         }
         for (String key : List.of("beds", "states", "waterloggable", "item_model", "preview_placement", "clickActions"))
             unsupported(furniture, key, context + ".furniture");
+    }
+
+    private List<String> convertGhasts(Object value, String context) {
+        List<String> converted = new ArrayList<>();
+        for (String entry : strings(value)) {
+            String[] parts = entry.trim().split("\\s+");
+            String[] coordinates = parts[0].split(",", -1);
+            try {
+                if (coordinates.length != 3 || parts.length > 4) throw new IllegalArgumentException();
+                for (String coordinate : coordinates)
+                    if (!Double.isFinite(Double.parseDouble(coordinate))) throw new IllegalArgumentException();
+                double scale = parts.length > 1 ? Double.parseDouble(parts[1]) : 0.25;
+                if (!Double.isFinite(scale) || scale < 0.0625 || scale > 1) throw new IllegalArgumentException();
+                converted.add(parts[0] + " " + scale);
+                if (parts.length > 2)
+                    warn(context + ".hitbox.ghast", "rotation and visibility options are not supported by Oraxen and were skipped");
+            } catch (IllegalArgumentException e) {
+                warn(context + ".hitbox.ghast", "invalid offset or scale outside 0.0625..1; entry was skipped");
+            }
+        }
+        if (!converted.isEmpty())
+            warn(context + ".hitbox.ghast", "Ghast hitboxes require Minecraft 1.21.6 or newer");
+        return converted;
     }
 
     private static List<Map<String, Integer>> barriers(String expression) {
@@ -354,14 +392,16 @@ public final class NexoConverter {
         } catch (InvalidConfigurationException e) {
             throw new IOException("Cannot read Oraxen defaults for " + name, e);
         }
+        if (name.equals("settings.yml")) SettingsMigration.migrate(source);
+        if (name.equals("mechanics.yml")) MiningConfigMigration.migrateFactory(source);
         YamlConfiguration result = new YamlConfiguration();
-        if (name.equals("settings.yml") && source.getString("Pack.server.type", "").equalsIgnoreCase("NONE")) {
-            result.set("Pack.upload.enabled", false);
-            result.set("Pack.dispatch.send", false);
+        if (name.equals("settings.yml") && source.getString("pack.server.type", "").equalsIgnoreCase("NONE")) {
+            result.set("pack.upload.enabled", false);
+            result.set("pack.dispatch.send", false);
         }
         for (String key : source.getKeys(true)) {
             if (source.isConfigurationSection(key)) continue;
-            if (defaults.contains(key) && !key.startsWith("Pack.server.") && !key.startsWith("Pack.upload.")) result.set(key, source.get(key));
+            if (defaults.contains(key) && !key.startsWith("pack.server.") && !key.startsWith("pack.upload.")) result.set(key, source.get(key));
             else warn(name + " / " + key, "setting has no shared Oraxen default and was skipped");
         }
         return result;
@@ -407,6 +447,7 @@ public final class NexoConverter {
             }
         } else if (!section.contains(target)) section.set(target, value);
         section.set(old, null);
+        OraxenYaml.invalidateKeyCache(section);
     }
 
     private void unsupported(ConfigurationSection section, String key, String context) {

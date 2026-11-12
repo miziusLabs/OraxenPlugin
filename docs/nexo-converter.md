@@ -10,14 +10,14 @@ The output folder must be absent or empty. Move the previous output elsewhere be
 
 ## Supported content
 
-- Item names, materials, templates, common components and custom model data stay intact. `Pack`, `Components` and `Mechanics` become their lowercase Oraxen sections. A single pack texture becomes an Oraxen texture layer. Generated Nexo item-model IDs become Oraxen IDs unless the corresponding item-model JSON is supplied in the pack.
+- Item names use the current `name` and `custom-name` keys. Explicit current names take priority over legacy names. Materials, templates, common components and custom model data stay intact. `Pack`, `Components` and `Mechanics` become their lowercase Oraxen sections. A single pack texture becomes an Oraxen texture layer. Generated Nexo item-model IDs become Oraxen IDs unless the corresponding item-model JSON is supplied in the pack.
 - Recipe ingredients, results, use remainders and loot tables use `oraxen_item` instead of `nexo_item`.
 - Glyph chat settings move into `chat`. Font and shadow settings move into `appearance`. Configured default fonts, permissions and shadow colors are applied to glyphs without overrides. Characters, texture paths and grid settings stay intact.
-- Furniture keeps common display properties, storage, drops, placement restrictions, seats, lights and evolution settings. Barrier coordinates and ranges become Oraxen barrier maps. Interaction hitboxes become `hitboxes`. Single seats and lights become lists.
+- Furniture keeps common display properties, storage, drops, placement restrictions, seats, lights and evolution settings. Barrier coordinates and ranges become Oraxen coordinate strings. Furniture appearance copies the effective pack settings, including cross-file templates, unless an explicit appearance or another furniture item is configured. Interaction hitboxes become `hitboxes`. Ghast hitboxes become `ghasts` and require Minecraft 1.21.6 or newer. Missing Ghast scales use the Nexo default of 0.25. Invalid offsets and scales outside 0.0625 through 1 are skipped and reported. Rotation and visibility options are omitted and reported. Single seats and lights become lists.
 - Tridents use Oraxen's model, charging-model, thrown-model and transform appearance settings. A separate thrown item can be defined in another item file.
 - Component armor uses equipment models with the correct humanoid and leggings textures. Armor slots are inferred for helmets, chestplates, leggings and boots. Existing equippable model overrides take priority.
 - Sounds retain their sound references and playback settings. Jukebox registration settings and item song references use the Oraxen format. Painting variants, titles, authors and dimensions stay intact.
-- Basic note blocks and string blocks become the corresponding Oraxen block types. Other common shared mechanics are retained. Shared global settings are imported only when Oraxen has a matching setting. A disabled Nexo pack server disables Oraxen pack uploading and dispatch.
+- Basic note blocks and string blocks become the corresponding Oraxen block types. Legacy `bigmining` settings become `mining`. Other common shared mechanics are retained. Shared global settings use the current Oraxen paths, such as `general`, `glyphs`, `custom-armor` and `pack`. Explicit current paths take priority. Only settings with matching Oraxen defaults are imported. A disabled Nexo pack server disables Oraxen pack uploading and dispatch.
 
 For example, this item configuration
 
@@ -35,7 +35,7 @@ becomes
 ```yaml
 forest_sword:
   material: DIAMOND_SWORD
-  itemname: Forest sword
+  name: Forest sword
   pack:
     textures:
       - forest:item/sword
@@ -53,7 +53,7 @@ Namespaced assets stay under `pack/assets`. Models, textures, sounds, fonts and 
 
 This is a configuration converter, not a world or inventory migration. It does not replace placed Nexo furniture or items already held by players.
 
-Unsupported mechanics and known unsupported settings are omitted and recorded in the report. Furniture beds, state machines, placement previews and Nexo click actions need manual setup. Shulker and ghast hitboxes need manual replacements. Barrier expressions that expand beyond 4096 blocks are reported instead of expanded. Tridents without resolvable models need manual appearance configuration.
+Unsupported mechanics and known unsupported settings are omitted and recorded in the report. Furniture beds, state machines, placement previews and Nexo click actions need manual setup. Shulker hitboxes need manual replacements. Barrier expressions that expand beyond 4096 blocks are reported instead of expanded. Tridents without resolvable models need manual appearance configuration.
 
 Dyeable and composite model generation, animated and reference glyph settings, and armor types without humanoid equivalents are not converted. Other unrecognized settings inside shared components or mechanics may still need review. Pack hosting and credentials are not migrated. Keep the original setup for anything the report marks for manual conversion. Nexo commands and PlaceholderAPI placeholders in text also need review. Explicit permissions retain their names.
 
