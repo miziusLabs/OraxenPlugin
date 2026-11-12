@@ -1429,6 +1429,10 @@ public class FurnitureMechanic extends Mechanic {
         events.runBreak(player);
     }
 
+    public void runPlaceEvents(Player player) {
+        events.runPlace(player);
+    }
+
     public boolean runEvents(Player player, Action action) {
         return events.run(player, action);
     }
