@@ -54,6 +54,7 @@ public class CommandsManager {
                         (new VersionCommand()).getVersionCommand(),
                         (new AdminCommand()).getAdminCommand(),
                         (new SchemaCommand()).getSchemaCommand(),
+                        (new ConvertCommand()).getConvertCommand(),
                         (new StudioCommand()).getStudioCommand(),
                         (new RemoveBrandingCommand()).getRemoveBrandingCommand(),
                         (new RemoveDefaultsCommand()).getRemoveDefaultsCommand())
@@ -133,6 +134,7 @@ public class CommandsManager {
         sender.sendPlainMessage("/oraxen give <player> <item> [amount] - Give an Oraxen item");
         sender.sendPlainMessage("/oraxen pack <send|msg|extract_default> - Manage the resource pack");
         sender.sendPlainMessage("/oraxen studio <connect|status|pull|push|disconnect> - Sync with Oraxen Studio");
+        sender.sendPlainMessage("/oraxen convert NEXO - Convert an offline Nexo setup");
         sender.sendPlainMessage("/oraxen reload - Reload Oraxen");
         sender.sendPlainMessage("/oraxen info <item|glyph|block> <id|all> - Show Oraxen info");
         sender.sendPlainMessage("/oraxen version - Show version information");
