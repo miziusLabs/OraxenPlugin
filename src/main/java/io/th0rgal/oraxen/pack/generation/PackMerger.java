@@ -26,6 +26,8 @@ public class PackMerger {
     private final JsonObject filterMetadata = new JsonObject();
     private final Map<String, Map<String, byte[]>> overlaySnapshots = new LinkedHashMap<>();
     private boolean convertLegacyItemModels;
+    private boolean shaderMergeWarningShown;
+    private final Set<String> shaderMergeFailures = new HashSet<>();
 
     private record Overlay(JsonObject declaration, long min, long max, Map<String, byte[]> files) {}
     private record Layer(Map<String, byte[]> base, List<Overlay> overlays, JsonObject metadata) {}
@@ -43,6 +45,8 @@ public class PackMerger {
 
     public List<VirtualFile> mergeUploadedPacks() {
         layers.clear();
+        shaderMergeWarningShown = false;
+        shaderMergeFailures.clear();
         languageMetadata.entrySet().clear();
         filterMetadata.entrySet().clear();
         if (!uploadsDirectory.exists()) uploadsDirectory.mkdirs();
@@ -202,6 +206,7 @@ public class PackMerger {
                 file.setInputStream(new ByteArrayInputStream(bytes));
                 byte[] first = entries.get(file.getPath());
                 if (first == null) entries.put(file.getPath(), bytes);
+                else if (shouldMergeShader(file.getPath())) entries.put(file.getPath(), mergeShader(file.getPath(), bytes, first));
                 else if (PackAssetMerger.isAdditivePath(file.getPath()) && !validResource(file.getPath(), object(first))
                         && validResource(file.getPath(), object(bytes))) entries.put(file.getPath(), bytes);
                 else if (shouldMergeNative(file.getPath())) {
@@ -357,11 +362,13 @@ public class PackMerger {
         });
     }
 
-    private static void mergeAll(Map<String, byte[]> lower, Map<String, byte[]> higher) {
+    private void mergeAll(Map<String, byte[]> lower, Map<String, byte[]> higher) {
         higher.forEach((path, bytes) -> {
             if (!path.endsWith(".mcmeta")) lower.remove(path + ".mcmeta");
             if (PackAssetMerger.isAdditivePath(path) && !validResource(path, object(bytes))) return;
-            if (shouldMergeNative(path)) {
+            if (lower.containsKey(path) && shouldMergeShader(path)) {
+                bytes = mergeShader(path, lower.get(path), bytes);
+            } else if (shouldMergeNative(path)) {
                 JsonObject high = object(bytes);
                 JsonObject low = object(lower.get(path));
                 if (!validResource(path, high)) return;
@@ -382,6 +389,25 @@ public class PackMerger {
             }
             lower.put(path, bytes);
         });
+    }
+
+    private static boolean shouldMergeShader(String path) {
+        return Boolean.TRUE.equals(Settings.MERGE_CORE_SHADERS.toBool()) && CoreShaderMerger.supports(path);
+    }
+
+    private byte[] mergeShader(String path, byte[] lower, byte[] higher) {
+        if (Arrays.equals(lower, higher)) return higher;
+        if (!shaderMergeWarningShown) {
+            Logs.logWarning("Shader merging is experimental and limited. Turn of shader merging in the settings or contact the Support team when running into shader issues.");
+            shaderMergeWarningShown = true;
+        }
+        try {
+            return CoreShaderMerger.merge(path, lower, higher);
+        } catch (RuntimeException exception) {
+            if (shaderMergeFailures.add(path))
+                Logs.logWarning("Could not merge shader " + path + ". Keeping the higher priority file. Reason: " + exception.getMessage());
+            return higher;
+        }
     }
 
     private static boolean shouldMergeNative(String path) {
