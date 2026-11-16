@@ -45,6 +45,75 @@ class PackImportCompositionTest {
         plugins.close();
     }
 
+    private static final String SHADER = "assets/minecraft/shaders/core/rendertype_text.fsh";
+    private static final String SHADER_WARNING = "Shader merging is experimental and limited. Turn of shader merging in the settings or contact the Support team when running into shader issues.";
+
+    @Test void shaderMergingIsOptInAndDoesNotWarnWithoutCollisions() throws Exception {
+        String lower = shader("low");
+        String higher = shader("high");
+        write("a", Map.of(SHADER, lower));
+        write("b", Map.of(SHADER, higher));
+        assertEquals(higher, contents(new PackMerger(tempDir.toFile()).mergeUploadedPacks()).get(SHADER));
+        logs.verifyNoInteractions();
+        settings.set(Settings.MERGE_CORE_SHADERS.getPath(), true);
+        Settings.invalidateCache();
+        PackMerger merger = new PackMerger(tempDir.resolve("empty").toFile());
+        merger.mergeUploadedPacks();
+        merger.mergeWithHigherPriorityFiles(List.of(vfile(SHADER, lower)));
+        logs.verifyNoInteractions();
+    }
+
+    @Test void mergesUploadedAndNativeShadersWithOneWarningAcrossSnapshots() throws Exception {
+        settings.set(Settings.MERGE_CORE_SHADERS.getPath(), true);
+        Settings.invalidateCache();
+        write("a", Map.of(SHADER, shader("low"), SHADER.replace(".fsh", ".vsh"), shader("low")));
+        write("b", Map.of(SHADER, shader("high"), "pack.mcmeta", metadata("new", 46, 64),
+                "new/" + SHADER, shader("overlay")));
+        PackMerger merger = new PackMerger(tempDir.toFile());
+        merger.mergeUploadedPacks();
+        Map<String, String> result = contents(merger.mergeWithHigherPriorityFiles(List.of(vfile(SHADER, shader("native")))));
+        assertTrue(result.get(SHADER).contains("low();"));
+        assertTrue(result.get(SHADER).contains("high();"));
+        assertTrue(result.get(SHADER).contains("native();"));
+        String directory = merger.getMergedOverlayEntries().get(0).getAsJsonObject().get("directory").getAsString();
+        String overlay = result.get(directory + "/" + SHADER);
+        assertTrue(overlay.contains("low();"));
+        assertTrue(overlay.contains("overlay();"));
+        assertTrue(overlay.contains("native();"));
+        assertFalse(overlay.contains("high();"));
+        logs.verify(() -> Logs.logWarning(SHADER_WARNING), times(1));
+        merger.mergeUploadedPacks();
+        logs.verify(() -> Logs.logWarning(SHADER_WARNING), times(2));
+    }
+
+    @Test void failedShaderMergesKeepHigherPriorityAndWarnOncePerPath() throws Exception {
+        settings.set(Settings.MERGE_CORE_SHADERS.getPath(), true);
+        Settings.invalidateCache();
+        write("a", Map.of(SHADER, shader("low")));
+        String higher = shader("high").replace("150", "330");
+        write("b", Map.of(SHADER, higher));
+        PackMerger merger = new PackMerger(tempDir.toFile());
+        assertEquals(higher, contents(merger.mergeUploadedPacks()).get(SHADER));
+        assertEquals(higher, contents(merger.mergeWithHigherPriorityFiles(List.of())).get(SHADER));
+        logs.verify(() -> Logs.logWarning(SHADER_WARNING), times(1));
+        logs.verify(() -> Logs.logWarning(startsWith("Could not merge shader ")), times(1));
+    }
+
+    @Test void composesGeneratedAndLocalDuplicateShadersBeforeImporting() throws Exception {
+        settings.set(Settings.MERGE_CORE_SHADERS.getPath(), true);
+        Settings.invalidateCache();
+        PackMerger merger = new PackMerger(tempDir.toFile());
+        Map<String, String> result = contents(merger.mergeWithHigherPriorityFiles(List.of(
+                vfile(SHADER, shader("generated")), vfile(SHADER, shader("local")))));
+        assertTrue(result.get(SHADER).contains("local();"));
+        assertTrue(result.get(SHADER).contains("generated();"));
+        logs.verify(() -> Logs.logWarning(SHADER_WARNING), times(1));
+    }
+
+    private static String shader(String effect) {
+        return "#version 150\nvoid main() { vec4 color = vec4(1); fragColor = color; " + effect + "(); }";
+    }
+
     @Test void composesNativeResourcesAndRetainsValidLowerFiles() throws Exception {
         write("a", Map.of(
                 "assets/test/lang/en_us.json", "{\"low\":\"low\",\"shared\":\"low\"}",

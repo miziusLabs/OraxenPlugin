@@ -105,6 +105,7 @@ public enum Settings {
     IMPORT_MODEL_ENGINE("pack.import.modelengine"),
     MERGE_DUPLICATE_FONTS("pack.import.merge.fonts"),
     MERGE_DUPLICATES("pack.import.merge.duplicates"),
+    MERGE_CORE_SHADERS("pack.import.merge.core-shaders"),
     RETAIN_CUSTOM_MODEL_DATA("pack.import.retain-custom-model-data"),
     MERGE_ITEM_MODELS("pack.import.merge.item-base-models"),
     REMOVE_CORE_SHADERS_FROM_IMPORTED_PACKS("pack.import.exclude.core-shaders"),

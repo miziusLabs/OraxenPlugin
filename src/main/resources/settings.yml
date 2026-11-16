@@ -116,6 +116,7 @@ pack:
     merge:
       fonts: true # Merge duplicate font files; exclude originals from the final pack without deleting them.
       duplicates: true
+      core-shaders: false # Experimental. Merge compatible core shaders and includes, keeping higher-priority files on conflicts.
       item-base-models: false # Attempt to merge item base model JSONs, such as paper.json, without generating item configs.
 
     # Applies to local pack files and imported contents, not uploaded ZIP containers.
