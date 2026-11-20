@@ -1,0 +1,79 @@
+farmer_tag:
+  texture: default/chat/farmer_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':farmer:'
+    permission: oraxen.emoji.farmer
+  char: ꐐ
+
+explorer_tag:
+  texture: default/chat/explorer_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':explorer:'
+    permission: oraxen.emoji.explorer
+  char: ꐑ
+
+knight_tag:
+  texture: default/chat/knight_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':knight:'
+    permission: oraxen.emoji.knight
+  char: ꐒ
+
+lord_tag:
+  texture: default/chat/lord_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':lord:'
+    permission: oraxen.emoji.lord
+  char: ꐓ
+
+prince_tag:
+  texture: default/chat/prince_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':prince:'
+    permission: oraxen.emoji.prince
+  char: ꐔ
+
+king_tag:
+  texture: default/chat/king_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':king:'
+    permission: oraxen.emoji.king
+  char: ꐕ
+
+hero_tag:
+  texture: default/chat/hero_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':hero:'
+    permission: oraxen.emoji.hero
+  char: ꐖ
+
+god_tag:
+  texture: default/chat/god_tag
+  ascent: 9
+  height: 10
+  chat:
+    placeholders:
+    - ':god:'
+    permission: oraxen.emoji.god
+  char: ꐗ

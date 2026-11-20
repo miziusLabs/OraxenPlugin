@@ -1,0 +1,84 @@
+bedrock_pickaxe:
+  shape:
+    - AAA
+    - BCB
+    - " D "
+  result:
+    oraxen-item: bedrock_pickaxe
+  ingredients:
+    D:
+      minecraft-type: STICK
+    B:
+      minecraft-type: OBSIDIAN
+    C:
+      minecraft-type: NETHER_STAR
+    A:
+      minecraft-type: DIAMOND_BLOCK
+
+obsidian_sword:
+  result:
+    oraxen-item: obsidian_sword
+  ingredients:
+    A:
+      minecraft-type: OBSIDIAN
+    B:
+      minecraft-type: STICK
+  shape:
+    - A
+    - A
+    - B
+
+obsidian_helmet:
+  result:
+    oraxen-item: obsidian_helmet
+  ingredients:
+    A:
+      minecraft-type: OBSIDIAN
+  shape:
+    - AAA
+    - "A A"
+
+obsidian_chestplate:
+  result:
+    oraxen-item: obsidian_chestplate
+  ingredients:
+    A:
+      minecraft-type: OBSIDIAN
+  shape:
+    - "A A"
+    - AAA
+    - AAA
+
+obsidian_leggings:
+  result:
+    oraxen-item: obsidian_leggings
+  ingredients:
+    A:
+      minecraft-type: OBSIDIAN
+  shape:
+    - AAA
+    - "A A"
+    - "A A"
+
+obsidian_boots:
+  result:
+    oraxen-item: obsidian_boots
+  ingredients:
+    A:
+      minecraft-type: OBSIDIAN
+  shape:
+    - "A A"
+    - "A A"
+
+glass_sword:
+  result:
+    oraxen-item: glass_sword
+  ingredients:
+    A:
+      minecraft-type: GLASS
+    B:
+      minecraft-type: STICK
+  shape:
+    - A
+    - A
+    - B

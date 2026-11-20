@@ -1,0 +1,103 @@
+# Material list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+# EntityType list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/entity/EntityType.html
+# Attribute list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/attribute/Attribute.html
+# Potion effects list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/potion/PotionEffectType.html
+# Random UUID generator: https://www.uuidgenerator.net/
+# Color codes: https://docs.adventure.kyori.net/minimessage.html#format
+
+anubis_head:
+  name: <gradient:#3948AE:#6699FF>Anubis Head
+  material: PAPER
+  lore:
+  - <#6f737d>» <#D5D6D8>NightVision when worn
+  AttributeModifiers:
+  - attribute: ARMOR
+    amount: 3
+    operation: 0
+    slot: HEAD
+  - attribute: ARMOR_TOUGHNESS
+    amount: 2
+    operation: 0
+    slot: HEAD
+  pack:
+    generate_model: false
+    model: default/anubis_head # .json extension is not mandatory
+  # before 1.21.2, simply enable hat mechanic
+  components:
+    equippable:
+      slot: HEAD
+  mechanics:
+    armor_effects:
+      night_vision:
+        amplifier: 0
+        ambient: true # Makes potion effect produce more, translucent, particles.
+        particles: true # whether this effect has particles or not
+        icon: true # whether this effect has an icon or not
+
+crown:
+  name: <gradient:#F06966:#FAD6A6>Crown
+  material: PAPER
+  AttributeModifiers:
+  - attribute: ARMOR
+    amount: 3
+    operation: 0
+    slot: HEAD
+  - attribute: ARMOR_TOUGHNESS
+    amount: 2
+    operation: 0
+    slot: HEAD
+  pack:
+    generate_model: false
+    model: default/crown
+  components:
+    equippable:
+      slot: HEAD
+
+pharaoh_head:
+  name: <gradient:#F06966:#FAD6A6>Pharaoh Head
+  material: PAPER
+  AttributeModifiers:
+  - attribute: ARMOR
+    amount: 3
+    operation: 0
+    slot: HEAD
+  - attribute: ARMOR_TOUGHNESS
+    amount: 2
+    operation: 0
+    slot: HEAD
+  pack:
+    generate_model: false
+    model: default/pharaoh_head
+  components:
+    equippable:
+      slot: HEAD
+
+witch_hat:
+  name: <gradient:#DF98FA:#9055FF>Witch Hat
+  material: PAPER
+  AttributeModifiers:
+  - attribute: ARMOR
+    amount: 3
+    operation: 0
+    slot: HEAD
+  - attribute: ARMOR_TOUGHNESS
+    amount: 2
+    operation: 0
+    slot: HEAD
+  pack:
+    generate_model: false
+    model: default/witch_hat
+  components:
+    equippable:
+      slot: HEAD
+
+space_helmet:
+  name: <#D5D6D8>Space Helmet
+  material: PAPER
+  pack:
+    generate_model: false
+    model: default/space_helmet
+  components:
+    equippable:
+      slot: HEAD
+

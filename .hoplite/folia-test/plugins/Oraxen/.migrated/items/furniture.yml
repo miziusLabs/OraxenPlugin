@@ -1,0 +1,182 @@
+table:
+  name: <gray>Table
+  material: PAPER
+  pack:
+    generate_model: false
+    model: default/table
+  mechanics:
+    furniture:
+      type: ARMOR_STAND # Valid types are ITEM_FRAME, GLOW_ITEM_FRAME, ARMOR_STAND, and DISPLAY_ENTITY if server is 1.19.4+
+      small: false # Used by ARMOR_STAND furniture; defaults to true for ARMOR_STAND
+      properties:
+        translation: # or "offset"
+          x: 0.0
+          y: -1.22
+          z: 0.0
+        scale: # This will scale the actual model since armor stands can't be scaled.
+          x: 1.5
+          y: 1.5
+          z: 1.5
+      barriers:
+      - 0,2,0
+      limited_placing:
+        roof: false
+        floor: true
+        wall: false
+      lights:
+      - 0,0,0 5
+      drop:
+        silktouch: false
+        loots:
+        - oraxen_item: table
+          probability: 1.0
+
+cart:
+  name: <gray>Cart
+  material: PAPER
+  mechanics:
+    furniture:
+      type: DISPLAY_ENTITY
+      hitboxes:
+      - 0,0,0 1.0,1.0
+      properties:
+        display_transform: FIXED
+      barriers:
+      - 0,0,0
+      limited_placing:
+        roof: false
+        floor: true
+        wall: false
+      drop:
+        silktouch: false
+        loots:
+        - oraxen_item: cart
+          probability: 1.0
+  pack:
+    generate_model: false
+    model: default/cart
+
+chair:
+  name: <gray>Chair
+  material: PAPER
+  mechanics:
+    furniture:
+      type: DISPLAY_ENTITY
+      hitboxes:
+      - 0,0,0 1.0,2.0
+      properties:
+        display_transform: FIXED
+      barriers:
+      - 0,0,0
+      limited_placing:
+        roof: false
+        floor: true
+        wall: false
+      seats:
+      - 0,-1.2,0
+      drop:
+        silktouch: false
+        loots:
+        - oraxen_item: chair
+          probability: 1.0
+  pack:
+    generate_model: false
+    model: default/chair
+
+coach:
+  name: <gray>Coach
+  material: PAPER
+  mechanics:
+    furniture:
+      type: DISPLAY_ENTITY
+      properties:
+        display_transform: FIXED
+      limited_placing:
+        roof: false
+        floor: true
+        wall: false
+      barriers: # Block offsets relative to the furniture, using integer x,y,z coordinates
+        - 0,0,0
+        - 0,0,1
+        - 0,0,2
+        - 1,0,0
+        - 1,0,1
+        - 1,0,2
+      drop:
+        silktouch: false
+        loots:
+        - oraxen_item: coach
+          probability: 1.0
+  pack:
+    generate_model: false
+    model: default/coach
+
+shelf:
+  name: <gray>Shelf
+  material: PAPER
+  mechanics:
+    furniture:
+      type: ITEM_FRAME
+      limited_placing:
+        roof: false
+        floor: false
+        wall: true
+        type: DENY
+        block_types: []
+        block_tags: []
+        oraxen_blocks: []
+      drop:
+        silktouch: false
+        loots:
+        - oraxen_item: shelf
+          probability: 1.0
+  pack:
+    generate_model: false
+    model: default/shelf
+
+turntable:
+  name: <gray>Turntable
+  material: PAPER
+  mechanics:
+    furniture:
+      type: DISPLAY_ENTITY
+      limited_placing:
+        roof: false
+        floor: true
+        wall: false
+      barriers:
+      - 0,0,0
+      lights:
+      - 0,0,0 5
+      drop:
+        silktouch: false
+        loots:
+        - oraxen_item: turntable
+          probability: 1.0
+      properties:
+        scale:
+          x: 0.75
+          y: 0.75
+          z: 0.75
+        # Translation allows fine-tuning the exact position of the display entity
+        # Values are in blocks (0.1 = 1/10th of a block)
+        # Useful for adjusting vertical placement or centering models
+        translation:
+          x: 0.0
+          y: 0.1 # Raise the turntable slightly off the ground
+          z: 0.0
+      jukebox:
+        # NEW: Use active_model instead of active_stage (references pack.models key)
+        active_model: opened
+        volume: 1.0
+        pitch: 1.0
+  pack:
+    generate_model: false
+    model: default/turntable_closed
+    # NEW: Define additional models inline - no more fake items needed!
+    # These are auto-registered as oraxen:turntable/opened, etc.
+    models:
+      opened: default/turntable_opened
+
+# REMOVED: turtable_active_stage is no longer needed!
+# The "opened" model is now defined inline in turntable's pack.models

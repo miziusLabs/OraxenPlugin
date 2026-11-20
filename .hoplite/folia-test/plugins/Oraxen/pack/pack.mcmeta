@@ -1,0 +1,61 @@
+{
+  "pack": {
+    "pack_format": 75,
+    "description": "§9§lOraxen §8| §7Extend the Game §7www§8.§7oraxen§8.§7com",
+    "min_format": 18,
+    "max_format": 999,
+    "supported_formats": {
+      "min_inclusive": 18,
+      "max_inclusive": 999
+    }
+  },
+  "overlays": {
+    "entries": [
+      {
+        "formats": {
+          "min_inclusive": 18,
+          "max_inclusive": 45
+        },
+        "directory": "overlay_1_20_2",
+        "min_format": 18,
+        "max_format": 45
+      },
+      {
+        "formats": {
+          "min_inclusive": 46,
+          "max_inclusive": 62
+        },
+        "directory": "overlay_1_21_4",
+        "min_format": 46,
+        "max_format": 62
+      },
+      {
+        "formats": {
+          "min_inclusive": 84,
+          "max_inclusive": 87
+        },
+        "directory": "overlay_26",
+        "min_format": 84,
+        "max_format": 87
+      },
+      {
+        "formats": {
+          "min_inclusive": 88,
+          "max_inclusive": 96
+        },
+        "directory": "overlay_26_2",
+        "min_format": 88,
+        "max_format": 96
+      },
+      {
+        "formats": {
+          "min_inclusive": 97,
+          "max_inclusive": 999
+        },
+        "directory": "overlay_26_3",
+        "min_format": 97,
+        "max_format": 999
+      }
+    ]
+  }
+}

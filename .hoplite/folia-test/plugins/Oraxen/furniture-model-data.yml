@@ -1,0 +1,19 @@
+PAPER:
+  furniture/cart: 1000
+  furniture/weed_seed: 1001
+  furniture/weed_seed/stage0: 1002
+  furniture/weed_seed/stage1: 1003
+  furniture/weed_seed/stage2: 1004
+  furniture/weed_seed/stage3: 1005
+  furniture/shelf: 1006
+  furniture/grape_seeds: 1007
+  furniture/grape_seeds/stage0: 1008
+  furniture/grape_seeds/stage1: 1009
+  furniture/grape_seeds/stage2: 1010
+  furniture/grape_seeds/stage3: 1011
+  furniture/grape_seeds/stage4: 1012
+  furniture/coach: 1013
+  furniture/turntable: 1014
+  furniture/turntable/opened: 1015
+  furniture/table: 1016
+  furniture/chair: 1017

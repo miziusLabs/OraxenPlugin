@@ -1,0 +1,451 @@
+debug: false
+
+general:
+  language: english # Valid options: "czech", "english", "french", "german", "jpn_JP", "korean", "ru-RU", "zh-CN", and "zh-TW".
+  
+  update-checker:
+    enabled: true # Check for updates.
+    interval: 24h # Minimum: 10m. Supports s (seconds), m (minutes), h (hours), and d (days).
+  
+  auto-update:
+    settings: true # Update settings.yml to remove deprecated settings and add new settings.
+    paper-config: true # Update paper-global.yml to disable block updates for custom blocks.
+  
+  introduction:
+    enabled: true # Set to false to suppress the first-run welcome message.
+    console-sent: true # Internal flag; set to true after the welcome message has been shown.
+  
+  formatting: # Uses MiniMessage formatting; legacy colors such as §c and &c are not supported.
+    inventory-titles: true # Format inventory titles made by any plugin.
+    titles: true # Format titles made by any plugin.
+    subtitles: true # Format subtitles made by any plugin.
+    action-bar: true # Format action bars made by any plugin.
+    anvil: true # Format the result item's text in anvils.
+    signs: true # Format sign text when placed or edited.
+    chat: true # Format text and glyphs in chat. Disable if this conflicts with your chat plugin.
+    books: true # Format glyphs in books.
+
+configuration:
+  defaults:
+    assets: true # Generate default assets.
+    configs: true # Generate default configs.
+  
+  items:
+    model-data:
+      skipped-numbers: []
+      disable-automatic: false # Disable automatic model data assignment.
+    
+    fallback:
+      material: PODZOL
+      exclude-from-inventory: false # Hide the fallback item from the inventory menu.
+      inject-id: false
+
+glyphs:
+  emoji-list-permission-only: true # Only list emojis the player has permission to use.
+  unicode-completions: true # Use Unicode characters instead of glyph placeholders in tab completions.
+  disable-automatic-code: false # Disable automatic glyph code assignment.
+
+custom-armor:
+  type: COMPONENT # Valid options: COMPONENT, TRIMS, and NONE.
+  auto-select-type: true # Replace incompatible armor types with the best type for the server version.
+  disable-leather-repair: true # Require copies of the custom armor instead of leather for repairs.
+  
+  component:
+    auto-assign-component: true # Assign the equippable-model component unless explicitly specified.
+  
+  trims:
+    material-replacement: CHAINMAIL # Valid options: CHAINMAIL, IRON, GOLD, DIAMOND, NETHERITE, and LEATHER.
+    auto-assign-settings: true # Assign the trim and item flag unless explicitly specified.
+
+updater:
+  items:
+    update-items: true # Update items in player inventories when players join.
+    update-tile-entity-contents: true # Update items in loaded block inventories, such as chests and furnaces.
+    update-entity-contents: true # Update items held by loaded entities, such as item frames, mobs, and ender chests.
+    override-renamed-items: false
+    override-item-lore: false # Replace item lore with the lore defined in the item configuration.
+    update-on-reload: true # Update online players' items on /oraxen reload items/all.
+  
+  furniture:
+    update-furniture: true
+    update-on-reload: false # Update furniture on /oraxen reload items/all.
+    update-on-load: false # Update the furniture item when its entity loads.
+    experimental-type-update: false
+    experimental-fix-broken: false # Attempt to fix incorrectly placed or broken furniture.
+
+pack:
+  generation:
+    generate: true # Enable all pack generation, independently of configuration.defaults.assets.
+    unprotected-location: '' # Optional readable ZIP before obfuscation. Keep outside plugins/Oraxen/pack.
+    
+    mcmeta: true # Generate pack.mcmeta and overlays. Disable to use your own file.
+    
+    multi-version-packs: false # Separate packs for 1.20-1.21.3 and 1.21.4+. Requires upload other than self-host.
+    
+    model-definitions: true # Use minecraft:item_model on 1.21.4+. Earlier clients use legacy overrides.
+    model-data: # 1.21.4+ only. Requires Pack.custom_model_data. Enable at most one option.
+      float: false # Select models with custom_model_data.floats[0]. Also sets integer CustomModelData.
+      ids: false # Select models with custom_model_data.strings[0] set to oraxen:<item_id>.
+    predicates: false # Generate legacy item model overrides on 1.21.4+ for external-tool compatibility.
+    
+    fix-force-unicode-glyphs: true # Fix glyphs not displaying when Force Unicode is enabled.
+    auto-generated-models-follow-texture-path: false
+    
+    atlas:
+      generate: true
+      type: SPRITE # Valid options: "SPRITE" and "DIRECTORY".
+      exclude-malformed-from-atlas: true # Exclude malformed textures from the atlas.
+  
+  verification: true # Check textures and models for valid resource pack formatting.
+  excluded-file-extensions: []
+  compression: BEST_COMPRESSION # See Deflater.class.
+  
+  protection:
+    size-spoofing: false # Spoof ZIP entry sizes to discourage extraction.
+    obfuscation:
+      type: NONE # NONE keeps paths readable, SIMPLE renames paths, FULL also renames namespaces.
+  
+  comment: "The content of this texture pack \nbelongs to the owner of the Oraxen\
+    \ \nplugin and any complete or partial \nuse must comply with the terms and \n\
+    conditions of Oraxen."
+  
+  import:
+    modelengine: true # Import ModelEngine's resource pack when the plugin is enabled.
+    merge:
+      fonts: true # Merge duplicate font files; exclude originals from the final pack without deleting them.
+      shaders: false # Experimental. Merge compatible core shader entry points in pack priority order.
+      duplicates: true
+      item-base-models: false # Attempt to merge item base model JSONs, such as paper.json, without generating item configs.
+    
+    # Applies to local pack files and imported contents, not uploaded ZIP containers.
+    # Use / between folders. * matches within a name. ** matches across folders.
+    # Comment out a rule to disable it. Use exclude: [] for no configurable exclusions.
+    exclude:
+    - '**/*.md'
+    - '**/*.psd'
+    - '**/*.bbmodel'
+    - '**/.DS_Store'
+    - '**/*.db'
+    - '**/*.ini'
+    - '**/__MACOSX/**'
+    - '**/*.zip'
+    - '**/*.gz'
+    - '**/*.tar'
+    - '**/*.jar'
+    
+    retain-custom-model-data: true # Keep imported model data during duplicate merging. May conflict with existing items.
+  
+  upload:
+    enabled: false
+    type: polymath # Valid options: lobfile, polymath, s3, self-host, and external.
+    
+    polymath:
+      server: atlas.oraxen.com # May point to your own Polymath instance.
+      secret: oraxen # Change this when self-hosting Polymath to restrict uploads.
+    
+    lobfile:
+      api-key: ''
+      pack-name: Oraxen # Uses <pack-name>_<version> for multi-version packs.
+    
+    s3:
+      endpoint: https://s3.us-east-1.amazonaws.com # S3 API endpoint, including https://.
+      access-key: ''
+      secret-key: ''
+      bucket: ''
+      region: us-east-1
+      prefix: oraxen # Optional bucket folder; leave empty to use the bucket root.
+      path-style: true # Compatible with MinIO, R2, and other S3 APIs; false uses bucket subdomains.
+      public-url: '' # Optional public/CDN bucket-root URL, such as https://packs.example.com.
+      presigned-url-expiry: 86400 # Seconds (1–604800) when public-url is empty; reload before expiry.
+    
+    self-host:
+      host: 0.0.0.0 # Bind address; 0.0.0.0 listens on all interfaces.
+      port: 8080 # HTTP server port.
+      domain: localhost:8080 # Player-facing domain/IP and port, such as my-server.com:8080.
+  
+  dispatch:
+    send: false # Send the pack to players.
+    mode: JOIN # Valid options: PRE-JOIN and JOIN.
+    timeout: 30s # Time to wait for a PRE-JOIN response before continuing login.
+    exclude: []
+    delay: -1
+    mandatory: true
+    
+    disable: # Temporary restrictions while the pack loads.
+      movement: true # Disable movement.
+      damage: true # Disable damage.
+    
+    prompt: <#fa4943>Accept the pack to enjoy a full <b><gradient:#9055FF:#13E2DA>Oraxen</b><#fa4943>
+      experience
+    layer: '' # Set a nonempty pack layer to avoid clearing resource packs sent by your proxy.
+  
+  receive:
+    enabled: true
+    loaded:
+      actions:
+        sound:
+          enabled: true # Play the sound when the pack finishes loading.
+          type: oraxen:welcome
+          volume: 1.0
+          pitch: 1.0
+        delay: 5 # Delay in ticks.
+        message:
+          enabled: false
+          type: ACTION_BAR # KICK / CHAT / ACTION_BAR / TITLE. Click and hover require CHAT.
+          content: <#55ffa4><bold>ResourcePack loaded
+        commands:
+          console: []
+          player: []
+          opped-player: []
+    
+    accepted:
+      actions:
+        message:
+          enabled: false
+          type: ACTION_BAR # KICK / CHAT / ACTION_BAR / TITLE. Click and hover require CHAT.
+          content: <#55ffa4><bold>ResourcePack accepted
+        commands:
+          console: []
+          player: []
+          opped-player: []
+    
+    denied:
+      actions:
+        message:
+          enabled: false
+          type: CHAT # KICK / CHAT / ACTION_BAR / TITLE. Click and hover require CHAT.
+          content: <red>You refused the ResourcePack, but you need it in order to
+            see the new items. Please </red><click:run_command:'/oraxen pack send'><hover:show_text:'<green>Display
+            more information'><green><bold>CLICK HERE</bold></hover></click> <red>or
+            type <bold>/oraxen pack send</bold>
+        commands:
+          console: []
+          player: []
+          opped-player: []
+    
+    failed-download:
+      actions:
+        message:
+          enabled: false
+          type: CHAT # KICK / CHAT / ACTION_BAR / TITLE. Click and hover require CHAT.
+          content: <red>You failed to download the ResourcePack, but you need it in
+            order to see the new items. Please </red><click:run_command:'/oraxen pack
+            send'><hover:show_text:'<red>Loading the resource pack in game can cause
+            lag'><red><bold>CLICK HERE</bold></hover></click> <red>to retry or type
+            <bold>/oraxen pack send</bold>
+        commands:
+          console: []
+          player: []
+          opped-player: []
+    
+    failed-reload: # 1.20.3+ only.
+      actions:
+        commands:
+          console: []
+          player: []
+          opped-player: []
+    
+    downloaded: # 1.20.3+ only.
+      actions:
+        commands:
+          console: []
+          player: []
+          opped-player: []
+    
+    invalid-url: # 1.20.3+ only.
+      actions:
+        commands:
+          console: []
+          player: []
+          opped-player: []
+    
+    discarded: # 1.20.3+ only.
+      actions:
+        commands:
+          console: []
+          player: []
+          opped-player: []
+
+utils:
+  hide:
+    scoreboard:
+      numbers: false # Hide scoreboard numbers using native packets on supported Paper versions.
+      background: false # Hide the sidebar scoreboard background for 1.21.2+ clients (1.20.2+ servers).
+  
+  recipes:
+    reset: true # Reset recipes on reload. Useful for testing, but may conflict with other plugins.
+    add-to-book: true # Add recipes to players' recipe books when they have permission.
+  
+  armor-equip-event-bypass: # Skip armor equipping when interacting with these blocks.
+    - FURNACE
+    - CHEST
+    - TRAPPED_CHEST
+    - BEACON
+    - DISPENSER
+    - DROPPER
+    - HOPPER
+    - WORKBENCH
+    - ENCHANTMENT_TABLE
+    - ENDER_CHEST
+    - ANVIL
+    - BED_BLOCK
+    - FENCE_GATE
+    - SPRUCE_FENCE_GATE
+    - BIRCH_FENCE_GATE
+    - ACACIA_FENCE_GATE
+    - JUNGLE_FENCE_GATE
+    - DARK_OAK_FENCE_GATE
+    - IRON_DOOR_BLOCK
+    - WOODEN_DOOR
+    - SPRUCE_DOOR
+    - BIRCH_DOOR
+    - JUNGLE_DOOR
+    - ACACIA_DOOR
+    - DARK_OAK_DOOR
+    - WOOD_BUTTON
+    - STONE_BUTTON
+    - TRAP_DOOR
+    - IRON_TRAPDOOR
+    - DIODE_BLOCK_OFF
+    - DIODE_BLOCK_ON
+    - REDSTONE_COMPARATOR_OFF
+    - REDSTONE_COMPARATOR_ON
+    - FENCE
+    - SPRUCE_FENCE
+    - BIRCH_FENCE
+    - JUNGLE_FENCE
+    - DARK_OAK_FENCE
+    - ACACIA_FENCE
+    - NETHER_FENCE
+    - BREWING_STAND
+    - CAULDRON
+    - LEGACY_SIGN_POST
+    - LEGACY_WALL_SIGN
+    - LEGACY_SIGN
+    - ACACIA_SIGN
+    - ACACIA_WALL_SIGN
+    - BIRCH_SIGN
+    - BIRCH_WALL_SIGN
+    - DARK_OAK_SIGN
+    - DARK_OAK_WALL_SIGN
+    - JUNGLE_SIGN
+    - JUNGLE_WALL_SIGN
+    - OAK_SIGN
+    - OAK_WALL_SIGN
+    - SPRUCE_SIGN
+    - SPRUCE_WALL_SIGN
+    - LEVER
+    - BLACK_SHULKER_BOX
+    - BLUE_SHULKER_BOX
+    - BROWN_SHULKER_BOX
+    - CYAN_SHULKER_BOX
+    - GRAY_SHULKER_BOX
+    - GREEN_SHULKER_BOX
+    - LIGHT_BLUE_SHULKER_BOX
+    - LIME_SHULKER_BOX
+    - MAGENTA_SHULKER_BOX
+    - ORANGE_SHULKER_BOX
+    - PINK_SHULKER_BOX
+    - PURPLE_SHULKER_BOX
+    - RED_SHULKER_BOX
+    - SILVER_SHULKER_BOX
+    - WHITE_SHULKER_BOX
+    - YELLOW_SHULKER_BOX
+    - DAYLIGHT_DETECTOR_INVERTED
+    - DAYLIGHT_DETECTOR
+    - BARREL
+    - BLAST_FURNACE
+    - SMOKER
+    - CARTOGRAPHY_TABLE
+    - COMPOSTER
+    - GRINDSTONE
+    - LECTERN
+    - LOOM
+    - STONECUTTER
+    - BELL
+  
+  display: # Vanilla display transforms for custom shields, bows, and crossbows.
+    shield: '{"thirdperson_righthand":{"rotation":[0,90,0],"translation":[10,6,-4],"scale":[1,1,1]},"thirdperson_lefthand":{"rotation":[0,90,0],"translation":[10,6,12],"scale":[1,1,1]},"firstperson_righthand":{"rotation":[0,180,5],"translation":[-10,2,-10],"scale":[1.25,1.25,1.25]},"firstperson_lefthand":{"rotation":[0,180,5],"translation":[10,0,-10],"scale":[1.25,1.25,1.25]},"gui":{"rotation":[15,-25,-5],"translation":[2,3,0],"scale":[0.65,0.65,0.65]},"fixed":{"rotation":[0,180,0],"translation":[-2,4,-5],"scale":[0.5,0.5,0.5]},"ground":{"rotation":[0,0,0],"translation":[4,4,2],"scale":[0.25,0.25,0.25]}}'
+    bow: '{"thirdperson_righthand":{"rotation":[-80,260,-40],"translation":[-1,-2,2.5],"scale":[0.9,0.9,0.9]},"thirdperson_lefthand":{"rotation":[-80,-280,40],"translation":[-1,-2,2.5],"scale":[0.9,0.9,0.9]},"firstperson_righthand":{"rotation":[0,-90,25],"translation":[1.13,3.2,1.13],"scale":[0.68,0.68,0.68]},"firstperson_lefthand":{"rotation":[0,90,-25],"translation":[1.13,3.2,1.13],"scale":[0.68,0.68,0.68]}}'
+    crossbow: '{"thirdperson_righthand":{"rotation":[-90,0,-60],"translation":[2,0.1,-3],"scale":[0.9,0.9,0.9]},"thirdperson_lefthand":{"rotation":[-90,0,30],"translation":[2,0.1,-3],"scale":[0.9,0.9,0.9]},"firstperson_righthand":{"rotation":[-90,0,-55],"translation":[1.13,3.2,1.13],"scale":[0.68,0.68,0.68]},"firstperson_lefthand":{"rotation":[-90,0,35],"translation":[1.13,3.2,1.13],"scale":[0.68,0.68,0.68]}}'
+
+inventory:
+  title: <shift:-18><glyph:menu_items><shift:-193>
+  rows: 6 # Number of GUI rows, not slots.
+  slots: 45 # Number of slots per page.
+  
+  previous-page-icon: arrow_previous_icon # Oraxen item ID or vanilla material, with a vanilla fallback.
+  next-page-icon: arrow_next_icon # Oraxen item ID or vanilla material, with a vanilla fallback.
+  exit-icon: exit_icon # Oraxen item ID or vanilla material, with a vanilla fallback.
+  
+  layout:
+    armors:
+      slot: 1
+      icon: emerald_chestplate
+      name: <green>Armors
+      title: <main_menu_title><#362753><glyph:menu_items_overlay:colorable>
+    
+    blocks:
+      slot: 2
+      icon: orax_ore
+      name: <green>Blocks
+      title: <main_menu_title><#EDCDEB><glyph:menu_items_overlay:colorable>
+    
+    furniture:
+      slot: 3
+      icon: chair
+      name: <green>Furniture
+      title: <main_menu_title><#F2F2F2><glyph:menu_items_overlay:colorable>
+    
+    flowers:
+      slot: 4
+      icon: dailily
+      name: <green>Flowers
+      title: <main_menu_title><#bf332c><glyph:menu_items_overlay:colorable>
+    
+    hats:
+      slot: 5
+      icon: crown
+      name: <green>Hats
+      title: <main_menu_title><#81B125><glyph:menu_items_overlay:colorable>
+    
+    items:
+      slot: 6
+      icon: ruby
+      name: <green>Items
+      title: <main_menu_title><#DA2E45><glyph:menu_items_overlay:colorable>
+    
+    mystical:
+      slot: 7
+      icon: legendary_hammer
+      name: <green>Mystical
+      title: <main_menu_title><#9AB2E4><glyph:menu_items_overlay:colorable>
+    
+    plants:
+      slot: 8
+      icon: weed_leaf
+      name: <green>Plants
+      title: <main_menu_title><#44C886><glyph:menu_items_overlay:colorable>
+    
+    skins:
+      slot: 9
+      icon: wood_sword
+      name: <green>Skins
+      title: <main_menu_title><#C48E40><glyph:menu_items_overlay:colorable>
+    
+    tools:
+      slot: 10
+      icon: iron_serpe
+      name: <green>Tools
+      title: <main_menu_title><#FFFFFF><glyph:menu_items_overlay:colorable>
+    
+    weapons:
+      slot: 11
+      icon: energy_crystal_sword
+      name: <green>Weapons
+      title: <main_menu_title><#2FB6FF><glyph:menu_items_overlay:colorable>
+
+studio:
+  url: https://studio.oraxen.com # Used by /oraxen studio connect, pull, and push.
+  secret: '' # Scoped token generated by /oraxen studio connect. Never share this secret.
+  auto-sync: true # Listen for Studio WebSocket sync events and reload items/pack.

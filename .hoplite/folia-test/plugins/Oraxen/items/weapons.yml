@@ -1,0 +1,170 @@
+# Material list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+# EntityType list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/entity/EntityType.html
+# Attribute list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/attribute/Attribute.html
+# Potion effects list for latest spigot version: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/potion/PotionEffectType.html
+# Random UUID generator: https://www.uuidgenerator.net/
+# Color codes: https://docs.adventure.kyori.net/minimessage.html#format
+
+storm_sword:
+  name: <gradient:#3685EC:#72C1E4>Storm Sword
+  material: DIAMOND_SWORD
+  AttributeModifiers:
+  - attribute: ATTACK_DAMAGE
+    amount: 10
+    operation: 0
+    slot: HAND
+  - attribute: ATTACK_SPEED
+    amount: 3.2
+    operation: 0
+    slot: HAND
+  lore:
+  - <#6f737d>» <#D5D6D8>Right click to strike lightning
+  pack:
+    generate_model: false
+    model: default/storm_sword
+  mechanics:
+    thor:
+      lightning_bolts_amount: 5
+      random_location_variation: 1.5
+      delay: 20000 # in milliseconds (20000ms = 20s)
+
+energy_crystal_sword:
+  name: <gradient:#3685EC:#72C1E4>Energy Crystal Sword
+  material: DIAMOND_SWORD
+  AttributeModifiers:
+  - attribute: ATTACK_DAMAGE
+    amount: 10
+    operation: 0
+    slot: HAND
+  - attribute: ATTACK_SPEED
+    amount: 1.6
+    operation: 0
+    slot: HAND
+  pack:
+    generate_model: false
+    model: default/energy_crystal_sword
+
+glass_sword:
+  name: <#D5D6D8>Glass Sword
+  material: DIAMOND_SWORD
+  lore:
+  - <#6f737d>» <#D5D6D8>Fragile
+  AttributeModifiers:
+  - attribute: ATTACK_DAMAGE
+    amount: 10
+    operation: 0
+    slot: HAND
+  - attribute: ATTACK_SPEED
+    amount: 1.6
+    operation: 0
+    slot: HAND
+  pack:
+    generate_model: true
+    parent_model: item/handheld
+    textures:
+    - default/glass_sword.png
+  components:
+    durability: 8
+
+obsidian_sword:
+  name: <gradient:#4B36B1:#6699FF>Obsidian Sword
+  material: DIAMOND_SWORD
+  lore:
+  - <#6f737d>» <#D5D6D8>Ludicrous durability
+  AttributeModifiers:
+  - attribute: ATTACK_DAMAGE
+    amount: 6
+    operation: 0
+    slot: HAND
+  - attribute: ATTACK_SPEED
+    amount: 1.6
+    operation: 0
+    slot: HAND
+  pack:
+    generate_model: true
+    parent_model: item/handheld
+    textures:
+    - default/obsidian_sword.png
+  components:
+    durability: 10000
+
+blood_sword:
+  name: <gradient:#FA7CBB:#F14658>Blood Sword
+  material: DIAMOND_SWORD
+  lore:
+  - <#6f737d>» <#D5D6D8>Steal the life of your enemies
+  - <#6f737d>» <#D5D6D8>Make your enemies bleed
+  AttributeModifiers:
+  - attribute: ATTACK_DAMAGE
+    amount: 8
+    operation: 0
+    slot: HAND
+  - attribute: ATTACK_SPEED
+    amount: 1.6
+    operation: 0
+    slot: HAND
+  pack:
+    generate_model: false
+    model: default/blood_sword
+  mechanics:
+    lifeleech:
+      amount: 2 # the amount of 1/2 hearts that you'll steal to your opponents
+    bleeding:
+      chance: 0.3 # 30% chance to apply bleeding on hit
+      duration: 100 # bleeding lasts for 100 ticks (5 seconds)
+      damage_per_interval: 0.5 # deals 0.5 damage (1/4 heart) per interval
+      interval: 20 # damage is applied every 20 ticks (1 second)
+  components:
+    durability: 500
+
+octavia_sword:
+  name: <#D5D6D8>Octavia Sword
+  material: DIAMOND_SWORD
+  pack:
+    generate_model: false
+    model: default/octavia_sword
+  components:
+    durability: 600
+
+dagger:
+  name: <gradient:#FA7CBB:#F14658>Dagger
+  material: DIAMOND_SWORD
+  pack:
+    generate_model: false
+    model: default/dagger
+  components:
+    durability: 10
+
+katana:
+  name: <gradient:#F69D84:#FAD98D>Katana
+  material: DIAMOND_SWORD
+  AttributeModifiers:
+  - attribute: ATTACK_DAMAGE
+    amount: 5
+    operation: 0
+    slot: HAND
+  - attribute: ATTACK_SPEED
+    amount: 5
+    operation: 0
+    slot: HAND
+  pack:
+    generate_model: false
+    model: default/katana
+  components:
+    durability: 1000
+
+combat_bow:
+  name: <gradient:#F69D84:#FAD98D>Combat Bow
+  material: BOW
+  AttributeModifiers:
+  - attribute: ATTACK_DAMAGE
+    amount: 7
+    operation: 0
+    slot: HAND
+  pack:
+    generate_model: false
+    model: default/combat_bow
+    pulling_models:
+    - default/combat_bow_pulling_0
+    - default/combat_bow_pulling_1
+    - default/combat_bow_pulling_2
