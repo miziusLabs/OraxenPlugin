@@ -34,7 +34,7 @@ class ModelDataTest {
     @Test
     void invalidSkippedNumbersAreIgnoredWhileValidOnesStillApply() {
         YamlConfiguration settings = new YamlConfiguration();
-        settings.set(Settings.SKIPPED_MODEL_DATA_NUMBERS.getPath(), List.of("1000", "abc", "1002 - 1003", "5-", "1-2-3"));
+        settings.set(Settings.SKIPPED_MODEL_DATA_NUMBERS.getPath(), List.of("1000", "abc", "1002 - 1003", "5-", "1-2-3", "2147483647"));
         try (var plugins = mockStatic(OraxenPlugin.class); var logs = mockStatic(Logs.class)) {
             OraxenPlugin plugin = mock(OraxenPlugin.class);
             ConfigsManager configs = mock(ConfigsManager.class);

@@ -105,8 +105,8 @@ public class ModelData {
             try {
                 int min = Integer.parseInt((separator < 0 ? entry : entry.substring(0, separator)).trim());
                 int max = separator < 0 ? min : Integer.parseInt(entry.substring(separator + 1).trim());
-                for (int i = min; i <= max; i++)
-                    skippedCustomModelData.add(i);
+                for (long i = min; i <= max; i++)
+                    skippedCustomModelData.add((int) i);
             } catch (NumberFormatException e) {
                 Logs.logWarning("Invalid skipped model data number \"" + entry + "\" in settings.yml, ignoring it.");
             }
