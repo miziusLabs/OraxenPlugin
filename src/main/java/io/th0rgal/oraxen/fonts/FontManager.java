@@ -196,18 +196,29 @@ public class FontManager {
             else if (!Settings.DISABLE_AUTOMATIC_GLYPH_CODE.toBool()) {
                 List<String> tempKeys = OraxenYaml.loadConfiguration(tempFile).getKeys(false).stream().toList();
                 List<String> requiredKeys = OraxenYaml.loadConfiguration(file).getKeys(false).stream().toList();
-                if (!new HashSet<>(requiredKeys).containsAll(tempKeys)) {
-                    file.renameTo(new File(OraxenPlugin.get().getDataFolder() + "/glyphs/" + file.getName() + ".old"));
-                    OraxenPlugin.get().saveResource("glyphs/" + file.getName(), true);
+                if (!new HashSet<>(requiredKeys).containsAll(tempKeys) && regenerateYaml(file))
                     Logs.logWarning("glyphs/" + file.getName()
                             + " was incorrect, renamed to .old and regenerated the default one");
-                }
             }
         } catch (IOException e) {
-            file.renameTo(new File(OraxenPlugin.get().getDataFolder() + "/glyphs/" + file.getName() + ".old"));
-            OraxenPlugin.get().saveResource("glyphs/" + file.getName(), true);
+            regenerateYaml(file);
         }
         tempFile.delete();
+    }
+
+    private boolean regenerateYaml(File file) {
+        if (file.exists()) {
+            try {
+                Files.move(file.toPath(), file.toPath().resolveSibling(file.getName() + ".old"),
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                Logs.logError("Failed to rename glyphs/" + file.getName() + " to .old, keeping the current file");
+                Logs.debug(e);
+                return false;
+            }
+        }
+        OraxenPlugin.get().saveResource("glyphs/" + file.getName(), true);
+        return true;
     }
 
     /**
