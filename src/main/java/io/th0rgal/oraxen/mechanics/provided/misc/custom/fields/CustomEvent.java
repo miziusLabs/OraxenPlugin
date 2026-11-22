@@ -16,10 +16,11 @@ public class CustomEvent {
 
     public CustomEvent(String action, boolean oneUsage) {
         String[] actionParams = action.split(":");
+        String typeName = actionParams.length > 0 ? actionParams[0] : "";
         try {
-            type = CustomEventType.valueOf(actionParams[0]);
+            type = CustomEventType.valueOf(typeName);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unknown event \"" + actionParams[0] + "\". Valid events: "
+            throw new IllegalArgumentException("Unknown event \"" + typeName + "\". Valid events: "
                     + Arrays.stream(CustomEventType.values()).map(Enum::name).collect(Collectors.joining(", ")) + ".", e);
         }
         params.addAll(Arrays.asList(actionParams).subList(1, actionParams.length));

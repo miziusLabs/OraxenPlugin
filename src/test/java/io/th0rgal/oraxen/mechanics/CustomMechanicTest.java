@@ -59,6 +59,7 @@ class CustomMechanicTest extends MechanicTestSupport {
     void invalidEventsAreSkippedWithAnErrorNamingTheItemAndValidValues() {
         ConfigurationSection section = mechanicSection("custom",
                 "misspelled", Map.of("event", "CLIK", "actions", List.of("[message] hi")),
+                "only_colons", Map.of("event", "::", "actions", List.of("[message] hi")),
                 "bad_click", Map.of("event", "CLICK:middle", "actions", List.of("[message] hi")));
 
         try (MockedStatic<Logs> logs = mockStatic(Logs.class)) {
@@ -66,6 +67,8 @@ class CustomMechanicTest extends MechanicTestSupport {
 
             logs.verify(() -> Logs.logError(argThat(message -> message.contains("misspelled")
                     && message.contains("test_item") && message.contains("BREAK, CLICK"))));
+            logs.verify(() -> Logs.logError(argThat(message -> message.contains("only_colons")
+                    && message.contains("BREAK, CLICK"))));
             logs.verify(() -> Logs.logError(argThat(message -> message.contains("bad_click")
                     && message.contains("right, left, all"))));
         }
