@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.mechanics.provided.misc.consumable;
 import io.th0rgal.oraxen.api.OraxenItems;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -17,7 +18,8 @@ public class ConsumableMechanicListener implements Listener {
         this.factory = factory;
     }
 
-    @EventHandler
+    // HIGH lets protection plugins on NORMAL or lower deny the click before the item is used up.
+    @EventHandler(priority = EventPriority.HIGH)
     public void onItemUsed(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK)
             return;
