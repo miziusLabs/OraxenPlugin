@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class EntitySelectorArgument {
 
@@ -76,10 +77,26 @@ public final class EntitySelectorArgument {
             List<Entity> selected = Bukkit.selectEntities(sender, input);
             if (!selected.isEmpty()) return selected;
         } catch (IllegalArgumentException ignored) {
+        } catch (UnsupportedOperationException | IllegalStateException e) {
+            // Folia can't evaluate vanilla selectors from this thread, so resolve the player selectors directly.
+            List<Entity> selected = selectSimple(sender, input);
+            if (!selected.isEmpty()) return selected;
         }
 
         Player player = Bukkit.getPlayerExact(input);
         return player == null ? List.of() : List.of(player);
+    }
+
+    private static List<Entity> selectSimple(CommandSender sender, String input) {
+        List<Entity> players = List.copyOf(Bukkit.getOnlinePlayers());
+        return switch (input) {
+            case "@a" -> players;
+            case "@s" -> sender instanceof Entity entity ? List.of(entity) : List.of();
+            case "@p" -> sender instanceof Player player ? List.of(player) : List.of();
+            case "@r" -> players.isEmpty() ? List.of()
+                    : List.of(players.get(ThreadLocalRandom.current().nextInt(players.size())));
+            default -> List.of();
+        };
     }
 
     private static List<String> playerSuggestions() {
