@@ -169,6 +169,10 @@ public class FontManager {
     private void loadFonts(final ConfigurationSection section) {
         for (final String fontName : section.getKeys(false)) {
             final ConfigurationSection fontSection = section.getConfigurationSection(fontName);
+            if (fontSection == null || fontSection.getString("file") == null) {
+                Logs.logWarning("Font " + fontName + " in font.yml has no file, skipping it");
+                continue;
+            }
             fonts.add(new Font(fontSection.getString("type"),
                     fontSection.getString("file"),
                     (float) fontSection.getDouble("shift_x"),
