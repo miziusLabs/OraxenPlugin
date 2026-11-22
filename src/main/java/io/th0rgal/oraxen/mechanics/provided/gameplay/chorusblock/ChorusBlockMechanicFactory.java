@@ -47,6 +47,7 @@ public class ChorusBlockMechanicFactory extends MechanicFactory {
     public ChorusBlockMechanicFactory(ConfigurationSection section, boolean registerListeners) {
         super(section);
         instance = this;
+        BLOCK_PER_VARIATION.clear();
         variants = new JsonObject();
         // Reserve variation 0 (all faces false) for vanilla behavior
         variants.add("east=false,north=false,south=false,west=false,up=false,down=false",
@@ -96,7 +97,9 @@ public class ChorusBlockMechanicFactory extends MechanicFactory {
     }
 
     public static void clearInstance(ChorusBlockMechanicFactory factory) {
-        if (instance == factory) instance = null;
+        if (instance != factory) return;
+        instance = null;
+        BLOCK_PER_VARIATION.clear();
     }
 
     /**

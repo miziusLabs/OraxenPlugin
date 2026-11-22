@@ -59,6 +59,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     public NoteBlockMechanicFactory(ConfigurationSection section, boolean registerListeners) {
         super(section);
         instance = this;
+        BLOCK_PER_VARIATION.clear();
         variants = new JsonObject();
         variants.add("instrument=harp,powered=false", getModelJson("block/note_block"));
         toolTypes = section.getStringList("tool_types");
@@ -160,7 +161,9 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     }
 
     public static void clearInstance(NoteBlockMechanicFactory factory) {
-        if (instance == factory) instance = null;
+        if (instance != factory) return;
+        instance = null;
+        BLOCK_PER_VARIATION.clear();
     }
 
     public boolean removeMineableTag() {

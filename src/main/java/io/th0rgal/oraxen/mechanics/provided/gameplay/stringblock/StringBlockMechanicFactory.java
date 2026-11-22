@@ -53,6 +53,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
     public StringBlockMechanicFactory(ConfigurationSection section, boolean registerListeners) {
         super(section);
         instance = this;
+        BLOCK_PER_VARIATION.clear();
         variants = new JsonObject();
         variants.add("east=false,west=false,south=false,north=false,attached=false,disarmed=false,powered=false", getModelJson("block/barrier"));
         toolTypes = section.getStringList("tool_types");
@@ -103,7 +104,9 @@ public class StringBlockMechanicFactory extends MechanicFactory {
     }
 
     public static void clearInstance(StringBlockMechanicFactory factory) {
-        if (instance == factory) instance = null;
+        if (instance != factory) return;
+        instance = null;
+        BLOCK_PER_VARIATION.clear();
     }
 
 
