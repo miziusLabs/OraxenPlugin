@@ -253,7 +253,7 @@ public class FontEvents implements Listener {
 
     private String replaceUnpermittedGlyphs(Player player, String displayName) {
         Glyph required = manager.getGlyphFromName("required");
-        String replacement = required.hasPermission(player) ? required.getCharacters() : "";
+        String replacement = required != null && required.hasPermission(player) ? required.getCharacters() : "";
         StringBuilder builder = new StringBuilder(displayName);
         Set<Glyph> warnedGlyphs = new HashSet<>();
         for (GlyphMatch match : findGlyphMatches(displayName).reversed()) {
