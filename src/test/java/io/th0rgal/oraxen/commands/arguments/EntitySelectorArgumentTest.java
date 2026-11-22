@@ -52,8 +52,9 @@ class EntitySelectorArgumentTest {
         when(block.getLocation()).thenReturn(new Location(world, 0, 64, 0));
         BlockCommandSender commandBlock = mock(BlockCommandSender.class);
         when(commandBlock.getBlock()).thenReturn(block);
-        Player near = player(world, new Location(world, 2, 64, 0));
-        Player far = player(world, new Location(world, 20, 64, 0));
+        // The far player is closer to the block's corner, the near player is closer to its center.
+        Player near = player(world, new Location(world, 1.5, 64, 0));
+        Player far = player(world, new Location(world, -0.6, 64, 0));
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(() -> Bukkit.selectEntities(any(CommandSender.class), anyString()))
                     .thenThrow(new UnsupportedOperationException());

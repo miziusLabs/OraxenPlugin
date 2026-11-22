@@ -104,7 +104,7 @@ public final class EntitySelectorArgument {
 
     private static List<Entity> selectNearest(CommandSender sender, List<Entity> players) {
         if (!(sender instanceof BlockCommandSender commandBlock)) return List.of();
-        Location origin = commandBlock.getBlock().getLocation();
+        Location origin = commandBlock.getBlock().getLocation().toCenterLocation();
         // Only players owned by the command block's region can be read safely on Folia.
         return players.stream()
                 .filter(player -> Bukkit.isOwnedByCurrentRegion(player) && player.getWorld().equals(origin.getWorld()))
