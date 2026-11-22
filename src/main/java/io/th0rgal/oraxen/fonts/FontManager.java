@@ -356,7 +356,7 @@ public class FontManager {
         return shiftProvider.getShiftString(length);
     }
 
-    private final Map<UUID, List<String>> currentGlyphCompletions = new ConcurrentHashMap<>();
+    private static final Map<UUID, List<String>> currentGlyphCompletions = new ConcurrentHashMap<>();
 
     public void sendGlyphTabCompletion(Player player) {
         List<String> completions = getGlyphTabCompletions(getGlyphByPlaceholderMap().values(),
@@ -369,7 +369,7 @@ public class FontManager {
     }
 
     public void clearGlyphTabCompletions(Player player) {
-        this.currentGlyphCompletions.remove(player.getUniqueId());
+        currentGlyphCompletions.remove(player.getUniqueId());
     }
 
     public static List<String> getGlyphTabCompletions(Collection<Glyph> glyphs, boolean includeUnicodeCompletions) {
