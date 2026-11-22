@@ -261,7 +261,10 @@ public class StudioSyncService {
             if (json.has("status") && "authorized".equals(json.get("status").getAsString()) && json.has("secret")) {
                 completePairingFromJson(json, completed, sender);
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            if (Settings.DEBUG.toBool())
+                Logs.logWarning("Failed to check the Oraxen Studio pairing status");
+            Logs.debug(e);
         }
     }
 
