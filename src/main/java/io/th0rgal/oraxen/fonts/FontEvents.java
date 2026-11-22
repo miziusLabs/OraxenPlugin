@@ -7,6 +7,7 @@ import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.PlayerOpenSignEvent;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenItems;
+import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.compatibilities.provided.placeholderapi.PapiAliases;
 import io.th0rgal.oraxen.configs.Message;
 import io.th0rgal.oraxen.configs.Settings;
@@ -313,7 +314,7 @@ public class FontEvents implements Listener {
     private String replaceGlyphPlaceholders(Player player, String displayName) {
         for (Map.Entry<String, Glyph> entry : manager.getGlyphByPlaceholderMap().entrySet()) {
             if (!entry.getValue().hasPermission(player)) continue;
-            String replacement = (manager.permsChatcolor == null)
+            String replacement = (manager.permsChatcolor == null || !CompatibilitiesManager.hasPlugin("PlaceholderAPI"))
                     ? entry.getValue().getCharacters()
                     : "<white>" + entry.getValue().getCharacters()
                             + PapiAliases.setPlaceholders(player, manager.permsChatcolor);
