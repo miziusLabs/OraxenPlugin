@@ -274,8 +274,11 @@ public class RecipesEventsManager implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        discoverRecipes(event.getPlayer());
+    }
+
+    public void discoverRecipes(Player player) {
         if (!Settings.ADD_RECIPES_TO_BOOK.toBool()) return;
-        Player player = event.getPlayer();
         player.discoverRecipes(getPermittedRecipes(player).stream().map(r -> NamespacedKey.fromString(r.getName(), OraxenPlugin.get())).collect(Collectors.toSet()));
     }
 
