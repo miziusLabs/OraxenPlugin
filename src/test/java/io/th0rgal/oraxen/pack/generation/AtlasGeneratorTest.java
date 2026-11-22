@@ -56,9 +56,9 @@ class AtlasGeneratorTest {
     @Test
     void directoryAtlasKeepsNestedDirectoriesUnlessAnAncestorIsListed() {
         List<VirtualFile> output = new ArrayList<>(List.of(
-                texture("assets/oraxen/textures/item/sword.png"),
-                texture("assets/oraxen/textures/item/tools/axe.png"),
-                texture("assets/oraxen/textures/item/tools/iron/pick.png"),
+                texture("assets/oraxen/textures/block/stone.png"),
+                texture("assets/oraxen/textures/block/ores/ruby.png"),
+                texture("assets/oraxen/textures/block/ores/deep/sapphire.png"),
                 texture("assets/oraxen/textures/custom/armor/helmet.png"),
                 texture("assets/oraxen/textures/custom/armor/gold/boots.png"),
                 texture("assets/oraxen/textures/icon.png")));
@@ -66,7 +66,7 @@ class AtlasGeneratorTest {
         AtlasGenerator.generateAtlasFile(output, Set.of());
 
         Set<String> expected = Set.of(
-                "{\"type\":\"directory\",\"source\":\"item\",\"prefix\":\"item/\"}",
+                "{\"type\":\"directory\",\"source\":\"block\",\"prefix\":\"block/\"}",
                 "{\"type\":\"directory\",\"source\":\"custom/armor\",\"prefix\":\"custom/armor/\"}",
                 "{\"type\":\"single\",\"resource\":\"oraxen:icon\",\"sprite\":\"oraxen:icon\"}");
         assertEquals(expected, atlasSources(output));
