@@ -427,7 +427,7 @@ public class DuplicationHandler {
     private static List<JsonObject> readOverridesFromFile(String name) {
         Path path = Path.of(OraxenPlugin.get().getDataFolder().getAbsolutePath(), "pack", name);
         if (!path.toFile().exists()) {
-            path = Path.of(path.toString().replace("assets\\minecraft\\", ""));
+            path = Path.of(OraxenPlugin.get().getDataFolder().getAbsolutePath(), "pack", name.replace("assets/minecraft/", ""));
         }
 
         String fileContent;
@@ -440,8 +440,13 @@ public class DuplicationHandler {
         }
 
         try {
-            JsonObject json = JsonParser.parseString(fileContent).getAsJsonObject();
-            return new ArrayList<>(json.getAsJsonArray("overrides").asList().stream()
+            JsonElement json = JsonParser.parseString(fileContent);
+            JsonElement overrides = json.isJsonObject() ? json.getAsJsonObject().get("overrides") : null;
+            if (overrides == null || !overrides.isJsonArray()) {
+                Logs.logWarning("Failed to migrate duplicate file-entry, file has no overrides array");
+                return null;
+            }
+            return new ArrayList<>(overrides.getAsJsonArray().asList().stream()
                     .filter(JsonElement::isJsonObject)
                     .map(JsonElement::getAsJsonObject)
                     .distinct()
