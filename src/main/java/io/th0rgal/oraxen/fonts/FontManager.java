@@ -216,7 +216,7 @@ public class FontManager {
                 Files.move(file.toPath(), file.toPath().resolveSibling(file.getName() + ".old"),
                         StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
-                Logs.logError("Failed to rename glyphs/" + file.getName() + " to .old, keeping the current file");
+                Logs.logError("Failed to back up glyphs/" + file.getName() + " to " + file.getName() + ".old");
                 Logs.debug(e);
                 return false;
             }
