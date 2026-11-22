@@ -1,7 +1,12 @@
 package io.th0rgal.oraxen.commands.arguments;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -15,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 class EntitySelectorArgumentTest {
 
@@ -37,5 +43,35 @@ class EntitySelectorArgumentTest {
             assertTrue(self.success());
             assertEquals(sender, self.value());
         }
+    }
+
+    @Test
+    void nearestPlayerSelectorResolvesFromACommandBlockWhenVanillaSelectorsAreUnsupported() {
+        World world = mock(World.class);
+        Block block = mock(Block.class);
+        when(block.getLocation()).thenReturn(new Location(world, 0, 64, 0));
+        BlockCommandSender commandBlock = mock(BlockCommandSender.class);
+        when(commandBlock.getBlock()).thenReturn(block);
+        Player near = player(world, new Location(world, 2, 64, 0));
+        Player far = player(world, new Location(world, 20, 64, 0));
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.selectEntities(any(CommandSender.class), anyString()))
+                    .thenThrow(new UnsupportedOperationException());
+            bukkit.when(Bukkit::getOnlinePlayers).then(invocation -> List.of(far, near));
+            bukkit.when(() -> Bukkit.isOwnedByCurrentRegion(any(Entity.class))).thenReturn(true);
+
+            OraxenArgument.ParseResult<Player> nearest =
+                    new EntitySelectorArgument.OnePlayer("target").parse(commandBlock, List.of("@p"), 0);
+
+            assertTrue(nearest.success());
+            assertEquals(near, nearest.value());
+        }
+    }
+
+    private static Player player(World world, Location location) {
+        Player player = mock(Player.class);
+        when(player.getWorld()).thenReturn(world);
+        when(player.getLocation()).thenReturn(location);
+        return player;
     }
 }
