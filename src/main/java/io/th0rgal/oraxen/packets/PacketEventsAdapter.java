@@ -57,10 +57,8 @@ public class PacketEventsAdapter implements PacketAdapter {
 
     @Override
     public void registerScoreboardListener() {
-        if(scoreboardPacketListener != null) {
-            OraxenPlugin.get().getLogger().severe("[PacketEventsAdapter]: Scoreboard Listener is already registered!");
-            return;
-        }
+        // Every pack generation registers it again, so keep the existing listener.
+        if(scoreboardPacketListener != null) return;
         scoreboardPacketListener = register(new ScoreboardPacketListener(), PacketListenerPriority.NORMAL);
     }
 
