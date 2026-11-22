@@ -704,9 +704,6 @@ public class ItemUpdater implements Listener {
             else itemPdc.set(UNSTACKABLE_KEY, DataType.UUID, UUID.randomUUID());
         });
 
-        nmsHandler.consumableComponent(newItem, Optional.ofNullable(nmsHandler.consumableComponent(newItem))
-                .orElse(nmsHandler.consumableComponent(oldItem)));
-
         if (clearDeathProtection) return nmsHandler.removeDeathProtectionComponent(newItem);
         return deathProtectionComponent != null
                 ? nmsHandler.deathProtectionComponent(newItem, deathProtectionComponent)
