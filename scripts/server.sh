@@ -113,7 +113,8 @@ fi
 SERVER_JAR="$SERVER_DIR/server.jar"
 
 required_java_version() {
-    if [[ "$MC_VERSION" == 26.* ]]; then
+    [[ "$MC_VERSION" =~ ^(1\.)?([0-9]+) ]]
+    if ((10#${BASH_REMATCH[2]} >= 26)); then
         echo 25
     else
         echo 21
@@ -194,7 +195,7 @@ find_oraxen_jar() {
 
     shopt -s nullglob
     for jar in "$PROJECT_DIR"/build/libs/oraxen-*.jar; do
-        [[ "$jar" == *-sources.jar || "$jar" == *-javadoc.jar ]] || jars+=("$jar")
+        [[ "$jar" == *-sources.jar || "$jar" == *-javadoc.jar || "$jar" == *-plain.jar ]] || jars+=("$jar")
     done
     shopt -u nullglob
 
