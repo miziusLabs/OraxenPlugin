@@ -47,7 +47,6 @@ class RecipeBrewingTest {
             try {
                 BrewingLoader.beginReload();
                 BrewingLoader.register(recipe("first"));
-                BrewingLoader.validateReload();
                 verify(brewer, never()).addPotionMix(any());
                 assertTrue(removed.isEmpty());
                 BrewingLoader.finishReload();

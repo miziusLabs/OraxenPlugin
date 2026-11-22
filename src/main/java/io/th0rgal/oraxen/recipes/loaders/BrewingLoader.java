@@ -17,8 +17,9 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 public class BrewingLoader extends RecipeLoader {
-    private static final Map<NamespacedKey, RecipeBrewing> registered = new LinkedHashMap<>();
-    private static Map<NamespacedKey, RecipeBrewing> staging;
+    // Values are the prepared PotionMix or native brewing recipe.
+    private static final Map<NamespacedKey, Object> registered = new LinkedHashMap<>();
+    private static Map<NamespacedKey, Object> staging;
 
     public BrewingLoader(ConfigurationSection section) { super(section); }
 
@@ -44,27 +45,22 @@ public class BrewingLoader extends RecipeLoader {
         if (staging == null) throw new IllegalStateException("Brewing reload has not begun");
         if (staging.containsKey(recipe.key()))
             throw new IllegalArgumentException("Duplicate brewing recipe " + recipe.key());
-        prepare(recipe);
-        staging.put(recipe.key(), recipe);
+        staging.put(recipe.key(), prepare(recipe));
     }
 
     public static synchronized void cancelReload() { staging = null; }
 
-    public static synchronized void validateReload() {
-        if (staging == null) throw new IllegalStateException("Brewing reload has not begun");
-        staging.values().forEach(BrewingLoader::prepare);
-    }
-
     public static synchronized void finishReload() {
         if (staging == null) throw new IllegalStateException("Brewing reload has not begun");
-        Map<NamespacedKey, Object> prepared = new LinkedHashMap<>();
-        // Resolve compatibility before removing any live recipes.
-        staging.forEach((key, recipe) -> prepared.put(key, prepare(recipe)));
-        Map<NamespacedKey, RecipeBrewing> previous = new LinkedHashMap<>(registered);
+        // Crafting recipes registered earlier in this reload can take a native brewing key.
+        staging.forEach((key, recipe) -> {
+            if (!(recipe instanceof PotionMix)) requireOwnedKey(key);
+        });
+        Map<NamespacedKey, Object> previous = new LinkedHashMap<>(registered);
         clearRegistered();
         try {
-            for (Map.Entry<NamespacedKey, RecipeBrewing> entry : staging.entrySet()) {
-                add(prepared.get(entry.getKey()));
+            for (Map.Entry<NamespacedKey, Object> entry : staging.entrySet()) {
+                add(entry.getValue());
                 registered.put(entry.getKey(), entry.getValue());
             }
             staging = null;
@@ -72,7 +68,7 @@ public class BrewingLoader extends RecipeLoader {
             clearRegistered();
             previous.forEach((key, recipe) -> {
                 try {
-                    add(prepare(recipe));
+                    add(recipe);
                     registered.put(key, recipe);
                 } catch (RuntimeException rollbackFailure) {
                     failure.addSuppressed(rollbackFailure);
@@ -101,13 +97,17 @@ public class BrewingLoader extends RecipeLoader {
         RecipeChoice ingredient = brewingChoice(recipe.ingredient());
         Constructor<?> constructor = nativeConstructor();
         if (constructor == null) return new PotionMix(recipe.key(), recipe.result(), container, ingredient);
-        if (!registered.containsKey(recipe.key()) && Bukkit.getRecipe(recipe.key()) != null)
-            throw new IllegalArgumentException("Brewing recipe key already belongs to another recipe " + recipe.key());
+        requireOwnedKey(recipe.key());
         try {
             return constructor.newInstance(recipe.key(), recipe.result(), container, ingredient);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Cannot create native brewing recipe " + recipe.key(), cause(e));
         }
+    }
+
+    private static void requireOwnedKey(NamespacedKey key) {
+        if (!registered.containsKey(key) && Bukkit.getRecipe(key) != null)
+            throw new IllegalArgumentException("Brewing recipe key already belongs to another recipe " + key);
     }
 
     private static Constructor<?> nativeConstructor() {
