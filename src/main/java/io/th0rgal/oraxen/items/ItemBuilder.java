@@ -1049,8 +1049,6 @@ public class ItemBuilder {
             itemMeta.setUseRemainder(useRemainder);
         if (hasEnchantable())
             itemMeta.setEnchantable(enchantable);
-        if (itemModel != null)
-            itemMeta.setItemModel(itemModel);
         if (isGlider != null)
             itemMeta.setGlider(isGlider);
     }
@@ -1175,10 +1173,12 @@ public class ItemBuilder {
     }
 
     private ItemStack applyConsumableComponent(ItemStack itemStack) {
+        if (consumableComponent == null) return itemStack;
         return NMSHandlers.getHandler().consumableComponent(itemStack, consumableComponent);
     }
 
     private ItemStack applyDeathProtectionComponent(ItemStack itemStack) {
+        if (deathProtectionComponent == null) return itemStack;
         return NMSHandlers.getHandler().deathProtectionComponent(itemStack, deathProtectionComponent);
     }
 
