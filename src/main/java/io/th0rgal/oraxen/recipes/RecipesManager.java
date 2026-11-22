@@ -90,13 +90,16 @@ public class RecipesManager {
                 if (config.getKeys(false).isEmpty()) continue;
                 Function<ConfigurationSection, RecipeLoader> loader = loader(file.getName());
                 for (String name : config.getKeys(false)) {
+                    RecipeLoader recipe = null;
                     try {
                         ConfigurationSection section = config.getConfigurationSection(name);
                         if (section == null) throw new IllegalArgumentException("Entry must be a recipe section");
-                        loader.apply(section).registerRecipe();
+                        recipe = loader.apply(section);
+                        recipe.registerRecipe();
                     } catch (RuntimeException exception) {
                         Logs.logError("Could not load recipe " + file.getName() + "." + name + ": " + exception.getMessage());
                         Logs.debug(exception);
+                        if (recipe != null) recipe.retainPreviousVersion();
                     }
                 }
             }
