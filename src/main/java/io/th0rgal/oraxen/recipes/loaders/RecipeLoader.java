@@ -198,6 +198,14 @@ public abstract class RecipeLoader {
 
     public abstract void registerRecipe();
 
+    /** Keeps the last working version after this recipe failed to load. Server recipes stay through {@link #retainedKeys()}. */
+    public void retainPreviousVersion() {
+    }
+
+    protected static boolean resetsRecipes() {
+        return reset;
+    }
+
     protected void loadRecipe(Recipe recipe) {
         Map<Integer, List<ItemStack>> display = RecipeIngredients.displayOverrides(recipe);
         Recipe registration = serverRecipe(recipe);

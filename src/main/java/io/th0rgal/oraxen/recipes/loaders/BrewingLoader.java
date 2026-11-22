@@ -36,6 +36,16 @@ public class BrewingLoader extends RecipeLoader {
         register(new RecipeBrewing(getNamespacedKey(), container, ingredient, getValidResult()));
     }
 
+    @Override
+    public void retainPreviousVersion() {
+        if (!resetsRecipes()) retain(getNamespacedKey());
+    }
+
+    private static synchronized void retain(NamespacedKey key) {
+        if (staging == null) throw new IllegalStateException("Brewing reload has not begun");
+        if (registered.containsKey(key)) staging.putIfAbsent(key, registered.get(key));
+    }
+
     public static synchronized void beginReload() {
         if (staging != null) throw new IllegalStateException("Brewing reload already in progress");
         staging = new LinkedHashMap<>();
