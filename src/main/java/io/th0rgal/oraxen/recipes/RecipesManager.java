@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Function;
 
 public class RecipesManager {
     private static boolean builderEventsRegistered;
@@ -83,13 +84,16 @@ public class RecipesManager {
             for (File file : files) {
                 if (file.getName().equals("tags.yml") || file.getName().equals("disabled.yml")) continue;
                 YamlConfiguration config = read(file);
+                if (config.getKeys(false).isEmpty()) continue;
+                Function<ConfigurationSection, RecipeLoader> loader = loader(file.getName());
                 for (String name : config.getKeys(false)) {
-                    ConfigurationSection section = config.getConfigurationSection(name);
-                    if (section == null) throw new IllegalArgumentException(file.getName() + "." + name + " must be a recipe section");
                     try {
-                        registerRecipeByType(file.getName(), section);
+                        ConfigurationSection section = config.getConfigurationSection(name);
+                        if (section == null) throw new IllegalArgumentException("Entry must be a recipe section");
+                        loader.apply(section).registerRecipe();
                     } catch (RuntimeException exception) {
-                        throw new IllegalArgumentException("Invalid recipe " + file.getName() + "." + name + ": " + exception.getMessage(), exception);
+                        Logs.logError("Could not load recipe " + file.getName() + "." + name + ": " + exception.getMessage());
+                        Logs.debug(exception);
                     }
                 }
             }
@@ -147,21 +151,21 @@ public class RecipesManager {
         }
     }
 
-    private static void registerRecipeByType(String file, ConfigurationSection section) {
-        switch (file) {
-            case "shaped.yml", "shaped-transform.yml" -> new ShapedLoader(section).registerRecipe();
-            case "shapeless.yml", "shapeless-transform.yml" -> new ShapelessLoader(section).registerRecipe();
-            case "furnace.yml" -> new FurnaceLoader(section).registerRecipe();
-            case "blasting.yml" -> new BlastingLoader(section).registerRecipe();
-            case "campfire.yml" -> new CampfireLoader(section).registerRecipe();
-            case "smoking.yml" -> new SmokingLoader(section).registerRecipe();
-            case "stonecutting.yml" -> new StonecuttingLoader(section).registerRecipe();
-            case "smithing.yml" -> new SmithingLoader(section).registerRecipe();
-            case "brewing.yml" -> new BrewingLoader(section).registerRecipe();
-            case "cauldron.yml" -> new WorkstationLoader(section, CustomWorkstationRecipe.Type.CAULDRON).registerRecipe();
-            case "anvil.yml" -> new WorkstationLoader(section, CustomWorkstationRecipe.Type.ANVIL).registerRecipe();
-            case "grindstone.yml" -> new WorkstationLoader(section, CustomWorkstationRecipe.Type.GRINDSTONE).registerRecipe();
+    private static Function<ConfigurationSection, RecipeLoader> loader(String file) {
+        return switch (file) {
+            case "shaped.yml", "shaped-transform.yml" -> ShapedLoader::new;
+            case "shapeless.yml", "shapeless-transform.yml" -> ShapelessLoader::new;
+            case "furnace.yml" -> FurnaceLoader::new;
+            case "blasting.yml" -> BlastingLoader::new;
+            case "campfire.yml" -> CampfireLoader::new;
+            case "smoking.yml" -> SmokingLoader::new;
+            case "stonecutting.yml" -> StonecuttingLoader::new;
+            case "smithing.yml" -> SmithingLoader::new;
+            case "brewing.yml" -> BrewingLoader::new;
+            case "cauldron.yml" -> section -> new WorkstationLoader(section, CustomWorkstationRecipe.Type.CAULDRON);
+            case "anvil.yml" -> section -> new WorkstationLoader(section, CustomWorkstationRecipe.Type.ANVIL);
+            case "grindstone.yml" -> section -> new WorkstationLoader(section, CustomWorkstationRecipe.Type.GRINDSTONE);
             default -> throw new IllegalArgumentException("Unknown recipe file " + file);
-        }
+        };
     }
 }
