@@ -5,6 +5,7 @@ import io.th0rgal.oraxen.configs.Message;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.timers.Timer;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -25,6 +26,8 @@ public class CommandsMechanicListener implements Listener {
         Action action = event.getAction();
         if (action != Action.LEFT_CLICK_AIR && action != Action.RIGHT_CLICK_AIR && action != Action.LEFT_CLICK_BLOCK
                 && action != Action.RIGHT_CLICK_BLOCK)
+            return;
+        if (event.useItemInHand() == Event.Result.DENY)
             return;
 
         ItemStack item = event.getItem();
