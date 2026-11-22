@@ -1,11 +1,14 @@
 package io.th0rgal.oraxen.commands.arguments;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -92,11 +95,22 @@ public final class EntitySelectorArgument {
         return switch (input) {
             case "@a" -> players;
             case "@s" -> sender instanceof Entity entity ? List.of(entity) : List.of();
-            case "@p" -> sender instanceof Player player ? List.of(player) : List.of();
+            case "@p" -> sender instanceof Player player ? List.of(player) : selectNearest(sender, players);
             case "@r" -> players.isEmpty() ? List.of()
                     : List.of(players.get(ThreadLocalRandom.current().nextInt(players.size())));
             default -> List.of();
         };
+    }
+
+    private static List<Entity> selectNearest(CommandSender sender, List<Entity> players) {
+        if (!(sender instanceof BlockCommandSender commandBlock)) return List.of();
+        Location origin = commandBlock.getBlock().getLocation();
+        // Only players owned by the command block's region can be read safely on Folia.
+        return players.stream()
+                .filter(player -> Bukkit.isOwnedByCurrentRegion(player) && player.getWorld().equals(origin.getWorld()))
+                .min(Comparator.comparingDouble(player -> player.getLocation().distanceSquared(origin)))
+                .map(List::of)
+                .orElse(List.of());
     }
 
     private static List<String> playerSuggestions() {
