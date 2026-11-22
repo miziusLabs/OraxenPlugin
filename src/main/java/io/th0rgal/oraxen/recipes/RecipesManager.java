@@ -14,6 +14,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -50,20 +51,22 @@ public class RecipesManager {
             SchedulerUtil.runTask(RecipesManager::reload);
             return true;
         }
-        loadRecipes();
-        RecipesEventsManager.get().registerEvents();
+        RecipesEventsManager events = RecipesEventsManager.get();
+        if (loadRecipes()) for (Player player : Bukkit.getOnlinePlayers())
+            SchedulerUtil.runForEntity(player, () -> events.discoverRecipes(player));
+        events.registerEvents();
         return true;
     }
 
-    private static void loadRecipes() {
+    private static boolean loadRecipes() {
         File folder = new File(OraxenPlugin.get().getDataFolder(), "recipes");
         if (!folder.exists() && folder.mkdirs() && Settings.GENERATE_DEFAULT_CONFIGS.toBool())
             OraxenPlugin.get().getResourceManager().extractConfigsInFolder("recipes", "yml");
         createRecipeFiles(folder);
-        registerAllConfigRecipesFromFolder(folder);
+        return registerAllConfigRecipesFromFolder(folder);
     }
 
-    private static void registerAllConfigRecipesFromFolder(File folder) {
+    private static boolean registerAllConfigRecipesFromFolder(File folder) {
         RecipeLoader.beginRegistrationPass(Settings.RESET_RECIPES.toBool());
         RecipeBrewing.beginReload();
         RecipeProcessing.beginReload();
@@ -124,6 +127,7 @@ public class RecipesManager {
                 events.cancelRecipeReload();
             }
         }
+        return completed;
     }
 
     private static YamlConfiguration read(File file) throws Exception {
