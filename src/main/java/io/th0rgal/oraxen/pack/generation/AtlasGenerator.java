@@ -105,7 +105,7 @@ public class AtlasGenerator {
                 continue;
             }
 
-            if (Settings.ATLAS_GENERATION_TYPE.toString().equals("DIRECTORY")) {
+            if (Settings.ATLAS_GENERATION_TYPE.toString().equals("DIRECTORY") && texturePath.path.contains("/")) {
                 String path = StringUtils.substringBeforeLast(texturePath.path, "/");
                 atlasEntry.addProperty("type", "directory");
                 atlasEntry.addProperty("source", path);
@@ -140,14 +140,19 @@ public class AtlasGenerator {
         if (Settings.ATLAS_GENERATION_TYPE.toString().equals("DIRECTORY")) {
             Set<JsonElement> remove = new HashSet<>();
             atlasContent.forEach(element -> {
-                String source = element.getAsJsonObject().get("source").getAsString();
-                if (source.contains("/")) {
+                JsonElement source = element.getAsJsonObject().get("source");
+                if (source == null) return;
+                String parent = source.getAsString();
+                while (parent.contains("/")) {
+                    parent = StringUtils.substringBeforeLast(parent, "/");
                     JsonObject parentObject = new JsonObject();
                     parentObject.addProperty("type", "directory");
-                    parentObject.addProperty("source", source);
-                    parentObject.addProperty("prefix", source + "/");
-                    if (atlasContent.contains(parentObject))
+                    parentObject.addProperty("source", parent);
+                    parentObject.addProperty("prefix", parent + "/");
+                    if (atlasContent.contains(parentObject)) {
                         remove.add(element);
+                        break;
+                    }
                 }
             });
             remove.forEach(atlasContent::remove);
