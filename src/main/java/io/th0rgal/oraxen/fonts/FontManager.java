@@ -16,7 +16,6 @@ import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -307,9 +306,9 @@ public class FontManager {
      * Get a Glyph from a given Glyph-ID
      * 
      * @param id The Glyph-ID
-     * @return Returns the Glyph if it exists, otherwise the required Glyph
+     * @return Returns the Glyph if it exists, otherwise the required Glyph, or null if that is missing too
      */
-    @NotNull
+    @Nullable
     public Glyph getGlyphFromName(final String id) {
         return glyphMap.get(id) != null ? glyphMap.get(id) : glyphMap.get("required");
     }
