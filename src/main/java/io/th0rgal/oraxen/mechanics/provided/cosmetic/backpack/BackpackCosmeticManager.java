@@ -227,8 +227,14 @@ public class BackpackCosmeticManager {
                 boolean inRange = isWithinViewDistance(potentialViewer, location, viewDistance);
                 boolean isViewer = data.getViewers().contains(potentialViewer.getUniqueId());
                 // Spawns new viewers, removes viewers out of range and resyncs the mount for the others
-                if (inRange != isViewer || (inRange && resync))
+                if (inRange != isViewer || (inRange && resync)) {
                     updateBackpackViewer(potentialViewer, data, location, vehicleId, yaw, currentPassengers);
+                    // hideBackpack may have run on the owner's thread meanwhile and missed this viewer
+                    if (activeBackpacks.get(owner.getUniqueId()) != data) {
+                        data.getViewers().remove(potentialViewer.getUniqueId());
+                        NMSHandlers.getHandler().sendEntityDestroy(potentialViewer, data.getEntityId());
+                    }
+                }
             });
         }
     }
