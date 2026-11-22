@@ -15,7 +15,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class SmeltingMechanicListener implements Listener {
@@ -30,29 +31,36 @@ public class SmeltingMechanicListener implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
-        Block block = event.getBlock();
-        Location location = block.getLocation().toCenterLocation();
-        Collection<ItemStack> itemStacks = event.getBlock().getDrops();
         String itemID = OraxenItems.getIdByItem(item);
 
-        if (itemStacks.isEmpty()) return;
         if (factory.isNotImplementedIn(itemID)) return;
         if (player.getGameMode() == GameMode.CREATIVE) return;
-
-        ItemStack loot = furnace(itemStacks.stream().findAny().orElse(null));
-        if (loot == null) return; // not recipe
-
         ItemMeta itemMeta = item.getItemMeta();
-        if (!item.hasItemMeta()) return;
-        assert itemMeta != null;
-        if (block.getType().toString().contains("ORE") && itemMeta.hasEnchant(EnchantmentWrapper.FORTUNE)) {
-            loot.setAmount(1 + ThreadLocalRandom.current().nextInt(itemMeta.getEnchantLevel(EnchantmentWrapper.FORTUNE)));
-        }
+        if (itemMeta == null) return;
 
+        Block block = event.getBlock();
+        boolean fortune = block.getType().toString().contains("ORE") && itemMeta.hasEnchant(EnchantmentWrapper.FORTUNE);
+        List<ItemStack> drops = new ArrayList<>();
+        boolean smelted = false;
+        for (ItemStack drop : block.getDrops()) {
+            ItemStack loot = furnace(drop);
+            if (loot == null) { // not recipe
+                drops.add(drop);
+                continue;
+            }
+            if (fortune)
+                loot.setAmount(1 + ThreadLocalRandom.current().nextInt(itemMeta.getEnchantLevel(EnchantmentWrapper.FORTUNE)));
+            drops.add(loot);
+            smelted = true;
+        }
+        if (!smelted) return;
+
+        Location location = block.getLocation().toCenterLocation();
         event.setDropItems(false);
         if (!location.isWorldLoaded()) return;
         assert location.getWorld() != null;
-        location.getWorld().dropItemNaturally(location, loot);
+        for (ItemStack drop : drops)
+            location.getWorld().dropItemNaturally(location, drop);
 
         SmeltingMechanic mechanic = (SmeltingMechanic) factory.getMechanic(itemID);
         if (mechanic != null && mechanic.playSound())
