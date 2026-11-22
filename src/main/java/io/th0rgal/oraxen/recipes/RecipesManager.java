@@ -96,7 +96,6 @@ public class RecipesManager {
             YamlConfiguration disabled = read(new File(folder, "disabled.yml"));
             for (String id : disabled.getStringList("disabled"))
                 if (NamespacedKey.fromString(id) == null) throw new IllegalArgumentException("Invalid disabled recipe " + id);
-            RecipeBrewing.validateReload();
             events.retainRecipes(RecipeLoader.retainedKeys());
             RecipeProcessing.retainRecipes(RecipeLoader.retainedKeys());
             RecipeLoader.finishRegistrationPass();
