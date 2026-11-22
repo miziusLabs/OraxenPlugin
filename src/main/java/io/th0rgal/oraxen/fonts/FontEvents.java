@@ -283,6 +283,9 @@ public class FontEvents implements Listener {
     }
 
     private List<GlyphMatch> findGlyphMatches(String text) {
+        Map<String, String> glyphCharacters = manager.getReverseMap();
+        if (text.codePoints().noneMatch(codePoint -> glyphCharacters.containsKey(Character.toString(codePoint))))
+            return List.of();
         List<GlyphMatch> matches = new ArrayList<>();
         boolean[] occupied = new boolean[text.length()];
         for (Glyph glyph : manager.getGlyphsByCharacterLength()) {
