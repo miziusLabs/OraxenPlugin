@@ -38,7 +38,12 @@ public class BrewingLoader extends RecipeLoader {
 
     @Override
     public void retainPreviousVersion() {
-        if (!resetsRecipes()) retain(getNamespacedKey());
+        if (resetsRecipes()) return;
+        try {
+            retain(getNamespacedKey());
+        } catch (IllegalArgumentException ignored) {
+            // An invalid name never had a working version.
+        }
     }
 
     private static synchronized void retain(NamespacedKey key) {

@@ -128,6 +128,7 @@ class RecipeBrewingTest {
                 BrewingLoader broken = new BrewingLoader(new YamlConfiguration().createSection("edited"));
                 assertThrows(IllegalArgumentException.class, broken::registerRecipe);
                 broken.retainPreviousVersion();
+                assertDoesNotThrow(new BrewingLoader(new YamlConfiguration().createSection("bad recipe"))::retainPreviousVersion);
                 BrewingLoader.finishReload();
                 assertEquals(List.of(key("edited")), new ArrayList<>(live.keySet()));
             } finally {

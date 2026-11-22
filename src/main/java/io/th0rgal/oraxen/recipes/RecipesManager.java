@@ -13,6 +13,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
@@ -93,8 +94,8 @@ public class RecipesManager {
                     RecipeLoader recipe = null;
                     try {
                         ConfigurationSection section = config.getConfigurationSection(name);
+                        recipe = loader.apply(section != null ? section : new MemoryConfiguration().createSection(name));
                         if (section == null) throw new IllegalArgumentException("Entry must be a recipe section");
-                        recipe = loader.apply(section);
                         recipe.registerRecipe();
                     } catch (RuntimeException exception) {
                         Logs.logError("Could not load recipe " + file.getName() + "." + name + ": " + exception.getMessage());
