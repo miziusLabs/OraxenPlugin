@@ -102,15 +102,29 @@ if [[ -n "$INSTANCE_NAME" && ! "$INSTANCE_NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
 fi
 
 PROJECT_NAME="$(printf '%s' "$SERVER_NAME" | tr '[:upper:]' '[:lower:]')"
-VERSION_DIR="$SERVERS_DIR/$SERVER_NAME/$MC_VERSION"
+DOWNLOAD_DIR="$SERVERS_DIR/$SERVER_NAME"
+VERSION_DIR="$DOWNLOAD_DIR/$MC_VERSION"
 # Instances share the downloaded server jar of their version but keep their own files.
 SHARED_JAR="$VERSION_DIR/server.jar"
+TEMPORARY_JAR=""
 if [[ -n "$INSTANCE_NAME" ]]; then
     SERVER_DIR="$VERSION_DIR-$INSTANCE_NAME"
 else
     SERVER_DIR="$VERSION_DIR"
 fi
 SERVER_JAR="$SERVER_DIR/server.jar"
+
+cleanup_temporary_jar() {
+    if [[ -n "$TEMPORARY_JAR" ]]; then
+        rm -f "$TEMPORARY_JAR"
+        TEMPORARY_JAR=""
+    fi
+}
+
+trap cleanup_temporary_jar EXIT
+trap 'cleanup_temporary_jar; exit 129' HUP
+trap 'cleanup_temporary_jar; exit 130' INT
+trap 'cleanup_temporary_jar; exit 143' TERM
 
 required_java_version() {
     if [[ "$MC_VERSION" == 26.* ]]; then
@@ -245,13 +259,13 @@ download_server_jar() {
     fi
 
     mkdir -p "$VERSION_DIR"
-    # A unique name keeps parallel instances from writing to the same partial download.
-    local temporary_jar
-    temporary_jar="$(mktemp "$VERSION_DIR/server.jar.XXXXXX.download")"
+    # Keep partial downloads outside the default server directory so its reset cannot remove another instance's download.
+    TEMPORARY_JAR="$(mktemp "$DOWNLOAD_DIR/server-${MC_VERSION}.jar.download.XXXXXX")"
     echo "Downloading ${SERVER_NAME} ${MC_VERSION}..."
-    curl --fail --location --output "$temporary_jar" "$download_url" \
-        || { rm -f "$temporary_jar"; error "could not download ${SERVER_NAME} ${MC_VERSION}"; }
-    mv -f "$temporary_jar" "$SHARED_JAR"
+    curl --fail --location --output "$TEMPORARY_JAR" "$download_url" \
+        || error "could not download ${SERVER_NAME} ${MC_VERSION}"
+    mv -f "$TEMPORARY_JAR" "$SHARED_JAR"
+    TEMPORARY_JAR=""
 }
 
 reset_server_files() {

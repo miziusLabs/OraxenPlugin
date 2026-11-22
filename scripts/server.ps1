@@ -68,7 +68,8 @@ if ($instanceName -and $instanceName -cnotmatch '^[A-Za-z0-9_-]+$') {
 $projectName = $serverName.ToLowerInvariant()
 $projectDir = Split-Path -Parent $PSScriptRoot
 $serversDir = Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Oraxen/Servers'
-$versionDir = Join-Path (Join-Path $serversDir $serverName) $mcVersion
+$downloadDir = Join-Path $serversDir $serverName
+$versionDir = Join-Path $downloadDir $mcVersion
 # Instances share the downloaded server jar of their version but keep their own files.
 $sharedJar = Join-Path $versionDir 'server.jar'
 $serverDir = if ($instanceName) { "$versionDir-$instanceName" } else { $versionDir }
@@ -190,15 +191,24 @@ if (-not (Test-Path -LiteralPath $sharedJar -PathType Leaf)) {
         $downloadUrl = "https://api.papermc.io/v2/projects/$projectName/versions/$mcVersion/builds/$build/downloads/$projectName-$mcVersion-$build.jar"
     }
     [void][System.IO.Directory]::CreateDirectory($versionDir)
-    # A unique name keeps parallel instances from writing to the same partial download.
-    $temporaryJar = Join-Path $versionDir ("server.jar.{0}.download" -f [guid]::NewGuid().ToString('N'))
+    # Keep partial downloads outside the default server directory so its reset cannot remove another instance's download.
+    $temporaryJar = Join-Path $downloadDir ("server-{0}.jar.download.{1}" -f $mcVersion, [guid]::NewGuid().ToString('N'))
     Write-Host "Downloading $serverName $mcVersion..."
     try {
         Invoke-WebRequest -Uri $downloadUrl -OutFile $temporaryJar
-        Move-Item -LiteralPath $temporaryJar -Destination $sharedJar -Force
+        if (-not (Test-Path -LiteralPath $sharedJar -PathType Leaf)) {
+            try {
+                Move-Item -LiteralPath $temporaryJar -Destination $sharedJar -Force
+            } catch {
+                if (-not (Test-Path -LiteralPath $sharedJar -PathType Leaf)) { throw }
+            }
+        }
     } catch {
-        Remove-Item -LiteralPath $temporaryJar -Force -ErrorAction SilentlyContinue
         throw "Could not download $serverName $mcVersion`: $_"
+    } finally {
+        if (Test-Path -LiteralPath $temporaryJar -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryJar -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
