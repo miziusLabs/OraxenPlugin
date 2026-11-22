@@ -45,13 +45,7 @@ public class DuplicationHandler {
                 .toList()) {
             if (Material.getMaterial(FilenameUtils.getBaseName(virtual.getPath()).toUpperCase()) == null)
                 continue;
-            if (baseItemsToMerge.containsKey(virtual.getPath())) {
-                List<VirtualFile> newList = new ArrayList<>(baseItemsToMerge.get(virtual.getPath()).stream().toList());
-                newList.add(virtual);
-                baseItemsToMerge.put(virtual.getPath(), newList);
-            } else {
-                baseItemsToMerge.put(virtual.getPath(), List.of(virtual));
-            }
+            baseItemsToMerge.computeIfAbsent(virtual.getPath(), path -> new ArrayList<>()).add(virtual);
         }
 
         if (!baseItemsToMerge.isEmpty())
@@ -119,20 +113,14 @@ public class DuplicationHandler {
         }
 
         // Only process paths with duplicates
-        Map<String, List<VirtualFile>> duplicatesOnly = itemDefsToMerge.entrySet().stream()
-                .filter(e -> e.getValue().size() > 1)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        itemDefsToMerge.values().removeIf(files -> files.size() < 2);
 
-        if (duplicatesOnly.isEmpty())
+        if (itemDefsToMerge.isEmpty())
             return;
 
-        Logs.logSuccess("Attempting to merge " + duplicatesOnly.size() + " duplicate vanilla item definition files");
+        Logs.logSuccess("Attempting to merge " + itemDefsToMerge.size() + " duplicate vanilla item definition files");
 
-        for (Map.Entry<String, List<VirtualFile>> entry : duplicatesOnly.entrySet()) {
-            List<VirtualFile> duplicates = entry.getValue();
-            if (duplicates.size() < 2)
-                continue;
-
+        for (List<VirtualFile> duplicates : itemDefsToMerge.values()) {
             // Parse all duplicates and merge their range_dispatch entries
             JsonObject mergedDefinition = mergeItemDefinitionEntries(duplicates);
             if (mergedDefinition == null)
