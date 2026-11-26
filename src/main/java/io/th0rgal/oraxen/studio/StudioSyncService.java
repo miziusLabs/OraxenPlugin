@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -486,6 +487,7 @@ public class StudioSyncService {
             boolean pullAfter = false;
             StudioApiClient api = api();
             String stage = "checking the Studio connection";
+            Set<String> submittedPaths = Set.of();
             try {
                 StudioApiClient.Connection connection = api.connection(secret);
                 StudioSyncState state = StudioSyncState.load(dataFolder(), connection.workspaceId());
@@ -497,16 +499,12 @@ public class StudioSyncService {
                 }
 
                 stage = "starting the push";
+                submittedPaths = local.keySet();
                 StudioApiClient.PushPlan plan = api.beginPush(secret, local, state.base(), force);
                 pushId = plan.pushId();
                 stage = "uploading files to storage";
-                runParallel(plan.uploads(), upload -> {
-                    try {
-                        api.upload(upload.url(), dataFolder().resolve(upload.path()), connection.storageApiKey());
-                    } catch (IOException e) {
-                        api.upload(upload.url(), dataFolder().resolve(upload.path()), connection.storageApiKey());
-                    }
-                });
+                runParallel(plan.uploads(), upload -> uploadWithRetry(api, upload, connection.storageApiKey(),
+                        local.get(upload.path())));
                 stage = "committing the push";
                 StudioApiClient.PushResult result = api.commitPush(secret, plan.pushId());
                 pushId = null;
@@ -523,7 +521,10 @@ public class StudioSyncService {
                 } else {
                     sendMessage(sender, "<prefix><#fa4943>Studio push failed: " + e.getMessage());
                 }
-                Logs.debug(Component.text("Studio push request failed while " + stage + " (" + e.debugSummary() + ")"));
+                if (Settings.DEBUG.toBool()) {
+                    Logs.debug(Component.text("Studio push request failed while " + stage + " ("
+                            + e.debugSummary(submittedPaths) + ")"));
+                }
             } catch (Exception e) {
                 sendMessage(sender, "<prefix><#fa4943>Failed to push to Oraxen Studio: " + e.getMessage());
                 Logs.debug(e);
@@ -540,6 +541,25 @@ public class StudioSyncService {
             }
             if (pullAfter) pullFromStudio(sender);
         });
+    }
+
+    private void uploadWithRetry(StudioApiClient api, StudioApiClient.Upload upload, @Nullable String storageApiKey,
+                                 @Nullable FileEntry entry) throws IOException, InterruptedException {
+        Path file = dataFolder().resolve(upload.path());
+        try {
+            api.upload(upload.url(), file, storageApiKey);
+        } catch (IOException firstError) {
+            try {
+                api.upload(upload.url(), file, storageApiKey);
+            } catch (IOException retryError) {
+                if (Settings.DEBUG.toBool() && entry != null && StudioBundleUtils.isLoggablePath(upload.path())) {
+                    String detail = retryError instanceof StudioApiException apiError ? ", " + apiError.debugSummary() : "";
+                    Logs.debug(Component.text("Studio upload failed for " + upload.path()
+                            + " (" + entry.size() + " bytes in push manifest" + detail + ")"));
+                }
+                throw retryError;
+            }
+        }
     }
 
     private static String conflictMessage(JsonObject details) {

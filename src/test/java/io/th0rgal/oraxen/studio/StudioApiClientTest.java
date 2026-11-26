@@ -6,11 +6,15 @@ import io.th0rgal.oraxen.studio.StudioApiClient.StudioApiException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,7 +112,37 @@ class StudioApiClientTest {
         try (StudioApiClient api = client()) {
             StudioApiException e = assertThrows(StudioApiException.class, () -> api.commitPush("secret", "p1"));
             assertEquals("Studio could not complete the request", e.getMessage());
-            assertEquals("HTTP 500, error code internal_error, request ID req-123", e.debugSummary());
+            assertEquals("HTTP 500, error code internal_error, request ID req-123", e.debugSummary(Set.of()));
+        }
+    }
+
+    @Test
+    void reportsOnlySubmittedPathsFromStudioValidationErrors() {
+        respond("/api/v1/studio/pushes/p1/commit", 400, """
+                {"error":{"code":"uploads_incomplete","message":"Some files were not uploaded or have the wrong size",
+                "paths":["items/a.yml","items/unsubmitted.yml","https://storage.example/?token=secret",
+                "items/bad\\u2028line.yml",{"path":"items/a.yml"}]}}
+                """);
+        try (StudioApiClient api = client()) {
+            StudioApiException e = assertThrows(StudioApiException.class, () -> api.commitPush("secret", "p1"));
+            assertEquals("HTTP 400, error code uploads_incomplete, affected paths items/a.yml",
+                    e.debugSummary(Set.of("items/a.yml", "items/bad\u2028line.yml")));
+        }
+    }
+
+    @Test
+    void reportsStorageCodeButNotTheSignedUrlOrStorageMessage(@TempDir Path tempDir) throws IOException {
+        respond("/upload", 413, """
+                {"statusCode":"413","code":"EntityTooLarge","error":"EntityTooLarge",
+                "message":"Cannot upload https://storage.example/upload?token=signed-secret"}
+                """);
+        Path file = Files.writeString(tempDir.resolve("asset.png"), "test asset");
+        String signedUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/upload?token=signed-secret";
+        try (StudioApiClient api = client()) {
+            StudioApiException e = assertThrows(StudioApiException.class, () -> api.upload(signedUrl, file, "storage-key"));
+            assertEquals("Upload failed with HTTP 413", e.getMessage());
+            assertEquals("HTTP 413, error code upload_failed, storage error code EntityTooLarge",
+                    e.debugSummary(Set.of()));
         }
     }
 

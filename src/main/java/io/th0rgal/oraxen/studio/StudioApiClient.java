@@ -18,7 +18,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * HTTP client for the Oraxen Studio server-sync API v1 ({@code /api/v1/studio}).
@@ -84,11 +86,33 @@ public final class StudioApiClient implements AutoCloseable {
         }
 
         String debugSummary() {
-            // Log short identifiers only, not request URLs or arbitrary response content.
             String summary = "HTTP " + status;
-            if (code.matches("[a-zA-Z0-9_-]{1,128}")) summary += ", error code " + code;
+            if (isErrorIdentifier(code)) summary += ", error code " + code;
+            String storageCode = stringField(details, "storage_code");
+            if ("upload_failed".equals(code) && isErrorIdentifier(storageCode)) {
+                summary += ", storage error code " + storageCode;
+            }
             if (requestId.matches("[a-zA-Z0-9_.-]{1,128}")) summary += ", request ID " + requestId;
             return summary;
+        }
+
+        String debugSummary(Set<String> submittedPaths) {
+            String summary = debugSummary();
+            if (!"invalid_paths".equals(code) && !"uploads_incomplete".equals(code)) return summary;
+            JsonElement paths = details.get("paths");
+            if (paths == null || !paths.isJsonArray()) return summary;
+
+            Set<String> rejected = new LinkedHashSet<>();
+            for (JsonElement item : paths.getAsJsonArray()) {
+                if (!item.isJsonPrimitive() || !item.getAsJsonPrimitive().isString()) continue;
+                String path = item.getAsString();
+                // Only echo paths already sent by this server, not arbitrary response strings.
+                if (submittedPaths.contains(path) && StudioBundleUtils.isLoggablePath(path)) rejected.add(path);
+                if (rejected.size() > 10) break;
+            }
+            if (rejected.isEmpty()) return summary;
+            return summary + ", affected paths " + String.join(", ", rejected.stream().limit(10).toList())
+                    + (rejected.size() > 10 ? ", ..." : "");
         }
     }
 
@@ -224,8 +248,13 @@ public final class StudioApiClient implements AutoCloseable {
         if (storageApiKey != null && !storageApiKey.isEmpty()) req.header("apikey", storageApiKey);
         HttpResponse<String> res = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
         if (res.statusCode() / 100 != 2) {
+            JsonObject details = new JsonObject();
+            JsonObject error = parseObject(res.body());
+            String storageCode = stringField(error, "code");
+            if (!isErrorIdentifier(storageCode)) storageCode = stringField(error, "error");
+            if (isErrorIdentifier(storageCode)) details.addProperty("storage_code", storageCode);
             throw new StudioApiException(res, "upload_failed",
-                    "Upload failed with HTTP " + res.statusCode(), new JsonObject());
+                    "Upload failed with HTTP " + res.statusCode(), details);
         }
     }
 
@@ -263,20 +292,33 @@ public final class StudioApiClient implements AutoCloseable {
 
     private JsonObject send(HttpRequest request) throws IOException, InterruptedException {
         HttpResponse<String> res = http.send(request, HttpResponse.BodyHandlers.ofString());
-        JsonObject json = null;
+        JsonObject json = parseObject(res.body());
+        if (res.statusCode() / 100 == 2) return json;
+        JsonObject error = json.has("error") && json.get("error").isJsonObject()
+                ? json.getAsJsonObject("error") : new JsonObject();
+        String code = stringField(error, "code");
+        if (code.isEmpty()) code = "http_" + res.statusCode();
+        String message = stringField(error, "message");
+        if (message.isEmpty()) message = "Oraxen Studio returned HTTP " + res.statusCode();
+        throw new StudioApiException(res, code, message, error);
+    }
+
+    private static JsonObject parseObject(String body) {
         try {
-            JsonElement parsed = JsonParser.parseString(res.body());
-            if (parsed.isJsonObject()) json = parsed.getAsJsonObject();
+            JsonElement parsed = JsonParser.parseString(body);
+            if (parsed.isJsonObject()) return parsed.getAsJsonObject();
         } catch (JsonParseException | IllegalStateException ignored) {
         }
-        if (res.statusCode() / 100 == 2) {
-            return json == null ? new JsonObject() : json;
-        }
-        JsonObject error = json != null && json.has("error") && json.get("error").isJsonObject()
-                ? json.getAsJsonObject("error") : new JsonObject();
-        String code = error.has("code") ? error.get("code").getAsString() : "http_" + res.statusCode();
-        String message = error.has("message") ? error.get("message").getAsString()
-                : "Oraxen Studio returned HTTP " + res.statusCode();
-        throw new StudioApiException(res, code, message, error);
+        return new JsonObject();
+    }
+
+    private static String stringField(JsonObject json, String key) {
+        JsonElement value = json.get(key);
+        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()
+                ? value.getAsString() : "";
+    }
+
+    private static boolean isErrorIdentifier(String value) {
+        return value.matches("[a-zA-Z0-9_-]{1,128}");
     }
 }

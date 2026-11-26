@@ -71,6 +71,13 @@ public final class StudioBundleUtils {
         return false;
     }
 
+    static boolean isLoggablePath(String path) {
+        return isTrackableRelativePath(path) && path.codePoints().noneMatch(c -> Character.isISOControl(c)
+                || Character.getType(c) == Character.FORMAT
+                || Character.getType(c) == Character.LINE_SEPARATOR
+                || Character.getType(c) == Character.PARAGRAPH_SEPARATOR);
+    }
+
     public static String sha256Hex(byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
