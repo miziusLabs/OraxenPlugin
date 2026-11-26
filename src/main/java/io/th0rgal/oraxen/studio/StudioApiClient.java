@@ -61,12 +61,14 @@ public final class StudioApiClient implements AutoCloseable {
         private final int status;
         private final String code;
         private final JsonObject details;
+        private final String requestId;
 
-        StudioApiException(int status, String code, String message, JsonObject details) {
+        StudioApiException(HttpResponse<?> response, String code, String message, JsonObject details) {
             super(message);
-            this.status = status;
+            this.status = response.statusCode();
             this.code = code;
             this.details = details;
+            this.requestId = response.headers().firstValue("X-Request-ID").orElse("");
         }
 
         public int status() {
@@ -79,6 +81,14 @@ public final class StudioApiClient implements AutoCloseable {
 
         public JsonObject details() {
             return details;
+        }
+
+        String debugSummary() {
+            // Log short identifiers only, not request URLs or arbitrary response content.
+            String summary = "HTTP " + status;
+            if (code.matches("[a-zA-Z0-9_-]{1,128}")) summary += ", error code " + code;
+            if (requestId.matches("[a-zA-Z0-9_.-]{1,128}")) summary += ", request ID " + requestId;
+            return summary;
         }
     }
 
@@ -200,7 +210,7 @@ public final class StudioApiClient implements AutoCloseable {
         HttpResponse<Path> res = http.send(HttpRequest.newBuilder(URI.create(signedUrl)).timeout(TRANSFER_TIMEOUT)
                 .GET().build(), HttpResponse.BodyHandlers.ofFile(target));
         if (res.statusCode() / 100 != 2) {
-            throw new StudioApiException(res.statusCode(), "download_failed",
+            throw new StudioApiException(res, "download_failed",
                     "Download failed with HTTP " + res.statusCode(), new JsonObject());
         }
     }
@@ -214,7 +224,7 @@ public final class StudioApiClient implements AutoCloseable {
         if (storageApiKey != null && !storageApiKey.isEmpty()) req.header("apikey", storageApiKey);
         HttpResponse<String> res = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
         if (res.statusCode() / 100 != 2) {
-            throw new StudioApiException(res.statusCode(), "upload_failed",
+            throw new StudioApiException(res, "upload_failed",
                     "Upload failed with HTTP " + res.statusCode(), new JsonObject());
         }
     }
@@ -267,6 +277,6 @@ public final class StudioApiClient implements AutoCloseable {
         String code = error.has("code") ? error.get("code").getAsString() : "http_" + res.statusCode();
         String message = error.has("message") ? error.get("message").getAsString()
                 : "Oraxen Studio returned HTTP " + res.statusCode();
-        throw new StudioApiException(res.statusCode(), code, message, error);
+        throw new StudioApiException(res, code, message, error);
     }
 }

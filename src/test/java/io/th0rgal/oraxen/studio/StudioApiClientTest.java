@@ -39,11 +39,16 @@ class StudioApiClientTest {
     }
 
     private void respond(String path, int status, String json) {
+        respond(path, status, json, Map.of());
+    }
+
+    private void respond(String path, int status, String json, Map<String, String> headers) {
         server.createContext(path, exchange -> {
             lastBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             lastAuth.set(exchange.getRequestHeaders().getFirst("Authorization"));
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
+            headers.forEach(exchange.getResponseHeaders()::set);
             exchange.sendResponseHeaders(status, bytes.length);
             exchange.getResponseBody().write(bytes);
             exchange.close();
@@ -91,6 +96,20 @@ class StudioApiClientTest {
         StudioApiException e = assertThrows(StudioApiException.class, () -> client().manifest("t"));
         assertEquals(502, e.status());
         assertEquals("http_502", e.code());
+        assertEquals("HTTP 502, error code http_502", e.debugSummary());
+    }
+
+    @Test
+    void includesRequestIdWithoutDumpingErrorDetailsForFailedCommit() {
+        respond("/api/v1/studio/pushes/p1/commit", 500, """
+                {"error":{"code":"internal_error","message":"Studio could not complete the request",
+                "details":{"url":"https://storage.example/upload?token=secret"}}}
+                """, Map.of("X-Request-ID", "req-123"));
+        try (StudioApiClient api = client()) {
+            StudioApiException e = assertThrows(StudioApiException.class, () -> api.commitPush("secret", "p1"));
+            assertEquals("Studio could not complete the request", e.getMessage());
+            assertEquals("HTTP 500, error code internal_error, request ID req-123", e.debugSummary());
+        }
     }
 
     @Test

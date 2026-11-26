@@ -12,6 +12,7 @@ import io.th0rgal.oraxen.studio.StudioApiClient.StudioApiException;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -484,6 +485,7 @@ public class StudioSyncService {
             String pushId = null;
             boolean pullAfter = false;
             StudioApiClient api = api();
+            String stage = "checking the Studio connection";
             try {
                 StudioApiClient.Connection connection = api.connection(secret);
                 StudioSyncState state = StudioSyncState.load(dataFolder(), connection.workspaceId());
@@ -494,8 +496,10 @@ public class StudioSyncService {
                             + String.join(", ", unsupported.subList(0, Math.min(5, unsupported.size()))));
                 }
 
+                stage = "starting the push";
                 StudioApiClient.PushPlan plan = api.beginPush(secret, local, state.base(), force);
                 pushId = plan.pushId();
+                stage = "uploading files to storage";
                 runParallel(plan.uploads(), upload -> {
                     try {
                         api.upload(upload.url(), dataFolder().resolve(upload.path()), connection.storageApiKey());
@@ -503,9 +507,11 @@ public class StudioSyncService {
                         api.upload(upload.url(), dataFolder().resolve(upload.path()), connection.storageApiKey());
                     }
                 });
+                stage = "committing the push";
                 StudioApiClient.PushResult result = api.commitPush(secret, plan.pushId());
                 pushId = null;
 
+                stage = "refreshing the workspace manifest after commit";
                 pullAfter = completePushSyncState(state, dataFolder(), connection.workspaceId(), result.rev(),
                         local, force, () -> api.manifest(secret));
                 sendMessage(sender, "<prefix><#55ffa4>Pushed <#43fa8c>" + result.uploaded()
@@ -517,6 +523,7 @@ public class StudioSyncService {
                 } else {
                     sendMessage(sender, "<prefix><#fa4943>Studio push failed: " + e.getMessage());
                 }
+                Logs.debug(Component.text("Studio push request failed while " + stage + " (" + e.debugSummary() + ")"));
             } catch (Exception e) {
                 sendMessage(sender, "<prefix><#fa4943>Failed to push to Oraxen Studio: " + e.getMessage());
                 Logs.debug(e);
