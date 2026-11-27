@@ -100,6 +100,59 @@ public final class AtlasDependencyResolver {
     ) {
     }
 
+    private enum AtlasType {
+        BLOCKS,
+        ITEMS
+    }
+
+    private static final class TextureUsage {
+        private boolean blockUsage;
+        private boolean itemUsage;
+        private boolean vanillaBlockDefault;
+        private boolean vanillaItemDefault;
+        private boolean blockShape;
+    }
+
+    private static final class TextureGroups {
+        private final Map<TextureRef, TextureRef> roots = new HashMap<>();
+
+        private void add(TextureRef texture) {
+            roots.putIfAbsent(texture, texture);
+        }
+
+        private void connect(Collection<TextureRef> textures) {
+            if (textures.isEmpty()) return;
+            TextureRef first = textures.iterator().next();
+            add(first);
+            for (TextureRef texture : textures) {
+                add(texture);
+                union(first, texture);
+            }
+        }
+
+        private TextureRef find(TextureRef texture) {
+            TextureRef parent = roots.get(texture);
+            if (parent == null) {
+                add(texture);
+                return texture;
+            }
+            if (parent.equals(texture)) return texture;
+            TextureRef root = find(parent);
+            roots.put(texture, root);
+            return root;
+        }
+
+        private void union(TextureRef first, TextureRef second) {
+            TextureRef firstRoot = find(first);
+            TextureRef secondRoot = find(second);
+            if (!firstRoot.equals(secondRoot)) roots.put(secondRoot, firstRoot);
+        }
+
+        private Set<TextureRef> textures() {
+            return roots.keySet();
+        }
+    }
+
     private static final Set<String> ITEM_2D_ROOT_PARENTS = Set.of(
             "builtin/generated",
             "minecraft:builtin/generated",
@@ -113,6 +166,19 @@ public final class AtlasDependencyResolver {
             "minecraft:item/template_spawn_egg",
             "item/template_music_disc",
             "minecraft:item/template_music_disc"
+    );
+
+    private static final Set<String> VANILLA_BLOCK_ATLAS_SINGLES = Set.of(
+        "entity/bell/bell_body",
+        "entity/enchanting_table_book",
+        "entity/enchantment/enchanting_table_book"
+    );
+
+    private static final Set<String> VANILLA_ITEM_ATLAS_TEXTURES = Set.of(
+            "trims/items/helmet_trim",
+            "trims/items/chestplate_trim",
+            "trims/items/leggings_trim",
+            "trims/items/boots_trim"
     );
 
     public @NotNull AtlasResolutionResult resolve(
@@ -129,45 +195,105 @@ public final class AtlasDependencyResolver {
             @NotNull Set<String> malformedPaths,
             boolean splitItemAtlas
     ) {
+        return resolve(files, explicitItemLayerTextures, malformedPaths, splitItemAtlas, true);
+    }
+
+    public @NotNull AtlasResolutionResult resolve(
+            @NotNull Collection<VirtualFile> files,
+            @NotNull Set<TextureRef> explicitItemLayerTextures,
+            @NotNull Set<String> malformedPaths,
+            boolean splitItemAtlas,
+            boolean excludeUnreferencedTextures
+    ) {
         Map<String, ParsedModel> modelsByKey = new LinkedHashMap<>();
         Set<TextureRef> allPackTextures = new LinkedHashSet<>();
         Set<TextureRef> excludedDirPackTextures = new LinkedHashSet<>();
         Set<TextureRef> fontTextures = new LinkedHashSet<>();
-        indexPackAssets(files, malformedPaths, modelsByKey, allPackTextures, excludedDirPackTextures, fontTextures);
+        Set<String> itemModelKeys = new LinkedHashSet<>();
+        Set<String> blockModelKeys = new LinkedHashSet<>();
+        indexPackAssets(files, malformedPaths, modelsByKey, allPackTextures, excludedDirPackTextures,
+                fontTextures, itemModelKeys, blockModelKeys);
 
-        Set<TextureRef> usedBy2DModels = new LinkedHashSet<>(explicitItemLayerTextures);
+        TextureGroups textureGroups = new TextureGroups();
+        Map<String, Set<TextureRef>> texturesByModel = new LinkedHashMap<>();
+        Set<TextureRef> referencedTextures = new LinkedHashSet<>(explicitItemLayerTextures);
+        for (TextureRef explicit : explicitItemLayerTextures) {
+            textureGroups.add(explicit);
+        }
+        Map<String, Set<TextureRef>> missingTexturesByModel = new LinkedHashMap<>();
+        for (ParsedModel model : modelsByKey.values()) {
+            Set<TextureRef> modelTextures = resolveModelTextures(model.modelKey(), modelsByKey);
+            modelTextures.removeIf(texture -> isIgnoredTexture(texture, malformedPaths));
+            texturesByModel.put(model.modelKey(), modelTextures);
+            textureGroups.connect(modelTextures);
+            referencedTextures.addAll(modelTextures);
+            for (TextureRef texture : modelTextures) {
+                if (excludedDirPackTextures.contains(texture)) allPackTextures.add(texture);
+                if (!allPackTextures.contains(texture) && !isLikelyVanillaTexture(texture)) {
+                    missingTexturesByModel.computeIfAbsent(model.modelKey(), ignored -> new LinkedHashSet<>()).add(texture);
+                }
+            }
+        }
+
+        Map<TextureRef, TextureUsage> usageByGroup = new HashMap<>();
+        for (Map.Entry<String, Set<TextureRef>> entry : texturesByModel.entrySet()) {
+            String modelKey = entry.getKey();
+            boolean usedByItem = itemModelKeys.contains(modelKey);
+            boolean usedByBlock = blockModelKeys.contains(modelKey);
+            boolean blockShape = classifyModel(modelKey, modelsByKey) != ModelRenderKind.ITEM_2D;
+            for (TextureRef texture : entry.getValue()) {
+                TextureUsage usage = usageByGroup.computeIfAbsent(textureGroups.find(texture), ignored -> new TextureUsage());
+                usage.itemUsage |= usedByItem;
+                usage.blockUsage |= usedByBlock;
+                usage.blockShape |= blockShape;
+            }
+        }
+
+        for (TextureRef texture : explicitItemLayerTextures) {
+            usageByGroup.computeIfAbsent(textureGroups.find(texture), ignored -> new TextureUsage()).itemUsage = true;
+        }
+        for (TextureRef texture : textureGroups.textures()) {
+            TextureUsage usage = usageByGroup.computeIfAbsent(textureGroups.find(texture), ignored -> new TextureUsage());
+            if (isVanillaItemDefault(texture)) usage.vanillaItemDefault = true;
+            else if (isVanillaBlockDefault(texture)) usage.vanillaBlockDefault = true;
+        }
+
+        Map<TextureRef, AtlasType> atlasByTexture = new HashMap<>();
+        for (TextureRef texture : textureGroups.textures()) {
+            TextureUsage usage = usageByGroup.get(textureGroups.find(texture));
+            AtlasType atlas = usage.blockUsage ? AtlasType.BLOCKS
+                    : usage.vanillaBlockDefault ? AtlasType.BLOCKS
+                    : usage.itemUsage ? AtlasType.ITEMS
+                    : usage.vanillaItemDefault ? AtlasType.ITEMS
+                    : usage.blockShape ? AtlasType.BLOCKS
+                    : AtlasType.ITEMS;
+            atlasByTexture.put(texture, atlas);
+        }
+
         for (TextureRef explicit : explicitItemLayerTextures) {
             if (excludedDirPackTextures.contains(explicit)) {
                 allPackTextures.add(explicit);
             }
         }
-        Set<TextureRef> usedBy3DModels = new LinkedHashSet<>();
         Set<TextureRef> bridgedVanillaItemTextures = new LinkedHashSet<>();
-        Map<String, Set<TextureRef>> missingTexturesByModel = new LinkedHashMap<>();
-        classifyModelTextures(
-                modelsByKey,
-                allPackTextures,
-                excludedDirPackTextures,
-                malformedPaths,
-                usedBy2DModels,
-                usedBy3DModels,
-                bridgedVanillaItemTextures,
-                missingTexturesByModel
-        );
-
-        Set<TextureRef> fontOnlyTextures = computeFontOnlyTextures(fontTextures, usedBy2DModels, usedBy3DModels);
+        Set<TextureRef> fontOnlyTextures = computeFontOnlyTextures(fontTextures, referencedTextures);
         Set<TextureRef> blockAtlasTextures = new LinkedHashSet<>();
         Set<TextureRef> itemAtlasTextures = new LinkedHashSet<>();
-        partitionAtlasTextures(
-                allPackTextures,
-                fontOnlyTextures,
-                usedBy2DModels,
-                usedBy3DModels,
-                splitItemAtlas,
-                blockAtlasTextures,
-                itemAtlasTextures
-        );
+        Set<TextureRef> packTexturesToAtlas = new LinkedHashSet<>(allPackTextures);
+        if (excludeUnreferencedTextures) packTexturesToAtlas.retainAll(referencedTextures);
+        for (TextureRef texture : packTexturesToAtlas) {
+            if (fontOnlyTextures.contains(texture)) continue;
+            AtlasType atlas = atlasByTexture.getOrDefault(texture, defaultAtlas(texture));
+            if (!splitItemAtlas || atlas == AtlasType.BLOCKS) blockAtlasTextures.add(texture);
+            if (atlas == AtlasType.ITEMS) itemAtlasTextures.add(texture);
+        }
 
+        for (TextureRef texture : referencedTextures) {
+            if (isVanillaItemFilterTarget(texture)
+                    && atlasByTexture.get(textureGroups.find(texture)) == AtlasType.BLOCKS) {
+                bridgedVanillaItemTextures.add(texture);
+            }
+        }
         blockAtlasTextures.addAll(bridgedVanillaItemTextures);
 
         return new AtlasResolutionResult(
@@ -185,7 +311,9 @@ public final class AtlasDependencyResolver {
             @NotNull Map<String, ParsedModel> modelsByKey,
             @NotNull Set<TextureRef> allPackTextures,
             @NotNull Set<TextureRef> excludedDirPackTextures,
-            @NotNull Set<TextureRef> fontTextures
+            @NotNull Set<TextureRef> fontTextures,
+            @NotNull Set<String> itemModelKeys,
+            @NotNull Set<String> blockModelKeys
     ) {
         for (VirtualFile file : files) {
             String path = file.getPath();
@@ -209,95 +337,91 @@ public final class AtlasDependencyResolver {
                 if (modelKey != null && modelJson != null) {
                     modelsByKey.put(modelKey, parseModel(modelKey, modelJson));
                 }
-            }
-        }
-    }
-
-    private void classifyModelTextures(
-            @NotNull Map<String, ParsedModel> modelsByKey,
-            @NotNull Set<TextureRef> allPackTextures,
-            @NotNull Set<TextureRef> excludedDirPackTextures,
-            @NotNull Set<String> malformedPaths,
-            @NotNull Set<TextureRef> usedBy2DModels,
-            @NotNull Set<TextureRef> usedBy3DModels,
-            @NotNull Set<TextureRef> bridgedVanillaItemTextures,
-            @NotNull Map<String, Set<TextureRef>> missingTexturesByModel
-    ) {
-        for (ParsedModel model : modelsByKey.values()) {
-            ModelRenderKind kind = classifyModel(model.modelKey(), modelsByKey);
-            Set<TextureRef> resolvedTextures = resolveModelTextures(model.modelKey(), modelsByKey);
-            for (TextureRef tex : resolvedTextures) {
-                if (isIgnoredTexture(tex, malformedPaths)) {
-                    continue;
-                }
-                if (excludedDirPackTextures.contains(tex)) {
-                    allPackTextures.add(tex);
-                }
-                recordModelTextureUsage(kind, tex, usedBy2DModels, usedBy3DModels, bridgedVanillaItemTextures);
-                if (!allPackTextures.contains(tex) && !isLikelyVanillaTexture(tex)) {
-                    missingTexturesByModel.computeIfAbsent(model.modelKey(), k -> new LinkedHashSet<>()).add(tex);
-                }
-            }
-        }
-    }
-
-    private void recordModelTextureUsage(
-            @NotNull ModelRenderKind kind,
-            @NotNull TextureRef tex,
-            @NotNull Set<TextureRef> usedBy2DModels,
-            @NotNull Set<TextureRef> usedBy3DModels,
-            @NotNull Set<TextureRef> bridgedVanillaItemTextures
-    ) {
-        if (kind == ModelRenderKind.ITEM_2D) {
-            usedBy2DModels.add(tex);
-            return;
-        }
-        if (kind == ModelRenderKind.BLOCK_OR_3D) {
-            usedBy3DModels.add(tex);
-            if ("minecraft".equals(tex.namespace()) && tex.path().startsWith("item/")) {
-                bridgedVanillaItemTextures.add(tex);
+            } else if (isItemDefinitionFile(path)) {
+                JsonObject itemJson = readJsonObjectNonDestructive(file);
+                if (itemJson != null) collectItemModelReferences(itemJson, itemModelKeys);
+            } else if (isBlockStateFile(path)) {
+                JsonObject blockStateJson = readJsonObjectNonDestructive(file);
+                if (blockStateJson != null) collectBlockModelReferences(blockStateJson, blockModelKeys);
             }
         }
     }
 
     private @NotNull Set<TextureRef> computeFontOnlyTextures(
             @NotNull Set<TextureRef> fontTextures,
-            @NotNull Set<TextureRef> usedBy2DModels,
-            @NotNull Set<TextureRef> usedBy3DModels
+            @NotNull Set<TextureRef> referencedTextures
     ) {
         Set<TextureRef> fontOnlyTextures = new LinkedHashSet<>();
         for (TextureRef fontTex : fontTextures) {
-            if (!usedBy2DModels.contains(fontTex) && !usedBy3DModels.contains(fontTex)) {
+            if (!referencedTextures.contains(fontTex)) {
                 fontOnlyTextures.add(fontTex);
             }
         }
         return fontOnlyTextures;
     }
 
-    private void partitionAtlasTextures(
-            @NotNull Set<TextureRef> allPackTextures,
-            @NotNull Set<TextureRef> fontOnlyTextures,
-            @NotNull Set<TextureRef> usedBy2DModels,
-            @NotNull Set<TextureRef> usedBy3DModels,
-            boolean splitItemAtlas,
-            @NotNull Set<TextureRef> blockAtlasTextures,
-            @NotNull Set<TextureRef> itemAtlasTextures
-    ) {
-        for (TextureRef tex : allPackTextures) {
-            if (fontOnlyTextures.contains(tex)) {
-                continue;
-            }
-            boolean is2D = usedBy2DModels.contains(tex) || tex.path().startsWith("item/");
-            if (!splitItemAtlas) {
-                blockAtlasTextures.add(tex);
-                if (is2D) {
-                    itemAtlasTextures.add(tex);
+    private static AtlasType defaultAtlas(TextureRef texture) {
+        AtlasType vanillaDefault = vanillaAtlasDefault(texture);
+        if (vanillaDefault != null) return vanillaDefault;
+        return texture.path().startsWith("item/") ? AtlasType.ITEMS : AtlasType.BLOCKS;
+    }
+
+    private static boolean isVanillaItemDefault(TextureRef texture) {
+        return vanillaAtlasDefault(texture) == AtlasType.ITEMS;
+    }
+
+    private static boolean isVanillaItemFilterTarget(TextureRef texture) {
+        return "minecraft".equals(texture.namespace()) && texture.path().startsWith("item/");
+    }
+
+    private static boolean isVanillaBlockDefault(TextureRef texture) {
+        return vanillaAtlasDefault(texture) == AtlasType.BLOCKS;
+    }
+
+    private static @Nullable AtlasType vanillaAtlasDefault(TextureRef texture) {
+        if (!"minecraft".equals(texture.namespace())) return null;
+        if (texture.path().startsWith("block/") || texture.path().startsWith("entity/conduit/")) {
+            return AtlasType.BLOCKS;
+        }
+        if (VANILLA_BLOCK_ATLAS_SINGLES.contains(texture.path())) return AtlasType.BLOCKS;
+        if (texture.path().startsWith("item/") || VANILLA_ITEM_ATLAS_TEXTURES.contains(texture.path())) {
+            return AtlasType.ITEMS;
+        }
+        return null;
+    }
+
+    private static void collectItemModelReferences(JsonElement element, Set<String> modelKeys) {
+        if (element.isJsonObject()) {
+            JsonObject object = element.getAsJsonObject();
+            JsonElement type = object.get("type");
+            JsonElement model = object.get("model");
+            if (type != null && type.isJsonPrimitive() && model != null && model.isJsonPrimitive()
+                    && model.getAsJsonPrimitive().isString()) {
+                String typeName = type.getAsString();
+                if ("model".equals(typeName) || "minecraft:model".equals(typeName)) {
+                    modelKeys.add(normalizeModelKey(model.getAsString()));
                 }
-            } else if (usedBy3DModels.contains(tex) || !is2D) {
-                blockAtlasTextures.add(tex);
-            } else {
-                itemAtlasTextures.add(tex);
             }
+            for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+                collectItemModelReferences(entry.getValue(), modelKeys);
+            }
+        } else if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) collectItemModelReferences(child, modelKeys);
+        }
+    }
+
+    private static void collectBlockModelReferences(JsonElement element, Set<String> modelKeys) {
+        if (element.isJsonObject()) {
+            JsonObject object = element.getAsJsonObject();
+            JsonElement model = object.get("model");
+            if (model != null && model.isJsonPrimitive() && model.getAsJsonPrimitive().isString()) {
+                modelKeys.add(normalizeModelKey(model.getAsString()));
+            }
+            for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+                collectBlockModelReferences(entry.getValue(), modelKeys);
+            }
+        } else if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) collectBlockModelReferences(child, modelKeys);
         }
     }
 
@@ -427,6 +551,14 @@ public final class AtlasDependencyResolver {
 
     private static boolean isModelFile(String path) {
         return path.startsWith("assets/") && path.contains("/models/") && path.endsWith(".json");
+    }
+
+    private static boolean isItemDefinitionFile(String path) {
+        return path.startsWith("assets/") && path.contains("/items/") && path.endsWith(".json");
+    }
+
+    private static boolean isBlockStateFile(String path) {
+        return path.startsWith("assets/") && path.contains("/blockstates/") && path.endsWith(".json");
     }
 
     private static @Nullable TextureRef textureRefFromPackPath(String path) {

@@ -19,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Generates {@code assets/minecraft/atlases/blocks.json} (and {@code items.json} on 1.21.11+ / 26.x)
@@ -28,6 +29,8 @@ import java.util.*;
 public class AtlasGenerator {
 
     private static final AtlasDependencyResolver RESOLVER = new AtlasDependencyResolver();
+    private static final List<String> VANILLA_BLOCK_DIRECTORIES = List.of("block", "entity/conduit");
+    private static final List<String> VANILLA_ITEM_DIRECTORIES = List.of("item");
 
     public AtlasGenerator() {
     }
@@ -49,6 +52,7 @@ public class AtlasGenerator {
     ) {
         boolean debug = isDebugEnabled();
         boolean excludeMalformed = isExcludeMalformedEnabled();
+        boolean excludeUnreferenced = isExcludeUnreferencedEnabled();
         String generationType = getAtlasGenerationType();
 
         if (debug) {
@@ -59,6 +63,7 @@ public class AtlasGenerator {
         }
 
         Set<TextureRef> explicitItemTextures = collectExplicitItemLayerTextures();
+        Set<TextureRef> textureInventory = collectTextureInventory(output);
         Set<String> effectiveMalformed = excludeMalformed ? malformedTextures : Collections.emptySet();
 
         if (excludeMalformed && !malformedTextures.isEmpty()) {
@@ -74,13 +79,16 @@ public class AtlasGenerator {
                 output,
                 explicitItemTextures,
                 effectiveMalformed,
-                includeSplitItemAtlas
+                includeSplitItemAtlas,
+                excludeUnreferenced
         );
 
         JsonObject blocksAtlas = buildAtlasJson(
                 resolution.blockAtlasTextures(),
                 resolution.bridgedVanillaItemTextures(),
-                generationType
+                textureInventory,
+                generationType,
+                includeSplitItemAtlas ? VANILLA_ITEM_DIRECTORIES : List.of()
         );
         // Run imported operations after generated defaults so their filters and aliases retain effect.
         for (VirtualFile file : output) {
@@ -88,19 +96,26 @@ public class AtlasGenerator {
                 blocksAtlas = PackAssetMerger.mergeJson(file.getPath(), blocksAtlas, file.toJsonObject());
             }
         }
+        if (includeSplitItemAtlas) {
+            addFilterSources(blocksAtlas.getAsJsonArray("sources"), resolution.itemAtlasTextures(), VANILLA_BLOCK_DIRECTORIES);
+        }
         upsertVirtualFile(output, "assets/minecraft/atlases", "blocks.json", blocksAtlas.toString());
 
-        if (includeSplitItemAtlas && !resolution.itemAtlasTextures().isEmpty()) {
+        if (includeSplitItemAtlas && (!resolution.itemAtlasTextures().isEmpty()
+                || resolution.blockAtlasTextures().stream().anyMatch(texture -> isInDirectory(texture, VANILLA_ITEM_DIRECTORIES)))) {
             JsonObject itemsAtlas = buildAtlasJson(
                     resolution.itemAtlasTextures(),
                     Collections.emptySet(),
-                    generationType
+                    textureInventory,
+                    generationType,
+                    VANILLA_BLOCK_DIRECTORIES
             );
             for (VirtualFile file : output) {
                 if (file.getPath().equals("assets/minecraft/atlases/items.json") && file.isJsonObject()) {
                     itemsAtlas = PackAssetMerger.mergeJson(file.getPath(), itemsAtlas, file.toJsonObject());
                 }
             }
+            addFilterSources(itemsAtlas.getAsJsonArray("sources"), resolution.blockAtlasTextures(), VANILLA_ITEM_DIRECTORIES);
             upsertVirtualFile(output, "assets/minecraft/atlases", "items.json", itemsAtlas.toString());
         }
     }
@@ -122,7 +137,9 @@ public class AtlasGenerator {
             JsonArray blocksSources = blocksJson.has("sources") ? blocksJson.getAsJsonArray("sources") : new JsonArray();
             JsonArray itemsSources = itemsJson.has("sources") ? itemsJson.getAsJsonArray("sources") : new JsonArray();
             // These atlases also contain imported operations that can restore sprites after a filter.
-            blocksSources = PackAssetMerger.distinctEntries(blocksSources, itemsSources, false);
+            blocksSources = PackAssetMerger.distinctEntries(
+                    removeSplitFilters(blocksSources, itemsSources, VANILLA_BLOCK_DIRECTORIES),
+                    removeSplitFilters(itemsSources, blocksSources, VANILLA_ITEM_DIRECTORIES), false);
             blocksJson.add("sources", blocksSources);
             return blocksJson.toString().getBytes(StandardCharsets.UTF_8);
         } catch (Exception ignored) {
@@ -133,7 +150,9 @@ public class AtlasGenerator {
     private static @NotNull JsonObject buildAtlasJson(
             @NotNull Set<TextureRef> textures,
             @NotNull Set<TextureRef> forceSingleEntryTextures,
-            @NotNull String generationType
+            @NotNull Set<TextureRef> textureInventory,
+            @NotNull String generationType,
+            @NotNull List<String> oppositeVanillaDirectories
     ) {
         JsonObject atlas = new JsonObject();
         JsonArray sources = new JsonArray();
@@ -144,7 +163,8 @@ public class AtlasGenerator {
 
         for (TextureRef ref : sorted) {
             JsonObject entry = new JsonObject();
-            if (directoryMode && !forceSingleEntryTextures.contains(ref) && ref.path().contains("/")) {
+            if (directoryMode && !forceSingleEntryTextures.contains(ref) && ref.path().contains("/")
+                    && directoryContainsOnlyAtlasTextures(ref, textures, textureInventory, oppositeVanillaDirectories)) {
                 String dir = StringUtils.substringBeforeLast(ref.path(), "/");
                 entry.addProperty("type", "directory");
                 entry.addProperty("source", dir);
@@ -162,9 +182,86 @@ public class AtlasGenerator {
         if (directoryMode) {
             removeChildEntriesInDirectoryAtlas(sources);
         }
-
         atlas.add("sources", sources);
         return atlas;
+    }
+
+    private static boolean directoryContainsOnlyAtlasTextures(
+            TextureRef texture,
+            Set<TextureRef> atlasTextures,
+            Set<TextureRef> textureInventory,
+            List<String> oppositeVanillaDirectories
+    ) {
+        String directory = StringUtils.substringBeforeLast(texture.path(), "/") + "/";
+        for (String vanillaPath : oppositeVanillaDirectories) {
+            String vanillaDirectory = vanillaPath + "/";
+            if (directory.startsWith(vanillaDirectory) || vanillaDirectory.startsWith(directory)) return false;
+        }
+        for (TextureRef candidate : textureInventory) {
+            if (candidate.path().startsWith(directory)
+                    && !atlasTextures.contains(candidate)) return false;
+        }
+        return true;
+    }
+
+    private static Set<TextureRef> collectTextureInventory(Collection<VirtualFile> files) {
+        Set<TextureRef> textures = new LinkedHashSet<>();
+        for (VirtualFile file : files) {
+            String path = file.getPath();
+            if (!path.startsWith("assets/") || !path.contains("/textures/") || !path.endsWith(".png")) continue;
+            String namespace = StringUtils.substringBetween(path, "assets/", "/textures/");
+            String texturePath = StringUtils.removeEnd(StringUtils.substringAfter(path, "/textures/"), ".png");
+            if (namespace != null && texturePath != null && !texturePath.isEmpty()) {
+                textures.add(new TextureRef(namespace, texturePath));
+            }
+        }
+        return textures;
+    }
+
+    private static boolean isInDirectory(TextureRef texture, List<String> directories) {
+        return directories.stream().anyMatch(directory -> texture.path().startsWith(directory + "/"));
+    }
+
+    private static void addFilterSources(JsonArray sources, Set<TextureRef> assignedTextures, List<String> directories) {
+        for (TextureRef texture : assignedTextures.stream().filter(ref -> isInDirectory(ref, directories)).sorted().toList()) {
+            JsonObject filter = exactFilter(texture);
+            sources.remove(filter);
+            sources.add(filter);
+        }
+    }
+
+    private static JsonObject exactFilter(TextureRef texture) {
+        JsonObject pattern = new JsonObject();
+        pattern.addProperty("namespace", "^" + Pattern.quote(texture.namespace()) + "$");
+        pattern.addProperty("path", "^" + Pattern.quote(texture.path()) + "$");
+        JsonObject filter = new JsonObject();
+        filter.addProperty("type", "filter");
+        filter.add("pattern", pattern);
+        return filter;
+    }
+
+    private static JsonArray removeSplitFilters(JsonArray sources, JsonArray oppositeSources, List<String> directories) {
+        Set<JsonElement> splitFilters = new HashSet<>();
+        for (JsonElement oppositeSource : oppositeSources) {
+            if (!oppositeSource.isJsonObject()) continue;
+            JsonObject entry = oppositeSource.getAsJsonObject();
+            if (!entry.has("type") || !isSourceType(entry.get("type"), "single")) continue;
+            JsonElement resource = entry.get("resource");
+            if (resource == null || !resource.isJsonPrimitive() || !resource.equals(entry.get("sprite"))) continue;
+            TextureRef texture = TextureRef.parse(resource.getAsString());
+            if (isInDirectory(texture, directories)) splitFilters.add(exactFilter(texture));
+        }
+        JsonArray legacySources = new JsonArray();
+        for (JsonElement source : sources) {
+            if (!splitFilters.contains(source)) legacySources.add(source);
+        }
+        return legacySources;
+    }
+
+    private static boolean isSourceType(JsonElement type, String expected) {
+        if (!type.isJsonPrimitive()) return false;
+        String actual = type.getAsString();
+        return expected.equals(actual) || ("minecraft:" + expected).equals(actual);
     }
 
     private static void removeChildEntriesInDirectoryAtlas(JsonArray atlasContent) {
@@ -173,20 +270,24 @@ public class AtlasGenerator {
             if (!element.isJsonObject()) continue;
             JsonObject obj = element.getAsJsonObject();
             if (!obj.has("source")) continue;
-            String parentDir = obj.get("source").getAsString();
-            while (parentDir.contains("/")) {
-                parentDir = StringUtils.substringBeforeLast(parentDir, "/");
-                JsonObject parentObject = new JsonObject();
-                parentObject.addProperty("type", "directory");
-                parentObject.addProperty("source", parentDir);
-                parentObject.addProperty("prefix", parentDir + "/");
-                if (atlasContent.contains(parentObject)) {
-                    remove.add(element);
-                    break;
+                String parentDir = obj.get("source").getAsString();
+                while (parentDir.contains("/")) {
+                    parentDir = StringUtils.substringBeforeLast(parentDir, "/");
+                    JsonObject parentObject = new JsonObject();
+                    parentObject.addProperty("type", "directory");
+                    parentObject.addProperty("source", parentDir);
+                    parentObject.addProperty("prefix", directoryPath(parentDir) + "/");
+                    if (atlasContent.contains(parentObject)) {
+                        remove.add(element);
+                        break;
                 }
             }
         }
         remove.forEach(atlasContent::remove);
+    }
+
+    private static String directoryPath(String source) {
+        return source.contains(":") ? StringUtils.substringAfter(source, ":") : source;
     }
 
     private static void upsertVirtualFile(List<VirtualFile> output, String folder, String name, String content) {
@@ -235,6 +336,15 @@ public class AtlasGenerator {
         if (io.th0rgal.oraxen.OraxenPlugin.get() == null) return true;
         try {
             return Settings.EXCLUDE_MALFORMED_ATLAS.toBool();
+        } catch (Throwable e) {
+            return true;
+        }
+    }
+
+    private static boolean isExcludeUnreferencedEnabled() {
+        if (io.th0rgal.oraxen.OraxenPlugin.get() == null) return true;
+        try {
+            return Settings.EXCLUDE_UNREFERENCED_ATLAS.toBool();
         } catch (Throwable e) {
             return true;
         }

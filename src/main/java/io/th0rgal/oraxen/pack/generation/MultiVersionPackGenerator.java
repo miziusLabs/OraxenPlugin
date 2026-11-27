@@ -9,11 +9,13 @@ import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.utils.MinecraftVersion;
 import io.th0rgal.oraxen.utils.HashUtils;
 import io.th0rgal.oraxen.utils.PlatformCapabilities;
+import io.th0rgal.oraxen.utils.ResourcePackFormatUtil;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.SemanticServerVersion;
 import io.th0rgal.oraxen.utils.VirtualFile;
 import io.th0rgal.oraxen.utils.ZipUtils;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -81,6 +83,9 @@ public class MultiVersionPackGenerator {
     private static final MinecraftVersion GENERATED_CORE_SHADER_MIN_VERSION = new MinecraftVersion("1.21.4");
     private static final String BLOCKS_ATLAS_PATH = "assets/minecraft/atlases/blocks.json";
     private static final String ITEMS_ATLAS_PATH = "assets/minecraft/atlases/items.json";
+    private static final String SPLIT_ATLAS_OVERLAY = "oraxen_split_atlases";
+    private static final int SPLIT_ATLAS_MIN_FORMAT = ResourcePackFormatUtil.getPackFormatForVersion(
+            new MinecraftVersion("1.21.11"));
 
     private final File packFolder;
     private final File legacyPack;
@@ -196,6 +201,8 @@ public class MultiVersionPackGenerator {
         boolean supportsSplitAtlas = PlatformCapabilities.supportsSplitItemAtlas(
                 SemanticServerVersion.parse(packVersion.getMinecraftVersion()));
         byte[] itemsAtlasBytes = supportsSplitAtlas ? null : findMaterializedContent(materializedFiles, ITEMS_ATLAS_PATH);
+        int maxFormat = packVersion.getMaxFormatInclusive();
+        boolean needsSplitOverlay = !supportsSplitAtlas && maxFormat >= SPLIT_ATLAS_MIN_FORMAT;
 
         // Create fresh VirtualFiles for this pack version
         List<VirtualFile> versionOutput = new java.util.ArrayList<>();
@@ -233,6 +240,9 @@ public class MultiVersionPackGenerator {
                 // Always clean up temp file, even if exception occurs
                 Files.deleteIfExists(tempMcmeta.toPath());
             }
+        }
+        if (needsSplitOverlay) {
+            addSplitAtlasOverlay(versionOutput, materializedFiles, itemsAtlasBytes, maxFormat);
         }
 
         // Generate the zip file
@@ -288,6 +298,11 @@ public class MultiVersionPackGenerator {
                 String name = path.contains("/") ? path.substring(path.lastIndexOf("/") + 1) : path;
                 legacyOutput.add(new VirtualFile(parentFolder, name, stream));
             }
+            if (!supportsSplitAtlas) {
+                int maxFormat = versionManager.getAllVersions().stream()
+                        .mapToInt(PackVersion::getMaxFormatInclusive).max().orElse(0);
+                addSplitAtlasOverlay(legacyOutput, materializedFiles, itemsAtlasBytes, maxFormat);
+            }
             ZipUtils.writeZipFile(legacyPack, legacyOutput);
         } catch (Exception e) {
             Logs.logWarning("Failed to refresh legacy pack.zip in multi-version mode: " + e.getMessage());
@@ -295,6 +310,40 @@ public class MultiVersionPackGenerator {
                 Logs.debug(e);
             }
         }
+    }
+
+    private void addSplitAtlasOverlay(List<VirtualFile> output, List<MaterializedFile> materializedFiles,
+                                      @Nullable byte[] itemsAtlasBytes, int maxFormat) {
+        if (itemsAtlasBytes == null || maxFormat < SPLIT_ATLAS_MIN_FORMAT) return;
+        byte[] blocksAtlasBytes = findMaterializedContent(materializedFiles, BLOCKS_ATLAS_PATH);
+        if (blocksAtlasBytes == null) return;
+
+        for (VirtualFile file : output) {
+            if (!"pack.mcmeta".equals(file.getPath())) continue;
+            JsonObject metadata = AtlasDependencyResolver.readJsonObjectNonDestructive(file);
+            if (metadata == null) return;
+
+            JsonObject overlay = new JsonObject();
+            overlay.addProperty("directory", SPLIT_ATLAS_OVERLAY);
+            overlay.addProperty("min_format", SPLIT_ATLAS_MIN_FORMAT);
+            overlay.addProperty("max_format", maxFormat);
+            JsonArray entries = new JsonArray();
+            entries.add(overlay);
+            PackMcmetaUtils.mergeOverlayEntries(metadata, entries);
+            file.setInputStream(new java.io.ByteArrayInputStream(metadata.toString().getBytes(StandardCharsets.UTF_8)));
+
+            addOverlayAtlas(output, BLOCKS_ATLAS_PATH, blocksAtlasBytes);
+            addOverlayAtlas(output, ITEMS_ATLAS_PATH, itemsAtlasBytes);
+            return;
+        }
+    }
+
+    private void addOverlayAtlas(List<VirtualFile> output, String atlasPath, byte[] content) {
+        String path = SPLIT_ATLAS_OVERLAY + "/" + atlasPath;
+        output.removeIf(file -> path.equals(file.getPath()));
+        int separator = path.lastIndexOf('/');
+        output.add(new VirtualFile(path.substring(0, separator), path.substring(separator + 1),
+                new java.io.ByteArrayInputStream(content)));
     }
 
     private byte[] findMaterializedContent(List<MaterializedFile> materializedFiles, String targetPath) {
