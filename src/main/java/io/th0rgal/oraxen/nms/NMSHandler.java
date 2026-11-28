@@ -3,8 +3,10 @@ package io.th0rgal.oraxen.nms;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -30,6 +32,24 @@ public interface NMSHandler {
     }
 
     default void untrackFurnitureHitbox(org.bukkit.entity.Entity entity) {
+    }
+
+    default boolean showFurnitureBed(Player player, Location head, float feetYaw) {
+        return false;
+    }
+
+    default void hideFurnitureBed(Player player) {
+    }
+
+    default void forgetFurnitureBed(int playerEntityId) {
+    }
+
+    default boolean scheduleFurnitureBedCleanup(Entity entity, Runnable cleanup, @Nullable Runnable retired) {
+        return false;
+    }
+
+    default boolean advanceTimeWithoutEvent(World world, long amount) {
+        return false;
     }
 
     default void formatInventoryTitles(boolean enabled) {

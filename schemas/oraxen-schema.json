@@ -1,8 +1,8 @@
 {
-  "oraxenVersion": "1.220.1",
+  "oraxenVersion": "1.222.0",
   "minecraftVersion": "26.3",
   "serverVersion": "26.3.build.31-alpha",
-  "generatedAt": "2026-10-14T14:19:36.444901758Z",
+  "generatedAt": "2026-11-28T12:23:29.468404429Z",
   "enums": {
     "Material": {
       "values": [
@@ -8600,11 +8600,11 @@
         },
         "barriers": {
           "type": "array",
-          "description": "List of barrier block offsets relative to furniture formatted '<x>,<y>,<z>' with integer coordinates"
+          "description": "List of barrier block offsets relative to furniture formatted \u0027\u003cx\u003e,\u003cy\u003e,\u003cz\u003e\u0027 with integer coordinates"
         },
         "events": {
           "type": "array",
-          "description": "Actions for furniture clicks, successful player breaks or placements, or sitting on a seat. Use trigger: click with type: LEFT, RIGHT, or BOTH, trigger: break, trigger: place, or trigger: sit. The trigger defaults to click; the legacy click filter remains supported."
+          "description": "Actions for furniture clicks, successful player breaks or placements, or sitting on a seat. Use trigger: click with type: LEFT, RIGHT, or BOTH, trigger: break, trigger: place, or trigger: sit. The trigger defaults to click; the legacy click filter remains supported. Actions accept an optional cooldown such as 80ms, 2s, 3m, 1h, or 2d. Use java for a Java action with player and server variables."
         },
         "properties": {
           "type": "object",
@@ -8733,6 +8733,45 @@
               "max": 6
             }
           }
+        },
+        "appearance": {
+          "type": "object",
+          "description": "Placed furniture appearance; uses the same options as pack",
+          "properties": {
+            "generate_model": {
+              "type": "boolean",
+              "description": "Generate the furniture model from textures",
+              "default": false
+            },
+            "model": {
+              "type": "string",
+              "description": "Placed furniture model path"
+            },
+            "models": {
+              "type": "object",
+              "description": "Named furniture stage model paths"
+            },
+            "parent_model": {
+              "type": "string",
+              "description": "Parent for generated furniture models"
+            },
+            "textures": {
+              "type": "array",
+              "description": "Furniture model textures"
+            }
+          }
+        },
+        "ghasts": {
+          "type": "array",
+          "description": "List of solid hitboxes formatted \u0027\u003cx\u003e,\u003cy\u003e,\u003cz\u003e \u003cscale\u003e\u0027. Requires Minecraft 1.21.6 or newer"
+        },
+        "shulkers": {
+          "type": "array",
+          "description": "List of solid hitboxes formatted \u0027\u003cx\u003e,\u003cy\u003e,\u003cz\u003e \u003cscale\u003e [peek] [direction]\u0027. Requires Minecraft 1.21.2 or newer"
+        },
+        "beds": {
+          "type": "array",
+          "description": "List of spots where players lie down, formatted \u0027\u003cx\u003e,\u003cy\u003e,\u003cz\u003e [skip_night] [reset_phantoms] [night_only] [set_respawn]\u0027. The offset is where the head rests. The options default to true, true, true and false. Requires Minecraft 1.21.2 or newer"
         }
       }
     },
@@ -8807,7 +8846,7 @@
         },
         "events": {
           "type": "array",
-          "description": "Actions for placed block clicks or successful player breaks or placements. Use trigger: click with type: LEFT, RIGHT, or BOTH, trigger: break, or trigger: place. The trigger defaults to click; the legacy click filter remains supported."
+          "description": "Actions for placed block clicks or successful player breaks or placements. Use trigger: click with type: LEFT, RIGHT, or BOTH, trigger: break, or trigger: place. The trigger defaults to click; the legacy click filter remains supported. Actions accept an optional cooldown such as 80ms, 2s, 3m, 1h, or 2d. Use java for a Java action with player and server variables."
         },
         "light": {
           "type": "integer",
@@ -8889,7 +8928,7 @@
         },
         "cooldown": {
           "type": "integer",
-          "description": "Cooldown between uses in ticks",
+          "description": "Cooldown between uses in milliseconds",
           "default": 0,
           "min": 0.0
         },
