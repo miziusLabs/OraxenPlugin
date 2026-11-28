@@ -632,6 +632,8 @@ public class SchemaGenerator {
         addComponentProp(foodProps, "saturation", "number", "Saturation points restored", 0, null);
         addComponentProp(foodProps, "can_always_eat", "boolean", "Whether item can be eaten when not hungry", null,
                 false);
+        addComponentProp(foodProps, "eat_seconds", "number",
+                "Eating time on 1.20.5-1.21.1; copied to consumable.consume_seconds on 1.21.2+", 0, null);
         food.add("properties", foodProps);
         components.add("food", food);
 
@@ -647,7 +649,14 @@ public class SchemaGenerator {
         animProp.addProperty("description", "Animation to play while consuming");
         consumeProps.add("animation", animProp);
         JsonObject soundProp = new JsonObject();
-        soundProp.addProperty("type", "string");
+        JsonArray soundTypes = new JsonArray();
+        JsonObject soundKey = new JsonObject();
+        soundKey.addProperty("type", "string");
+        soundTypes.add(soundKey);
+        JsonObject inlineSound = new JsonObject();
+        inlineSound.addProperty("type", "object");
+        soundTypes.add(inlineSound);
+        soundProp.add("oneOf", soundTypes);
         soundProp.addProperty("format", "sound");
         soundProp.addProperty("description", "Sound to play while consuming");
         consumeProps.add("sound", soundProp);
@@ -685,7 +694,15 @@ public class SchemaGenerator {
         slotProp.addProperty("required", true);
         slotProp.addProperty("description", "Equipment slot this item can be equipped to");
         equipProps.add("slot", slotProp);
-        addComponentProp(equipProps, "model", "string", "Model to use when equipped", null, null);
+        addComponentProp(equipProps, "model", "string",
+                "Equipment model on 1.21.2-1.21.3; used as a fallback when asset_id is absent", null, null);
+        addComponentProp(equipProps, "asset_id", "string", "Equipment asset on 1.21.4+, preferred over model", null, null);
+        addComponentProp(equipProps, "allowed_entity_types", "array",
+                "Legacy entity type enum aliases, converted to allowed_entities", null, null);
+        addUnionComponent(equipProps, "allowed_entities", "Native entity ids or entity type tags", null, "string", "array");
+        addComponentProp(equipProps, "equip_on_interact", "boolean", "Allow equipping by interacting with an entity", null, null);
+        addComponentProp(equipProps, "can_be_sheared", "boolean", "Allow removal by shears where supported", null, null);
+        addComponentProp(equipProps, "shearing_sound", "string", "Sound used when shearing the equipment", null, null);
         addComponentProp(equipProps, "equip_sound", "string", "Sound to play when equipped", null, null);
         addComponentProp(equipProps, "dispensable", "boolean", "Can be equipped by dispensers", null, true);
         addComponentProp(equipProps, "swappable", "boolean", "Can be swapped with other equipment", null, true);
@@ -702,6 +719,8 @@ public class SchemaGenerator {
         JsonObject toolProps = new JsonObject();
         addComponentProp(toolProps, "damage_per_block", "integer", "Durability lost per block broken", 0, 1);
         addComponentProp(toolProps, "default_mining_speed", "number", "Default mining speed", 0, 1.0);
+        addComponentProp(toolProps, "can_destroy_blocks_in_creative", "boolean",
+                "Whether this tool can destroy blocks in Creative mode (1.21.5+)", null, null);
         JsonObject rules = new JsonObject();
         rules.addProperty("type", "array");
         rules.addProperty("description", "Mining rules for specific blocks/tags");
@@ -716,8 +735,9 @@ public class SchemaGenerator {
         useCooldown.addProperty("description", "Cooldown after using the item");
         JsonObject cooldownProps = new JsonObject();
         addComponentProp(cooldownProps, "seconds", "number", "Cooldown duration in seconds", 0, null);
-        addComponentProp(cooldownProps, "group", "string", "Cooldown group (items in same group share cooldown)", null,
-                null);
+        addComponentProp(cooldownProps, "cooldown_group", "string",
+                "Canonical cooldown group (items in same group share cooldown)", null, null);
+        addComponentProp(cooldownProps, "group", "string", "Legacy alias for cooldown_group", null, null);
         useCooldown.add("properties", cooldownProps);
         components.add("use_cooldown", useCooldown);
 
@@ -740,19 +760,72 @@ public class SchemaGenerator {
         // jukebox_playable (1.21+)
         JsonObject jukebox = new JsonObject();
         jukebox.addProperty("type", "object");
-        jukebox.addProperty("minecraftVersion", "1.21+");
-        jukebox.addProperty("description", "Makes item playable in jukeboxes");
         JsonObject jukeboxProps = new JsonObject();
         addComponentProp(jukeboxProps, "show_in_tooltip", "boolean", "Show song in tooltip", null, true);
+        addComponentProp(jukeboxProps, "song", "string", "Namespaced key of the song", null, null);
         addComponentProp(jukeboxProps, "song_key", "string", "Namespaced key of the song", null, null);
         jukebox.add("properties", jukeboxProps);
-        components.add("jukebox_playable", jukebox);
+        JsonObject jukeboxUnion = new JsonObject();
+        JsonArray jukeboxForms = new JsonArray();
+        jukeboxForms.add(jukebox);
+        JsonObject jukeboxString = new JsonObject();
+        jukeboxString.addProperty("type", "string");
+        jukeboxForms.add(jukeboxString);
+        jukeboxUnion.add("oneOf", jukeboxForms);
+        jukeboxUnion.addProperty("minecraftVersion", "1.21+");
+        jukeboxUnion.addProperty("description", "Makes item playable in jukeboxes");
+        components.add("jukebox_playable", jukeboxUnion);
 
         // tooltip_style (1.21.2+)
         addSimpleComponent(components, "tooltip_style", "string", "Custom tooltip style resource location", "1.21.2+");
 
         // item_model (1.21.2+)
         addSimpleComponent(components, "item_model", "string", "Custom item model resource location", "1.21.2+");
+
+        // Generic component aliases and removals
+        JsonObject unsetComponents = new JsonObject();
+        unsetComponents.addProperty("type", "array");
+        unsetComponents.addProperty("minecraftVersion", "1.21.2+");
+        unsetComponents.addProperty("description",
+                "Component ids to remove after configured components are applied. Removal wins over set values; swing_animation expands to both animation components on 26.3.");
+        components.add("unset_components", unsetComponents);
+
+        addSimpleComponent(components, "custom_data", "object",
+                "Arbitrary custom data. Configured top-level keys merge with existing data while PublicBukkitValues and Oraxen identity data stay protected.", "1.21.2+");
+        addUnionComponent(components, "custom_model_data",
+                "Numeric shorthand becomes {floats: [number]} on 1.21.4+. Full mappings require 1.21.4+.", "1.20.5+", "number", "object");
+        addUnionComponent(components, "glider",
+                "true becomes the native empty glider component; false removes glider", "1.21.2+", "boolean", "object");
+        addUnionComponent(components, "unbreakable",
+                "true becomes the native empty unbreakable component; false removes it", "1.21.5+", "boolean", "object");
+        addUnionComponent(components, "damage_resistant",
+                "Scalar tag shorthand. Use {types: '#namespace:tag'} or, on 26.1+, {types: id} or {types: [id, ...]} for direct damage types.", "1.21.2+", "string", "object");
+        addUnionComponent(components, "enchantable",
+                "Integer shorthand for {value: number} on versions with the enchantable component", "1.21.2+", "integer", "object");
+        addUnionComponent(components, "repairable",
+                "Item id or list shorthand for {items: value} on versions with the repairable component", "1.21.2+", "string", "array", "object");
+        addUnionComponent(components, "tooltip_display",
+                "List shorthand for {hidden_components: list}; full mappings can also set hide_tooltip", "1.21.5+", "array", "object");
+        addSimpleComponent(components, "max_damage", "integer",
+                "Maximum durability. Uses the native codec on 1.21.2+ and the safe durability setter on 1.20.5-1.21.1.", "1.20.5+");
+        addSimpleComponent(components, "rarity", "string",
+                "Item rarity. Uses the native codec on 1.21.2+ and the safe Bukkit rarity setter on older component versions.", "1.20.5+");
+        addSimpleComponent(components, "damage", "integer",
+                "Current item damage. Uses the native codec on 1.21.2+ and the safe meta setter on older component versions.", "1.20.5+");
+        addSimpleComponent(components, "repair_cost", "integer",
+                "Anvil repair cost. Uses the native codec on 1.21.2+ and the safe meta setter on older component versions.", "1.20.5+");
+        addSimpleComponent(components, "swing_animation", "object",
+                "Legacy swing animation. On 26.3 it migrates to both attack_animation and interact_animation unless those are explicitly configured.", "1.21.11+");
+
+        JsonObject weapon = new JsonObject();
+        weapon.addProperty("type", "object");
+        weapon.addProperty("minecraftVersion", "1.21.5+");
+        weapon.addProperty("description", "Weapon attack durability and shield blocking delay");
+        JsonObject weaponProps = new JsonObject();
+        addComponentProp(weaponProps, "item_damage_per_attack", "integer", "Durability used per attack", 0, null);
+        addComponentProp(weaponProps, "disable_blocking_for_seconds", "number", "Time shields are disabled in seconds", 0, null);
+        weapon.add("properties", weaponProps);
+        components.add("weapon", weapon);
 
         // compostable (26.3+)
         JsonObject compostable = new JsonObject();
@@ -838,6 +911,22 @@ public class SchemaGenerator {
         if (minVersion != null)
             comp.addProperty("minecraftVersion", minVersion);
         components.add(name, comp);
+    }
+
+    private static void addUnionComponent(JsonObject components, String name, String desc, String minVersion,
+                                          String... types) {
+        JsonObject component = new JsonObject();
+        JsonArray alternatives = new JsonArray();
+        for (String type : types) {
+            JsonObject alternative = new JsonObject();
+            alternative.addProperty("type", type);
+            alternatives.add(alternative);
+        }
+        component.add("oneOf", alternatives);
+        component.addProperty("description", desc);
+        if (minVersion != null)
+            component.addProperty("minecraftVersion", minVersion);
+        components.add(name, component);
     }
 
     private static void addComponentProp(JsonObject props, String name, String type, String desc, Number min,

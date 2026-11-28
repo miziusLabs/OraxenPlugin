@@ -542,14 +542,17 @@ public class ItemUpdater implements Listener {
         ItemBuilder newItemBuilder = optionalBuilder.get();
         NMSHandler nmsHandler = NMSHandlers.getHandler();
 
-        ItemStack newItem = nmsHandler.copyItemNBTTags(oldItem, newItemBuilder.build());
+        ItemStack newItem = nmsHandler.copyItemNBTTags(oldItem, newItemBuilder.build(),
+                newItemBuilder.getComponent("custom_data"));
         newItem.setAmount(oldItem.getAmount());
         boolean clearDeathProtection = false;
         Object deathProtectionComponent = null;
         if (VersionUtil.atOrAbove("1.21.2")) {
-            if (newItemBuilder.hasDeathProtectionComponent()) {
+            if (newItemBuilder.hasDeathProtectionComponent() || newItemBuilder.hasComponent("death_protection")) {
                 deathProtectionComponent = Optional.ofNullable(nmsHandler.deathProtectionComponent(newItem))
-                        .orElseGet(newItemBuilder::getDeathProtectionComponent);
+                        .orElseGet(() -> newItemBuilder.hasDeathProtectionComponent()
+                                ? newItemBuilder.getDeathProtectionComponent()
+                                : newItemBuilder.getComponent("death_protection"));
             } else {
                 // Keep the material default (totems) and never copy a removed YAML component
                 // from the old stack.
@@ -582,10 +585,7 @@ public class ItemUpdater implements Listener {
                     itemMeta.addEnchant(entry.getKey(), entry.getValue(), true);
             }
 
-            Integer cmd = CustomModelDataHelper.getCustomModelData(newMeta);
-            if (cmd == null)
-                cmd = CustomModelDataHelper.getCustomModelData(oldMeta);
-            CustomModelDataHelper.setCustomModelData(itemMeta, cmd);
+            updateCustomModelData(itemMeta, newMeta, oldMeta);
 
             // If OraxenItem has no lore, we should assume that 3rd-party plugin has added lore
             if (Settings.OVERRIDE_ITEM_LORE.toBool()) {
@@ -659,8 +659,10 @@ public class ItemUpdater implements Listener {
                 if (newMeta.hasUseRemainder()) itemMeta.setUseRemainder(newMeta.getUseRemainder());
                 else if (oldMeta.hasUseRemainder()) itemMeta.setUseRemainder(oldMeta.getUseRemainder());
 
-                if (newMeta.hasDamageResistant()) itemMeta.setDamageResistant(newMeta.getDamageResistant());
-                else if (oldMeta.hasDamageResistant()) itemMeta.setDamageResistant(oldMeta.getDamageResistant());
+                if (!VersionUtil.atOrAbove("26.1")) {
+                    if (newMeta.hasDamageResistant()) itemMeta.setDamageResistant(newMeta.getDamageResistant());
+                    else if (oldMeta.hasDamageResistant()) itemMeta.setDamageResistant(oldMeta.getDamageResistant());
+                }
 
                 if (newMeta.hasTooltipStyle()) itemMeta.setTooltipStyle(newMeta.getTooltipStyle());
                 else if (oldMeta.hasTooltipStyle()) itemMeta.setTooltipStyle(oldMeta.getTooltipStyle());
@@ -704,10 +706,26 @@ public class ItemUpdater implements Listener {
             else itemPdc.set(UNSTACKABLE_KEY, DataType.UUID, UUID.randomUUID());
         });
 
-        if (clearDeathProtection) return nmsHandler.removeDeathProtectionComponent(newItem);
-        return deathProtectionComponent != null
-                ? nmsHandler.deathProtectionComponent(newItem, deathProtectionComponent)
-                : newItem;
+        ItemStack preserved = VersionUtil.atOrAbove("26.1")
+                ? nmsHandler.preserveDamageResistance(oldItem, newItem) : newItem;
+        ItemStack updated = clearDeathProtection
+                ? nmsHandler.removeDeathProtectionComponent(preserved)
+                : deathProtectionComponent != null
+                        ? nmsHandler.deathProtectionComponent(preserved, deathProtectionComponent)
+                        : preserved;
+        return newItemBuilder.removeConfiguredComponents(updated);
+    }
+
+    static void updateCustomModelData(ItemMeta target, ItemMeta configured, ItemMeta old) {
+        if (VersionUtil.atOrAbove("1.21.4") && CustomModelDataHelper.supportsComponentData()) {
+            if (!CustomModelDataHelper.hasComponentData(configured))
+                CustomModelDataHelper.copyComponentData(old, target);
+            return;
+        }
+        Integer cmd = CustomModelDataHelper.getCustomModelData(configured);
+        if (cmd == null)
+            cmd = CustomModelDataHelper.getCustomModelData(old);
+        CustomModelDataHelper.setCustomModelData(target, cmd);
     }
 
 }

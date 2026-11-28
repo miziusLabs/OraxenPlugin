@@ -101,6 +101,15 @@ miner_sandwitch:
     parent_model: item/generated
     textures:
     - default/sandwitch.png
+  # Component notes
+  # Generic vanilla data components use the server registry codec on Paper 1.21.2 and newer.
+  # Unknown component ids are skipped so one file can be shared across versions. Malformed recognized values log a warning.
+  # Scalar shorthand is available for custom_model_data on 1.21.4+, damage_resistant, enchantable, repairable, and tooltip_display.
+  # Boolean glider and unbreakable values become native empty components. false removes that component instead.
+  # unset_components removes listed base or configured components after all components are applied, so removal wins over set values.
+  # On 26.3, swing_animation migrates to attack_animation and interact_animation. An explicit modern entry overrides only its own side.
+  # custom_data merges configured top-level keys with existing data while PublicBukkitValues and Oraxen identity data stay protected.
+  # Do not mix legacy effect maps and vanilla effect lists in one consumable or death_protection. Mixed formats log a warning and are skipped.
   components:
     food:
       nutrition: 8 # Same as cooked beef

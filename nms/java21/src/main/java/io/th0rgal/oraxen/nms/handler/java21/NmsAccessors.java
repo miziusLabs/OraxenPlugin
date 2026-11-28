@@ -143,8 +143,12 @@ final class NmsAccessors {
     }
 
     @SuppressWarnings("unchecked")
-    static Optional<DataComponentType<?>> dataComponentType(String id) throws ReflectiveOperationException {
-        return (Optional<DataComponentType<?>>) registryOptional.invoke(BuiltInRegistries.DATA_COMPONENT_TYPE, identifier(id));
+    static Optional<DataComponentType<?>> dataComponentType(String id) {
+        try {
+            return (Optional<DataComponentType<?>>) registryOptional.invoke(BuiltInRegistries.DATA_COMPONENT_TYPE, identifier(id));
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Failed to resolve data component type: " + id, exception);
+        }
     }
 
     @SuppressWarnings("unchecked")

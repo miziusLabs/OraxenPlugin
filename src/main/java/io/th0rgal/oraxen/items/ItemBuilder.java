@@ -2,6 +2,8 @@ package io.th0rgal.oraxen.items;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
+import io.papermc.paper.datacomponent.DataComponentType;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemAttributeModifiers;
 import io.papermc.paper.registry.RegistryAccess;
@@ -123,6 +125,10 @@ public class ItemBuilder {
     private ItemRarity rarity;
     @Nullable
     private Integer durability;
+    @Nullable
+    private Integer damage;
+    @Nullable
+    private Integer repairCost;
     private boolean damagedOnBlockBreak;
     private boolean damagedOnEntityHit;
 
@@ -158,6 +164,8 @@ public class ItemBuilder {
 
     // Generic components storage using String keys
     private final Map<String, Object> genericComponents = new HashMap<>();
+    private final Set<String> removedComponents = new LinkedHashSet<>();
+    private boolean mergeTooltipDisplay;
 
     public ItemBuilder(final Material material) {
         this(new ItemStack(material));
@@ -288,7 +296,8 @@ public class ItemBuilder {
             equippableComponent = itemMeta.hasEquippable() ? itemMeta.getEquippable() : null;
             useCooldownComponent = itemMeta.hasUseCooldown() ? itemMeta.getUseCooldown() : null;
             useRemainder = itemMeta.hasUseRemainder() ? itemMeta.getUseRemainder() : null;
-            damageResistant = itemMeta.hasDamageResistant() ? itemMeta.getDamageResistant() : null;
+            if (!VersionUtil.atOrAbove("26.1"))
+                damageResistant = itemMeta.hasDamageResistant() ? itemMeta.getDamageResistant() : null;
             itemModel = itemMeta.hasItemModel() ? itemMeta.getItemModel() : null;
             enchantable = itemMeta.hasEnchantable() ? itemMeta.getEnchantable() : null;
             isGlider = itemMeta.isGlider() ? true : null;
@@ -387,6 +396,16 @@ public class ItemBuilder {
 
     public ItemBuilder setDurability(@Nullable Integer durability) {
         this.durability = durability;
+        return this;
+    }
+
+    public ItemBuilder setDamage(@Nullable Integer damage) {
+        this.damage = damage;
+        return this;
+    }
+
+    public ItemBuilder setRepairCost(@Nullable Integer repairCost) {
+        this.repairCost = repairCost;
         return this;
     }
 
@@ -914,6 +933,8 @@ public class ItemBuilder {
         clonedBuilder.enchantments.putAll(enchantments);
         clonedBuilder.persistentDataMap.putAll(persistentDataMap);
         clonedBuilder.genericComponents.putAll(genericComponents);
+        clonedBuilder.removedComponents.addAll(removedComponents);
+        clonedBuilder.mergeTooltipDisplay = mergeTooltipDisplay;
         clonedBuilder.paintingVariant = paintingVariant;
         clonedBuilder.deathProtectionComponent = deathProtectionComponent;
         clonedBuilder.attributeEntries.clear();
@@ -938,6 +959,8 @@ public class ItemBuilder {
         clonedBuilder.hideToolTip = hideToolTip;
         clonedBuilder.rarity = rarity;
         clonedBuilder.durability = durability;
+        clonedBuilder.damage = damage;
+        clonedBuilder.repairCost = repairCost;
         clonedBuilder.damagedOnBlockBreak = damagedOnBlockBreak;
         clonedBuilder.damagedOnEntityHit = damagedOnEntityHit;
         clonedBuilder.jukeboxPlayable = jukeboxPlayable;
@@ -983,6 +1006,7 @@ public class ItemBuilder {
         built = applyDeathProtectionComponent(built);
         built = applyPaintingVariantComponent(built);
         built = applyGenericComponents(built);
+        built = removeConfiguredComponents(built);
         finalItemStack = built;
 
         return this;
@@ -1001,8 +1025,13 @@ public class ItemBuilder {
     }
 
     private void applyProperties_1_20_5(ItemMeta itemMeta) {
-        if (itemMeta instanceof Damageable damageable)
+        if (itemMeta instanceof Damageable damageable) {
             damageable.setMaxDamage(durability);
+            if (damage != null)
+                damageable.setDamage(damage);
+        }
+        if (itemMeta instanceof Repairable repairable && repairCost != null)
+            repairable.setRepairCost(repairCost);
         if (hasItemName())
             itemMeta.itemName(AdventureUtils.MINI_MESSAGE.deserialize(itemName));
         if (hasMaxStackSize())
@@ -1184,7 +1213,21 @@ public class ItemBuilder {
 
     private ItemStack applyGenericComponents(ItemStack itemStack) {
         if (genericComponents.isEmpty()) return itemStack;
-        return NMSHandlers.getHandler().applyGenericComponents(itemStack, genericComponents);
+        TooltipDisplay previous = mergeTooltipDisplay && VersionUtil.atOrAbove("1.21.5")
+                ? itemStack.getData(DataComponentTypes.TOOLTIP_DISPLAY) : null;
+        ItemStack result = NMSHandlers.getHandler().applyGenericComponents(itemStack, genericComponents);
+        if (previous == null || previous.hiddenComponents().isEmpty()) return result;
+        TooltipDisplay generated = result.getData(DataComponentTypes.TOOLTIP_DISPLAY);
+        if (generated == null) return result;
+        Set<DataComponentType> hidden = new LinkedHashSet<>(previous.hiddenComponents());
+        hidden.addAll(generated.hiddenComponents());
+        result.setData(DataComponentTypes.TOOLTIP_DISPLAY, TooltipDisplay.tooltipDisplay()
+                .hideTooltip(generated.hideTooltip()).hiddenComponents(hidden).build());
+        return result;
+    }
+
+    public void setMergeTooltipDisplay(boolean mergeTooltipDisplay) {
+        this.mergeTooltipDisplay = mergeTooltipDisplay;
     }
 
     private ItemStack applyPaintingVariantComponent(ItemStack itemStack) {
@@ -1394,7 +1437,21 @@ public class ItemBuilder {
      * @param component The component object
      */
     public void setComponent(String type, Object component) {
-        genericComponents.put(type, component);
+        genericComponents.put(canonicalComponentKey(type), component);
+    }
+
+    public void setRemovedComponents(Collection<String> components) {
+        removedComponents.clear();
+        components.stream().map(ItemBuilder::canonicalComponentKey).forEach(removedComponents::add);
+    }
+
+    public ItemStack removeConfiguredComponents(ItemStack item) {
+        return removedComponents.isEmpty() ? item : NMSHandlers.getHandler().removeGenericComponents(item, removedComponents);
+    }
+
+    private static String canonicalComponentKey(String type) {
+        String normalized = type.toLowerCase(Locale.ROOT);
+        return normalized.startsWith("minecraft:") ? normalized.substring("minecraft:".length()) : normalized;
     }
 
     public String getPaintingVariant() {
@@ -1413,7 +1470,7 @@ public class ItemBuilder {
      */
     @SuppressWarnings("unchecked")
     public <T> T getComponent(String type) {
-        return (T) genericComponents.get(type);
+        return (T) genericComponents.get(canonicalComponentKey(type));
     }
 
     /**
@@ -1423,7 +1480,7 @@ public class ItemBuilder {
      * @return true if the component exists
      */
     public boolean hasComponent(String type) {
-        return genericComponents.containsKey(type);
+        return genericComponents.containsKey(canonicalComponentKey(type));
     }
 
 }
