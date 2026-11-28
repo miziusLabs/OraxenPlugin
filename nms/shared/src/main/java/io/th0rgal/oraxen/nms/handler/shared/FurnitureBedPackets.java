@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 final class FurnitureBedPackets {
 
@@ -59,12 +60,17 @@ final class FurnitureBedPackets {
     private static final Field rotateHeadEntityId = field(ClientboundRotateHeadPacket.class);
 
     private record Bed(ServerPlayer sleeper, UUID worldId, Vec3 head, float headYaw, BlockPos bedPos,
-                       BlockState bedState, BlockState originalBedState, BlockPos headPos, boolean headBarrier,
+                       BlockState bedState, BlockState originalBedState, BlockPos headPos, AtomicBoolean headBarrier,
                        Set<UUID> viewers) {
 
         private BlockState clientState(BlockPos pos, BlockState state, boolean self) {
             if (pos.equals(bedPos)) return bedState;
-            return self && pos.equals(headPos) && state.is(Blocks.BARRIER) ? Blocks.AIR.defaultBlockState() : state;
+            if (self && pos.equals(headPos)) {
+                boolean barrier = state.is(Blocks.BARRIER);
+                headBarrier.set(barrier);
+                return barrier ? Blocks.AIR.defaultBlockState() : state;
+            }
+            return state;
         }
     }
 
@@ -100,7 +106,7 @@ final class FurnitureBedPackets {
         BlockPos headPos = BlockPos.containing(headPosition);
         boolean headBarrier = world.getBlockAt(head).getType() == Material.BARRIER;
         Bed bed = new Bed(sleeper, world.getUID(), headPosition, sleeper.yBodyRot, bedPos,
-                bedState, originalBedState, headPos, headBarrier, ConcurrentHashMap.newKeySet());
+                bedState, originalBedState, headPos, new AtomicBoolean(headBarrier), ConcurrentHashMap.newKeySet());
         beds.put(sleeper.getId(), bed);
         player.sendBlockChange(blockLocation(player, bedPos), bedData);
         if (headBarrier)
@@ -161,8 +167,7 @@ final class FurnitureBedPackets {
                 if (player.getWorld().getUID().equals(bed.worldId())) {
                     if (!isBedPosUsed(bed.worldId(), bed.bedPos(), -1))
                         sleeper.connection.send(new ClientboundBlockUpdatePacket(bed.bedPos(), currentBedState));
-                    if (bed.headBarrier())
-                        restoreBlock(player, bed.headPos());
+                    restoreBlock(player, bed.headPos());
                 }
                 sendViewerHide(bed, viewers, currentBedState, sleepingPosReset, teleportReset);
                 return;
@@ -217,19 +222,14 @@ final class FurnitureBedPackets {
             BlockState currentBedState = ((CraftBlockData) world.getBlockData(bedLocation)).getState();
             Packet<? super ClientGamePacketListener> bedRestore = new ClientboundBlockUpdatePacket(bed.bedPos(), currentBedState);
             if (sleeper != null) {
-                BlockState currentHeadState = bed.headBarrier()
-                        ? ((CraftBlockData) world.getBlockData(new Location(world, bed.headPos().getX(), bed.headPos().getY(), bed.headPos().getZ()))).getState()
-                        : null;
+                BlockState currentHeadState = ((CraftBlockData) world.getBlockData(
+                        new Location(world, bed.headPos().getX(), bed.headPos().getY(), bed.headPos().getZ()))).getState();
+                Packet<? super ClientGamePacketListener> headRestore = new ClientboundBlockUpdatePacket(bed.headPos(), currentHeadState);
                 runOnViewerThread(sleeper, bed.worldId(), () -> {
-                    boolean restoreBed = !isBedPosUsed(bed.worldId(), bed.bedPos(), -1);
-                    if (restoreBed && currentHeadState != null)
-                        ((CraftPlayer) sleeper).getHandle().connection.send(bundle(
-                                bedRestore, new ClientboundBlockUpdatePacket(bed.headPos(), currentHeadState)));
-                    else if (restoreBed)
-                        ((CraftPlayer) sleeper).getHandle().connection.send(bedRestore);
-                    else if (currentHeadState != null)
-                        ((CraftPlayer) sleeper).getHandle().connection.send(
-                                new ClientboundBlockUpdatePacket(bed.headPos(), currentHeadState));
+                    if (!isBedPosUsed(bed.worldId(), bed.bedPos(), -1))
+                        ((CraftPlayer) sleeper).getHandle().connection.send(bundle(bedRestore, headRestore));
+                    else
+                        ((CraftPlayer) sleeper).getHandle().connection.send(headRestore);
                 });
             }
             for (UUID viewerId : viewerIds) {
@@ -408,7 +408,7 @@ final class FurnitureBedPackets {
             if (!bed.worldId().equals(worldId)) continue;
             boolean self = bed.sleeper() == receiver;
             boolean bedInChunk = (bed.bedPos().getX() >> 4) == chunkX && (bed.bedPos().getZ() >> 4) == chunkZ;
-            boolean headInChunk = self && bed.headBarrier()
+            boolean headInChunk = self && bed.headBarrier().get()
                     && (bed.headPos().getX() >> 4) == chunkX && (bed.headPos().getZ() >> 4) == chunkZ;
             if (!bedInChunk && !headInChunk) continue;
             if (packets == null) packets = new ArrayList<>(List.of(chunk));

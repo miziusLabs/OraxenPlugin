@@ -256,4 +256,38 @@ class FurnitureBedPacketsTest {
             assertEquals(updatedState, restore.getBlockState());
         }
     }
+    @Test
+    void hideRestoresBarrierAddedAtHeadPosDuringSleep() throws Exception {
+        Fixture f = createFixture(Blocks.AIR.defaultBlockState());
+        OraxenPlugin plugin = mock(OraxenPlugin.class);
+        when(plugin.isEnabled()).thenReturn(true);
+
+        try (var oraxen = mockStatic(OraxenPlugin.class);
+             var bukkit = mockStatic(Bukkit.class)) {
+            oraxen.when(OraxenPlugin::get).thenReturn(plugin);
+            bukkit.when(() -> Bukkit.createBlockData(Material.RED_BED)).thenReturn(f.fakeBedData());
+            bukkit.when(() -> Bukkit.getWorld(f.bedWorldId())).thenReturn(f.bedWorld());
+            bukkit.when(() -> Bukkit.getPlayer(f.viewer().getUniqueId())).thenReturn(f.viewer());
+            bukkit.when(() -> Bukkit.isOwnedByCurrentRegion(any(Location.class))).thenReturn(true);
+            bukkit.when(() -> Bukkit.isOwnedByCurrentRegion(any(Entity.class))).thenReturn(true);
+
+            f.packets().show(f.sleeper(), f.headLocation(), 0f);
+
+            // A barrier is placed at headPos after sleep started; transform hides it from the sleeper.
+            BlockPos headPos = BlockPos.containing(f.headLocation().getX(), f.headLocation().getY(), f.headLocation().getZ());
+            ClientboundBlockUpdatePacket barrierPlaced = new ClientboundBlockUpdatePacket(
+                    headPos, Blocks.BARRIER.defaultBlockState());
+            Object transformed = f.packets().transform(barrierPlaced, f.sleeperHandle());
+            ClientboundBlockUpdatePacket hidden = assertInstanceOf(ClientboundBlockUpdatePacket.class, transformed);
+            assertEquals(Blocks.AIR.defaultBlockState(), hidden.getBlockState());
+
+            CraftBlockData barrierData = mock(CraftBlockData.class);
+            when(barrierData.getState()).thenReturn(Blocks.BARRIER.defaultBlockState());
+            Location headBlockLoc = new Location(f.bedWorld(), headPos.getX(), headPos.getY(), headPos.getZ());
+            when(f.bedWorld().getBlockData(headBlockLoc)).thenReturn(barrierData);
+
+            f.packets().hide(f.sleeper());
+            verify(f.sleeper()).sendBlockChange(headBlockLoc, barrierData);
+        }
+    }
 }
