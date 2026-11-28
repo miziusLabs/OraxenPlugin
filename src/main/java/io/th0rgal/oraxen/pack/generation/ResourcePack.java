@@ -22,6 +22,7 @@ import io.th0rgal.oraxen.pack.upload.UploadManager;
 import io.th0rgal.oraxen.utils.*;
 import io.th0rgal.oraxen.utils.customarmor.ComponentArmorModels;
 import io.th0rgal.oraxen.utils.customarmor.CustomArmorType;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentPackFiles;
 import io.th0rgal.oraxen.utils.customarmor.EquipmentSet;
 import io.th0rgal.oraxen.utils.customarmor.EquipmentSets;
 import io.th0rgal.oraxen.utils.customarmor.LegacyArmorTextures;
@@ -1542,7 +1543,7 @@ public class ResourcePack {
                     if (prefix.isEmpty() || importPrefixes.contains(prefix))
                         componentArmorModels.generatePackFiles(snapshot, equipmentSets, armorPrefixes, elytraPrefixes);
                 });
-                componentArmorModels.finishGeneration(armorPrefixes, elytraPrefixes);
+                componentArmorModels.finishGeneration(armorPrefixes, elytraPrefixes, equipmentSets.keySet());
             }
             case TRIMS -> {
                 if (trimArmorDatapack == null)
@@ -1582,6 +1583,10 @@ public class ResourcePack {
             }
         }
         PackPipeline.mergeNativeFiles(output, !Boolean.FALSE.equals(Settings.MERGE_DUPLICATE_FONTS.getValue()));
+        if (componentArmorModels != null)
+            EquipmentPackFiles.copyLegacyComponentTextures(output);
+        else if (trimArmorDatapack != null)
+            EquipmentPackFiles.copyLegacyTrimTextures(output);
         List<VirtualFile> resolvedFiles = packMerger.mergeWithHigherPriorityFiles(output, preserveNativeOverlays);
         mergedImportOverlayEntries = packMerger.getMergedOverlayEntries();
         output.removeIf(file -> file.getPath().startsWith("assets/") || file.getPath().contains("/assets/")

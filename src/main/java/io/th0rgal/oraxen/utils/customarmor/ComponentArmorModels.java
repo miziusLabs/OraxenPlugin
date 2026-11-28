@@ -37,7 +37,7 @@ public class ComponentArmorModels {
         Set<String> armorPrefixes = new TreeSet<>();
         Set<String> elytraPrefixes = new TreeSet<>();
         generatePackFiles(output, equipmentSets, armorPrefixes, elytraPrefixes);
-        finishGeneration(armorPrefixes, elytraPrefixes);
+        finishGeneration(armorPrefixes, elytraPrefixes, equipmentSets.keySet());
     }
 
     public void generatePackFiles(List<VirtualFile> output, Map<String, EquipmentSet> equipmentSets,
@@ -48,26 +48,33 @@ public class ComponentArmorModels {
 
     void generatePackFiles(List<VirtualFile> output, Map<String, EquipmentSet> equipmentSets,
             Set<String> armorPrefixes, Set<String> elytraPrefixes, SemanticServerVersion serverVersion) {
-        EquipmentPackFiles.generateComponentFiles(output, equipmentSets, serverVersion,
-                Logs::logWarning, Logs::logError, Logs::debug);
-
-        Set<String> equipmentIds = equipmentSets.keySet();
-        Set<String> snapshotArmorPrefixes = armorPrefixes(output, equipmentIds);
-        Set<String> snapshotElytraPrefixes = elytraPrefixes(output, equipmentIds);
+        Set<String> snapshotArmorPrefixes = armorPrefixes(output);
+        Set<String> snapshotElytraPrefixes = elytraPrefixes(output);
         armorPrefixes.addAll(snapshotArmorPrefixes);
         elytraPrefixes.addAll(snapshotElytraPrefixes);
+        EquipmentPackFiles.copyLegacyComponentTextures(output);
+        EquipmentPackFiles.generateComponentFiles(output, equipmentSets, serverVersion,
+                snapshotArmorPrefixes, snapshotElytraPrefixes, Logs::logWarning, Logs::logError, Logs::debug);
         writeArmorModels(output, snapshotArmorPrefixes, snapshotElytraPrefixes, serverVersion);
-        copyArmorLayerTextures(output, equipmentIds);
     }
 
     public void finishGeneration(Set<String> armorPrefixes, Set<String> elytraPrefixes) {
-        logLegacySets(armorPrefixes, elytraPrefixes);
+        finishGeneration(armorPrefixes, elytraPrefixes, Set.of());
+    }
+
+    public void finishGeneration(Set<String> armorPrefixes, Set<String> elytraPrefixes, Set<String> equipmentIds) {
+        logLegacySets(armorPrefixes, elytraPrefixes, equipmentIds);
         checkOraxenArmorItems(armorPrefixes, elytraPrefixes);
     }
 
-    private void logLegacySets(Set<String> armorPrefixes, Set<String> elytraPrefixes) {
-        Set<String> legacySets = new TreeSet<>(armorPrefixes);
-        legacySets.addAll(elytraPrefixes);
+    private void logLegacySets(Set<String> armorPrefixes, Set<String> elytraPrefixes, Set<String> equipmentIds) {
+        Set<String> legacySets = new TreeSet<>();
+        for (String prefix : armorPrefixes)
+            if (!equipmentIds.contains(prefix))
+                legacySets.add(prefix);
+        for (String prefix : elytraPrefixes)
+            if (!equipmentIds.contains(prefix + "_elytra"))
+                legacySets.add(prefix);
         if (!legacySets.isEmpty())
             Logs.logInfo("Legacy custom armor sets detected by texture file name: " + String.join(", ", legacySets)
                     + ". Add an equipment section to their items to use explicit equipment assets.");
@@ -102,23 +109,6 @@ public class ComponentArmorModels {
         InputStream equipmentStream = new ByteArrayInputStream(
                 equipmentModel.toString().getBytes(StandardCharsets.UTF_8));
         output.add(new VirtualFile(folder, id + ".json", equipmentStream));
-    }
-
-    private void copyArmorLayerTextures(List<VirtualFile> output, Set<String> equipmentIds) {
-        for (VirtualFile virtualFile : List.copyOf(output)) {
-            String path = virtualFile.getPath();
-            String armorFolder = path.endsWith("_armor_layer_1.png") ? "humanoid"
-                    : path.endsWith("_armor_layer_2.png") ? "humanoid_leggings"
-                            : path.endsWith("_elytra.png") ? "wings" : "";
-            String armorPrefix = armorPrefix(virtualFile);
-            String assetId = armorFolder.equals("wings") ? armorPrefix + "_elytra" : armorPrefix;
-            if (armorPrefix.isEmpty() || armorFolder.isEmpty() || equipmentIds.contains(assetId)
-                    || isGeneratedEquipmentTexture(path))
-                continue;
-
-            String targetPath = "assets/oraxen/textures/entity/equipment/%s/%s.png".formatted(armorFolder, armorPrefix);
-            EquipmentPackFiles.copyLegacyTexture(output, virtualFile, targetPath);
-        }
     }
 
     private void checkOraxenArmorItems(Set<String> armorPrefixes, Set<String> elytraPrefixes) {
@@ -188,18 +178,18 @@ public class ComponentArmorModels {
         return itemStack.getType() == Material.ELYTRA || itemStack.getItemMeta().isGlider();
     }
 
-    static Set<String> armorPrefixes(List<VirtualFile> output, Set<String> equipmentIds) {
+    static Set<String> armorPrefixes(List<VirtualFile> output) {
         return output.stream().filter(file -> !isGeneratedEquipmentTexture(file.getPath()))
                 .filter(file -> !file.getPath().endsWith("_elytra.png"))
                 .map(ComponentArmorModels::armorPrefix).filter(StringUtils::isNotBlank)
-                .filter(prefix -> !equipmentIds.contains(prefix)).collect(Collectors.toSet());
+                .collect(Collectors.toSet());
     }
 
-    static Set<String> elytraPrefixes(List<VirtualFile> output, Set<String> equipmentIds) {
+    static Set<String> elytraPrefixes(List<VirtualFile> output) {
         return output.stream().filter(file -> !isGeneratedEquipmentTexture(file.getPath()))
                 .filter(file -> file.getPath().endsWith("_elytra.png"))
                 .map(ComponentArmorModels::armorPrefix).filter(StringUtils::isNotBlank)
-                .filter(prefix -> !equipmentIds.contains(prefix + "_elytra")).collect(Collectors.toSet());
+                .collect(Collectors.toSet());
     }
 
     private static boolean isGeneratedEquipmentTexture(String path) {

@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.items;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.Equippable;
 import io.papermc.paper.datacomponent.item.ItemAttributeModifiers;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
@@ -73,6 +74,8 @@ public class ItemBuilder {
     private ItemEquipment equipment;
     @Nullable
     private Consumer<Collection<EquipmentLayer>> equipmentDefaults;
+    @Nullable
+    private Key equipmentShearingSound;
     private PotionType potionType;
     private List<PotionEffect> potionEffects;
     private OfflinePlayer owningPlayer; // SkullMeta
@@ -448,6 +451,10 @@ public class ItemBuilder {
 
     public void deferEquipmentDefaults(@Nullable Consumer<Collection<EquipmentLayer>> defaults) {
         this.equipmentDefaults = defaults;
+    }
+
+    public void setEquipmentShearingSound(@Nullable Key sound) {
+        this.equipmentShearingSound = sound;
     }
 
     public void resolveEquipmentDefaults(Collection<EquipmentLayer> layers) {
@@ -957,6 +964,7 @@ public class ItemBuilder {
         clonedBuilder.color = color;
         clonedBuilder.trimPattern = trimPattern;
         clonedBuilder.equipment = equipment;
+        clonedBuilder.equipmentShearingSound = equipmentShearingSound;
         clonedBuilder.potionType = potionType;
         clonedBuilder.potionEffects = potionEffects != null ? new ArrayList<>(potionEffects) : null;
         clonedBuilder.owningPlayer = owningPlayer;
@@ -1010,6 +1018,7 @@ public class ItemBuilder {
         applyLore(itemMeta);
 
         itemStack.setItemMeta(itemMeta);
+        applyEquipmentShearingDefaults(itemStack);
         applyAttributeModifiersComponent(itemStack);
         // Build into a local and publish once so concurrent readers never see
         // an intermediate stack.
@@ -1020,6 +1029,18 @@ public class ItemBuilder {
         finalItemStack = built;
 
         return this;
+    }
+
+    private void applyEquipmentShearingDefaults(ItemStack stack) {
+        if (equipmentShearingSound == null)
+            return;
+        try {
+            Equippable component = stack.getData(DataComponentTypes.EQUIPPABLE);
+            if (component != null)
+                stack.setData(DataComponentTypes.EQUIPPABLE,
+                        component.toBuilder().canBeSheared(true).shearSound(equipmentShearingSound).build());
+        } catch (NoSuchMethodError | NoClassDefFoundError exception) {
+        }
     }
 
     private void applyVersionSpecificProperties(ItemMeta itemMeta) {

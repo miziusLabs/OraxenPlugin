@@ -12,8 +12,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public final class EquipmentPackFiles {
@@ -21,10 +23,51 @@ public final class EquipmentPackFiles {
     private EquipmentPackFiles() {
     }
 
+    public static void copyLegacyComponentTextures(List<VirtualFile> output) {
+        copyLegacyTextures(output, false);
+    }
+
+    public static void copyLegacyTrimTextures(List<VirtualFile> output) {
+        copyLegacyTextures(output, true);
+    }
+
+    private static void copyLegacyTextures(List<VirtualFile> output, boolean trims) {
+        String generatedRoot = trims ? "assets/oraxen/textures/trims/models/armor/"
+                : "assets/oraxen/textures/entity/equipment/";
+        for (VirtualFile file : List.copyOf(output)) {
+            String path = file.getPath();
+            int start = path.startsWith("assets/") ? 0 : path.indexOf("/assets/") + 1;
+            if (!path.startsWith("assets/", start) || path.startsWith(generatedRoot, start))
+                continue;
+            String suffix;
+            EquipmentLayer layer;
+            if (path.endsWith("_armor_layer_1.png")) {
+                suffix = "_armor_layer_1.png";
+                layer = EquipmentLayer.HUMANOID;
+            } else if (path.endsWith("_armor_layer_2.png")) {
+                suffix = "_armor_layer_2.png";
+                layer = EquipmentLayer.HUMANOID_LEGGINGS;
+            } else if (!trims && path.endsWith("_elytra.png")) {
+                suffix = "_elytra.png";
+                layer = EquipmentLayer.WINGS;
+            } else {
+                continue;
+            }
+            String texture = path.substring(path.lastIndexOf('/') + 1, path.length() - suffix.length());
+            if (texture.isEmpty())
+                continue;
+            String target = trims ? generatedRoot + texture
+                    + (layer == EquipmentLayer.HUMANOID_LEGGINGS ? "_leggings.png" : ".png")
+                    : componentTexturePath(layer, texture);
+            copyLegacyTexture(output, file, path.substring(0, start) + target);
+        }
+    }
+
     public static void generateComponentFiles(List<VirtualFile> output, Map<String, EquipmentSet> equipmentSets,
-            SemanticServerVersion serverVersion, Consumer<String> warningConsumer, Consumer<String> errorConsumer,
-            Consumer<String> debugConsumer) {
+            SemanticServerVersion serverVersion, Set<String> legacyArmorPrefixes, Set<String> legacyElytraPrefixes,
+            Consumer<String> warningConsumer, Consumer<String> errorConsumer, Consumer<String> debugConsumer) {
         List<String> unsupportedLayers = new ArrayList<>();
+        Map<String, VirtualFile> sources = indexSources(output);
         String equipmentFolder = serverVersion.toCanonicalNamespace().isAtLeast(SemanticServerVersion.parse("1.21.4"))
                 ? "assets/oraxen/equipment"
                 : "assets/oraxen/models/equipment";
@@ -38,7 +81,6 @@ public final class EquipmentPackFiles {
             }
 
             JsonObject layersJson = new JsonObject();
-            boolean copiedLayer = false;
             for (Map.Entry<EquipmentLayer, String> layerEntry : equipmentSet.layers().entrySet()) {
                 EquipmentLayer layer = layerEntry.getKey();
                 if (!layer.isSupported(serverVersion)) {
@@ -46,20 +88,24 @@ public final class EquipmentPackFiles {
                     continue;
                 }
 
-                String targetPath = "assets/oraxen/textures/entity/equipment/" + layer.configKey() + "/"
-                        + equipmentSet.id() + ".png";
-                if (!copyLayerTexture(output, equipmentSet, layer, targetPath, errorConsumer))
+                String targetPath = componentTexturePath(layer, equipmentSet.id());
+                if (!copyLayerTexture(output, sources, equipmentSet, layer, targetPath, errorConsumer))
                     continue;
 
-                JsonObject textureObject = new JsonObject();
-                textureObject.addProperty("texture", "oraxen:" + equipmentSet.id());
-                JsonArray layerArray = new JsonArray();
-                layerArray.add(textureObject);
-                layersJson.add(layer.configKey(), layerArray);
-                copiedLayer = true;
+                addComponentLayer(layersJson, layer, equipmentSet.id());
             }
 
-            if (!copiedLayer)
+            String id = equipmentSet.id();
+            if (legacyArmorPrefixes.contains(id)) {
+                addLegacyLayer(output, layersJson, EquipmentLayer.HUMANOID, id);
+                addLegacyLayer(output, layersJson, EquipmentLayer.HUMANOID_LEGGINGS, id);
+            }
+            if (id.endsWith("_elytra")) {
+                String prefix = id.substring(0, id.length() - "_elytra".length());
+                if (legacyElytraPrefixes.contains(prefix))
+                    addLegacyLayer(output, layersJson, EquipmentLayer.WINGS, prefix);
+            }
+            if (layersJson.size() == 0)
                 continue;
             JsonObject equipmentJson = new JsonObject();
             equipmentJson.add("layers", layersJson);
@@ -73,6 +119,7 @@ public final class EquipmentPackFiles {
     public static void copyTrimTextures(List<VirtualFile> output, Map<String, EquipmentSet> equipmentSets,
             SemanticServerVersion serverVersion, Consumer<String> infoConsumer, Consumer<String> errorConsumer) {
         List<String> unsupportedLayers = new ArrayList<>();
+        Map<String, VirtualFile> sources = indexSources(output);
         for (EquipmentSet equipmentSet : equipmentSets.values()) {
             for (Map.Entry<EquipmentLayer, String> layerEntry : equipmentSet.layers().entrySet()) {
                 EquipmentLayer layer = layerEntry.getKey();
@@ -85,7 +132,7 @@ public final class EquipmentPackFiles {
                     unsupportedLayers.add(equipmentSet.id() + " (" + layer.configKey() + ")");
                     continue;
                 }
-                copyLayerTexture(output, equipmentSet, layer, targetPath, errorConsumer);
+                copyLayerTexture(output, sources, equipmentSet, layer, targetPath, errorConsumer);
             }
         }
 
@@ -101,11 +148,11 @@ public final class EquipmentPackFiles {
                     + String.join(", ", unsupportedLayers) + ".");
     }
 
-    private static boolean copyLayerTexture(List<VirtualFile> output, EquipmentSet equipmentSet, EquipmentLayer layer,
-            String targetPath, Consumer<String> errorConsumer) {
+    private static boolean copyLayerTexture(List<VirtualFile> output, Map<String, VirtualFile> sources,
+            EquipmentSet equipmentSet, EquipmentLayer layer, String targetPath, Consumer<String> errorConsumer) {
         String configuredTexture = equipmentSet.layers().get(layer);
         String sourcePath = PackFileCollector.modelPathToPackPath(configuredTexture);
-        VirtualFile source = findFile(output, sourcePath);
+        VirtualFile source = sources.get(sourcePath);
         if (source == null) {
             errorConsumer.accept("Missing equipment texture for item \"" + equipmentSet.layerItems().get(layer)
                     + "\", layer \"" + layer.configKey() + "\": \"" + configuredTexture + "\" resolved to "
@@ -113,11 +160,11 @@ public final class EquipmentPackFiles {
             return false;
         }
 
-        if (sourcePath.equals(targetPath) || hasFile(output, targetPath))
+        if (sourcePath.equals(targetPath) && findFile(output, targetPath) == source)
             return true;
 
         try {
-            output.add(copyVirtualFile(source, targetPath));
+            copyTexture(output, source, sources.get(sourcePath + ".mcmeta"), targetPath);
             return true;
         } catch (IOException exception) {
             errorConsumer.accept("Missing equipment texture for item \"" + equipmentSet.layerItems().get(layer)
@@ -151,11 +198,47 @@ public final class EquipmentPackFiles {
         if (hasFile(output, targetPath))
             return;
         try {
-            output.add(copyVirtualFile(source, targetPath));
+            copyTexture(output, source, findFile(output, source.getPath() + ".mcmeta"), targetPath);
         } catch (IOException exception) {
             Logs.logError("Failed to copy legacy armor texture " + source.getPath() + ".");
             Logs.debug(exception);
         }
+    }
+
+    private static void copyTexture(List<VirtualFile> output, VirtualFile source, VirtualFile sourceMetadata,
+            String targetPath) throws IOException {
+        VirtualFile texture = copyVirtualFile(source, targetPath);
+        String targetMetadataPath = targetPath + ".mcmeta";
+        VirtualFile metadata = sourceMetadata == null ? null : copyVirtualFile(sourceMetadata, targetMetadataPath);
+        output.removeIf(file -> file.getPath().equals(targetPath) || file.getPath().equals(targetMetadataPath));
+        output.add(texture);
+        if (metadata != null)
+            output.add(metadata);
+    }
+
+    private static Map<String, VirtualFile> indexSources(List<VirtualFile> output) {
+        Map<String, VirtualFile> sources = new HashMap<>();
+        for (VirtualFile file : output)
+            sources.putIfAbsent(file.getPath(), file);
+        return sources;
+    }
+
+    private static String componentTexturePath(EquipmentLayer layer, String texture) {
+        return "assets/oraxen/textures/entity/equipment/" + layer.configKey() + "/" + texture + ".png";
+    }
+
+    private static void addLegacyLayer(List<VirtualFile> output, JsonObject layers, EquipmentLayer layer,
+            String texture) {
+        if (!layers.has(layer.configKey()) && hasFile(output, componentTexturePath(layer, texture)))
+            addComponentLayer(layers, layer, texture);
+    }
+
+    private static void addComponentLayer(JsonObject layers, EquipmentLayer layer, String texture) {
+        JsonObject layerJson = new JsonObject();
+        layerJson.addProperty("texture", "oraxen:" + texture);
+        JsonArray entries = new JsonArray();
+        entries.add(layerJson);
+        layers.add(layer.configKey(), entries);
     }
 
     private static VirtualFile findFile(List<VirtualFile> output, String path) {

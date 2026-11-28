@@ -5,6 +5,7 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.configs.ConfigsManager;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.utils.VirtualFile;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentPackFiles;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.*;
@@ -41,6 +42,23 @@ class PackImportCompositionTest {
         logs = mockStatic(Logs.class);
         Settings.invalidateCache();
     }
+
+    @Test void localLegacyArmorTextureWinsOverUploadedCanonicalCopy() throws Exception {
+        String canonical = "assets/oraxen/textures/entity/equipment/humanoid/amethyst.png";
+        String legacy = "assets/minecraft/textures/default/armors/amethyst_armor_layer_1.png";
+        write("a", Map.of("pack.mcmeta", "{\"pack\":{\"pack_format\":34}}", canonical, "uploaded"));
+        PackMerger merger = new PackMerger(tempDir.toFile());
+        merger.mergeUploadedPacks();
+        List<VirtualFile> local = new ArrayList<>();
+        local.add(vfile(legacy, "local"));
+
+        EquipmentPackFiles.copyLegacyComponentTextures(local);
+        Map<String, String> files = contents(merger.mergeWithHigherPriorityFiles(local));
+
+        assertEquals("local", files.get(legacy));
+        assertEquals("local", files.get(canonical));
+    }
+
     @Test void coreShadersAreOptInAndWarnOnceAcrossFilesAndSnapshots() throws Exception {
         String fragment = "assets/minecraft/shaders/core/test.fsh";
         String vertex = "assets/minecraft/shaders/core/test.vsh";

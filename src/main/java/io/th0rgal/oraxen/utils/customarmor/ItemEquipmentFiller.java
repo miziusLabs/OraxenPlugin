@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.utils.customarmor;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.items.ItemBuilder;
+import io.th0rgal.oraxen.utils.MinecraftVersion;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import net.kyori.adventure.key.Key;
@@ -38,6 +39,7 @@ public final class ItemEquipmentFiller {
         ItemEquipment equipment = ItemEquipment.parse(mergedSection);
         item.setEquipment(equipment);
         item.deferEquipmentDefaults(null);
+        item.setEquipmentShearingSound(null);
         if (equipment == null)
             return;
 
@@ -50,10 +52,7 @@ public final class ItemEquipmentFiller {
         else
             return;
 
-        if (equipment.layers().isEmpty())
-            item.deferEquipmentDefaults(defaults);
-        else
-            defaults.accept(equipment.layers().keySet());
+        item.deferEquipmentDefaults(defaults);
     }
 
     public static void resolveSharedDefaults(Map<String, ItemBuilder> items) {
@@ -74,6 +73,9 @@ public final class ItemEquipmentFiller {
 
     private static void applyComponent(ItemBuilder item, Material type, ConfigurationSection mergedSection,
             ItemEquipment equipment, Collection<EquipmentLayer> layers) {
+        var serverVersion = MinecraftVersion.getCurrentVersion().toSemanticVersion();
+        layers = layers.stream().filter(layer -> layer.isSupported(serverVersion)).toList();
+
         ConfigurationSection componentsSection = mergedSection.getConfigurationSection("components");
         ConfigurationSection equippableSection = componentsSection != null
                 ? componentsSection.getConfigurationSection("equippable")
@@ -112,7 +114,7 @@ public final class ItemEquipmentFiller {
         }
         component.setSlot(slot);
 
-        boolean copiedVanillaDefaults = copyVanillaEquippableDefaults(component, type, equippableSection);
+        boolean copiedVanillaDefaults = copyVanillaEquippableDefaults(item, component, type, equippableSection);
         if ((equippableSection == null || !equippableSection.contains("equip_on_interact")) && !copiedVanillaDefaults
                 && (slotName.equals("BODY") || slotName.equals("SADDLE")))
             setEquipOnInteract(component, defaultEquipOnInteract(slotName, layers));
@@ -168,7 +170,7 @@ public final class ItemEquipmentFiller {
         }
     }
 
-    private static boolean copyVanillaEquippableDefaults(EquippableComponent component, Material type,
+    private static boolean copyVanillaEquippableDefaults(ItemBuilder item, EquippableComponent component, Material type,
             @Nullable ConfigurationSection equippableSection) {
         io.papermc.paper.datacomponent.item.Equippable vanillaEquippable;
         try {
@@ -191,7 +193,8 @@ public final class ItemEquipmentFiller {
             copyEquipOnInteract(component, vanillaEquippable);
         if (equippableSection == null || !equippableSection.contains("camera_overlay"))
             copyCameraOverlay(component, vanillaEquippable);
-        copyShearingSettings(component, vanillaEquippable);
+        if (VersionUtil.atOrAbove("1.21.11") && vanillaEquippable.canBeSheared())
+            item.setEquipmentShearingSound(vanillaEquippable.shearSound());
         return true;
     }
 
@@ -243,20 +246,6 @@ public final class ItemEquipmentFiller {
             if (vanillaEquippable.cameraOverlay() != null)
                 component.setCameraOverlay(NamespacedKey.fromString(vanillaEquippable.cameraOverlay().asString()));
         } catch (NoClassDefFoundError | NoSuchMethodError | IllegalArgumentException exception) {
-        }
-    }
-
-    private static void copyShearingSettings(EquippableComponent component,
-            io.papermc.paper.datacomponent.item.Equippable vanillaEquippable) {
-        try {
-            EquippableComponent.class.getMethod("setCanBeSheared", boolean.class)
-                    .invoke(component, vanillaEquippable.canBeSheared());
-            Sound shearingSound = Registry.SOUNDS.get(vanillaEquippable.shearSound());
-            if (shearingSound != null)
-                EquippableComponent.class.getMethod("setShearingSound", Sound.class)
-                        .invoke(component, shearingSound);
-        } catch (ReflectiveOperationException | NoClassDefFoundError | NoSuchMethodError
-                | IllegalArgumentException exception) {
         }
     }
 

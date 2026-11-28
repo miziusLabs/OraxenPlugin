@@ -15,39 +15,39 @@ class ItemEquipmentTest {
     @Test
     void parsesDefaultIdAndStripsTextureExtension() {
         ConfigurationSection section = load("""
-                forest_helmet:
+                amethyst_helmet:
                   equipment:
-                    humanoid: default/armors/forest_armor_layer_1.png
-                    humanoid_leggings: default/armors/forest_armor_layer_2
+                    humanoid: default/armors/amethyst_armor_layer_1.png
+                    humanoid_leggings: default/armors/amethyst_armor_layer_2
                 """);
 
         ItemEquipment equipment = ItemEquipment.parse(section, new ArrayList<>()::add);
 
         assertNotNull(equipment);
-        assertEquals("forest_helmet", equipment.id());
+        assertEquals("amethyst_helmet", equipment.id());
         assertEquals(Map.of(
-                EquipmentLayer.HUMANOID, "default/armors/forest_armor_layer_1",
-                EquipmentLayer.HUMANOID_LEGGINGS, "default/armors/forest_armor_layer_2"), equipment.layers());
+                EquipmentLayer.HUMANOID, "default/armors/amethyst_armor_layer_1",
+                EquipmentLayer.HUMANOID_LEGGINGS, "default/armors/amethyst_armor_layer_2"), equipment.layers());
     }
 
     @Test
     void rejectsNamespacedIdAndSkipsUnknownLayers() {
         ConfigurationSection section = load("""
-                forest_helmet:
+                amethyst_helmet:
                   equipment:
-                    id: oraxen:forest
-                    unknown_layer: default/armors/forest
+                    id: oraxen:amethyst
+                    unknown_layer: default/armors/amethyst
                 """);
         List<String> warnings = new ArrayList<>();
 
         assertNull(ItemEquipment.parse(section, warnings::add));
-        assertTrue(warnings.stream().anyMatch(warning -> warning.contains("oraxen:forest")));
+        assertTrue(warnings.stream().anyMatch(warning -> warning.contains("oraxen:amethyst")));
 
         ConfigurationSection valid = load("""
-                forest_helmet:
+                amethyst_helmet:
                   equipment:
-                    id: forest
-                    unknown_layer: default/armors/forest
+                    id: amethyst
+                    unknown_layer: default/armors/amethyst
                 """);
         warnings.clear();
         ItemEquipment equipment = ItemEquipment.parse(valid, warnings::add);
@@ -64,6 +64,6 @@ class ItemEquipmentTest {
         } catch (Exception exception) {
             throw new IllegalStateException(exception);
         }
-        return configuration.getConfigurationSection("forest_helmet");
+        return configuration.getConfigurationSection("amethyst_helmet");
     }
 }

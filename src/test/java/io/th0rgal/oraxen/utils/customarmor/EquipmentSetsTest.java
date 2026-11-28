@@ -14,14 +14,14 @@ class EquipmentSetsTest {
     @Test
     void keepsFirstConflictingLayerAndNamesBothItems() {
         Map<String, ItemEquipment> items = Map.of(
-                "z_boots", equipment("forest", EquipmentLayer.HUMANOID, "textures/second"),
-                "a_helmet", equipment("forest", EquipmentLayer.HUMANOID, "textures/first"),
-                "m_chestplate", equipment("forest"));
+                "z_boots", equipment("amethyst", EquipmentLayer.HUMANOID, "textures/second"),
+                "a_helmet", equipment("amethyst", EquipmentLayer.HUMANOID, "textures/first"),
+                "m_chestplate", equipment("amethyst"));
         List<String> warnings = new ArrayList<>();
 
         Map<String, EquipmentSet> sets = EquipmentSets.collect(items, warnings::add);
 
-        EquipmentSet set = sets.get("forest");
+        EquipmentSet set = sets.get("amethyst");
         assertNotNull(set);
         assertEquals("textures/first", set.layers().get(EquipmentLayer.HUMANOID));
         assertEquals(List.of("a_helmet", "m_chestplate", "z_boots"), set.itemIds());
