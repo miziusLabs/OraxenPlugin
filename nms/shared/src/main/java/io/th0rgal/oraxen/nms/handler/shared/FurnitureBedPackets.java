@@ -61,7 +61,7 @@ final class FurnitureBedPackets {
 
     private record Bed(ServerPlayer sleeper, UUID worldId, Vec3 head, float headYaw, BlockPos bedPos,
                        BlockState bedState, BlockState originalBedState, BlockPos headPos, AtomicBoolean headBarrier,
-                       Set<UUID> viewers) {
+                       ClientboundBlockUpdatePacket initialHeadAir, Set<UUID> viewers) {
 
         private BlockState clientState(BlockPos pos, BlockState state, boolean self) {
             if (pos.equals(bedPos)) return bedState;
@@ -105,17 +105,22 @@ final class FurnitureBedPackets {
         Vec3 headPosition = new Vec3(head.getX(), head.getY(), head.getZ());
         BlockPos headPos = BlockPos.containing(headPosition);
         boolean headBarrier = world.getBlockAt(head).getType() == Material.BARRIER;
+        ClientboundBlockUpdatePacket initialHeadAir = headBarrier
+                ? new ClientboundBlockUpdatePacket(headPos, Blocks.AIR.defaultBlockState())
+                : null;
         Bed bed = new Bed(sleeper, world.getUID(), headPosition, sleeper.yBodyRot, bedPos,
-                bedState, originalBedState, headPos, new AtomicBoolean(headBarrier), ConcurrentHashMap.newKeySet());
+                bedState, originalBedState, headPos, new AtomicBoolean(headBarrier), initialHeadAir,
+                ConcurrentHashMap.newKeySet());
         beds.put(sleeper.getId(), bed);
-        player.sendBlockChange(blockLocation(player, bedPos), bedData);
-        if (headBarrier)
-            player.sendBlockChange(head, Material.AIR.createBlockData());
-        sleeper.connection.send(bundle(new ClientboundSetEntityDataPacket(sleeper.getId(), List.of(
-                        SynchedEntityData.DataValue.create(noGravity, true),
-                        SynchedEntityData.DataValue.create(sleepingPos, Optional.of(bedPos)))),
-                new ClientboundPlayerPositionPacket(teleportId,
-                        new PositionMoveRotation(headPosition, Vec3.ZERO, 0f, 0f), Relative.ROTATION)));
+        List<Packet<? super ClientGamePacketListener>> sleeperPackets = new ArrayList<>(4);
+        sleeperPackets.add(new ClientboundBlockUpdatePacket(bedPos, bedState));
+        if (initialHeadAir != null) sleeperPackets.add(initialHeadAir);
+        sleeperPackets.add(new ClientboundSetEntityDataPacket(sleeper.getId(), List.of(
+                SynchedEntityData.DataValue.create(noGravity, true),
+                SynchedEntityData.DataValue.create(sleepingPos, Optional.of(bedPos)))));
+        sleeperPackets.add(new ClientboundPlayerPositionPacket(teleportId,
+                new PositionMoveRotation(headPosition, Vec3.ZERO, 0f, 0f), Relative.ROTATION));
+        sleeper.connection.send(new ClientboundBundlePacket(sleeperPackets));
         // The carrier entity is hidden from clients, so tracking viewers need an explicit sync to the bed position and orientation.
         // Send the teleport after sleepingPos because LivingEntity#onSyncedDataUpdated snaps the entity to bedPos on the client.
         Packet<? super ClientGamePacketListener> viewerSync = viewerSyncPacket(bed);
@@ -384,7 +389,7 @@ final class FurnitureBedPackets {
         BlockState state = update.getBlockState();
         UUID worldId = receiver.level().getWorld().getUID();
         Bed selfBed = beds.get(receiver.getId());
-        if (selfBed != null && selfBed.worldId().equals(worldId)) {
+        if (selfBed != null && selfBed.worldId().equals(worldId) && update != selfBed.initialHeadAir()) {
             BlockState adjusted = selfBed.clientState(pos, state, true);
             if (adjusted != state) return new ClientboundBlockUpdatePacket(pos, adjusted);
         }
