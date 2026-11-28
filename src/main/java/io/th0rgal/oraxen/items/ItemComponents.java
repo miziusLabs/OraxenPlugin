@@ -95,6 +95,8 @@ public final class ItemComponents {
         MinecraftVersion version = runtimeVersion();
         LinkedHashMap<String, Object> normalized = normalizeComponentKeys(components);
         Set<String> removals = parseRemovedComponents(normalized.get("unset_components"), version);
+        // A tooltip_display generated from show_in_tooltip must keep components hidden by ItemFlags.
+        item.setMergeTooltipDisplay(!normalized.containsKey("tooltip_display"));
         prepareRuntimeValues(normalized, removals, version);
         item.setRemovedComponents(genericComponentsAvailable(version) ? removals : Set.of());
 
@@ -579,6 +581,9 @@ public final class ItemComponents {
                 else
                     nativeShape = true;
             } else if (type.equals("remove_effects")) {
+                // A plain list of effect IDs is valid in both formats.
+                if (isSharedRemoveEffectsShape(effect.get("effects")))
+                    continue;
                 if (hasNativeRemoveEffectsShape(effect.get("effects")))
                     nativeShape = true;
                 else
@@ -591,6 +596,11 @@ public final class ItemComponents {
         if (nativeShape && legacyShape)
             return EffectsShape.MIXED;
         return nativeShape ? EffectsShape.NATIVE : EffectsShape.LEGACY;
+    }
+
+    private static boolean isSharedRemoveEffectsShape(Object effects) {
+        return effects instanceof List<?> list && !list.isEmpty()
+                && list.stream().allMatch(entry -> entry instanceof String string && !string.startsWith("#"));
     }
 
     private static boolean hasNativeRemoveEffectsShape(Object effects) {
@@ -832,7 +842,7 @@ public final class ItemComponents {
         Object slot = equippable.get("slot");
         if (slot instanceof String string) {
             String normalizedSlot = string.toLowerCase(Locale.ROOT);
-            if (normalizedSlot.equals("main_hand"))
+            if (normalizedSlot.equals("hand") || normalizedSlot.equals("main_hand"))
                 normalizedSlot = "mainhand";
             else if (normalizedSlot.equals("off_hand"))
                 normalizedSlot = "offhand";

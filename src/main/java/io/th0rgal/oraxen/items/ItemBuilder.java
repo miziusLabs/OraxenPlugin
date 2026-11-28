@@ -2,6 +2,8 @@ package io.th0rgal.oraxen.items;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
+import io.papermc.paper.datacomponent.DataComponentType;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemAttributeModifiers;
 import io.papermc.paper.registry.RegistryAccess;
@@ -163,6 +165,7 @@ public class ItemBuilder {
     // Generic components storage using String keys
     private final Map<String, Object> genericComponents = new HashMap<>();
     private final Set<String> removedComponents = new LinkedHashSet<>();
+    private boolean mergeTooltipDisplay;
 
     public ItemBuilder(final Material material) {
         this(new ItemStack(material));
@@ -931,6 +934,7 @@ public class ItemBuilder {
         clonedBuilder.persistentDataMap.putAll(persistentDataMap);
         clonedBuilder.genericComponents.putAll(genericComponents);
         clonedBuilder.removedComponents.addAll(removedComponents);
+        clonedBuilder.mergeTooltipDisplay = mergeTooltipDisplay;
         clonedBuilder.paintingVariant = paintingVariant;
         clonedBuilder.deathProtectionComponent = deathProtectionComponent;
         clonedBuilder.attributeEntries.clear();
@@ -1209,7 +1213,21 @@ public class ItemBuilder {
 
     private ItemStack applyGenericComponents(ItemStack itemStack) {
         if (genericComponents.isEmpty()) return itemStack;
-        return NMSHandlers.getHandler().applyGenericComponents(itemStack, genericComponents);
+        TooltipDisplay previous = mergeTooltipDisplay && VersionUtil.atOrAbove("1.21.5")
+                ? itemStack.getData(DataComponentTypes.TOOLTIP_DISPLAY) : null;
+        ItemStack result = NMSHandlers.getHandler().applyGenericComponents(itemStack, genericComponents);
+        if (previous == null || previous.hiddenComponents().isEmpty()) return result;
+        TooltipDisplay generated = result.getData(DataComponentTypes.TOOLTIP_DISPLAY);
+        if (generated == null) return result;
+        Set<DataComponentType> hidden = new LinkedHashSet<>(previous.hiddenComponents());
+        hidden.addAll(generated.hiddenComponents());
+        result.setData(DataComponentTypes.TOOLTIP_DISPLAY, TooltipDisplay.tooltipDisplay()
+                .hideTooltip(generated.hideTooltip()).hiddenComponents(hidden).build());
+        return result;
+    }
+
+    public void setMergeTooltipDisplay(boolean mergeTooltipDisplay) {
+        this.mergeTooltipDisplay = mergeTooltipDisplay;
     }
 
     private ItemStack applyPaintingVariantComponent(ItemStack itemStack) {

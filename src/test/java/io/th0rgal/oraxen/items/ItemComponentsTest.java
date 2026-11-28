@@ -177,5 +177,19 @@ class ItemComponentsTest {
                 ItemComponents.effectsShape(Map.of("sound", Map.of("sound_id", "minecraft:entity.generic.eat")),
                         "on_consume_effects"));
         assertEquals(ItemComponents.EffectsShape.LEGACY, ItemComponents.effectsShape(null, "death_effects"));
+
+        Map<String, Object> removeIds = Map.of("type", "minecraft:remove_effects",
+                "effects", List.of("minecraft:slowness"));
+        assertEquals(ItemComponents.EffectsShape.NATIVE, ItemComponents.effectsShape(
+                Map.of("on_consume_effects", List.of(nativeEffect, removeIds)), "on_consume_effects"));
+        assertEquals(ItemComponents.EffectsShape.LEGACY, ItemComponents.effectsShape(
+                Map.of("on_consume_effects", List.of(legacy, removeIds)), "on_consume_effects"));
+    }
+
+    @Test
+    void handSlotMapsToMainhand() {
+        Map<String, Object> equippable = ItemComponents.normalizeEquippableMap(
+                Map.of("slot", "HAND"), new MinecraftVersion("1.21.4"));
+        assertEquals("mainhand", equippable.get("slot"));
     }
 }
