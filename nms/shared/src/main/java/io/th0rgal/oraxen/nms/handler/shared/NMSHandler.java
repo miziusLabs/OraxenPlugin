@@ -23,6 +23,12 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.LongArrayTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.ClientboundUpdateTagsPacket;
@@ -30,6 +36,7 @@ import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -66,7 +73,9 @@ import org.bukkit.SoundGroup;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
@@ -314,6 +323,12 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     @Override
     /* This method copies custom NBT data from one item to another */
     public ItemStack copyItemNBTTags(@NotNull ItemStack oldItem, @NotNull ItemStack newItem) {
+        return copyItemNBTTags(oldItem, newItem, null);
+    }
+
+    @Override
+    public ItemStack copyItemNBTTags(@NotNull ItemStack oldItem, @NotNull ItemStack newItem,
+                                     @Nullable Object configuredCustomData) {
         net.minecraft.world.item.ItemStack newNmsItem = CraftItemStack.asNMSCopy(newItem);
         net.minecraft.world.item.ItemStack oldItemStack = CraftItemStack.asNMSCopy(oldItem);
         // Gets data component's nbt data.
@@ -326,13 +341,27 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         CompoundTag oldTag = oldData.copyTag();
         CompoundTag newTag = newData != null ? newData.copyTag() : new CompoundTag();
 
+        Set<String> configuredKeys = configuredCustomData instanceof CustomData data
+                ? NmsAccessors.tagKeys(data.copyTag()) : Set.of();
         for (String key : NmsAccessors.tagKeys(oldTag)) {
-            if (!vanillaKeys.contains(key))
+            if (!vanillaKeys.contains(key) && !configuredKeys.contains(key))
                 newTag.put(key, oldTag.get(key));
         }
 
         newNmsItem.set(type, CustomData.of(newTag));
         return NmsAccessors.asBukkitCopy(newNmsItem);
+    }
+
+    @Override
+    public ItemStack preserveDamageResistance(ItemStack oldItem, ItemStack updatedItem) {
+        net.minecraft.world.item.ItemStack updated = CraftItemStack.asNMSCopy(updatedItem);
+        if (updated.get(DataComponents.DAMAGE_RESISTANT) != null)
+            return updatedItem;
+        var oldResistance = CraftItemStack.asNMSCopy(oldItem).get(DataComponents.DAMAGE_RESISTANT);
+        if (oldResistance == null)
+            return updatedItem;
+        updated.set(DataComponents.DAMAGE_RESISTANT, oldResistance);
+        return NmsAccessors.asBukkitCopy(updated);
     }
 
     @Override
@@ -427,54 +456,123 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         }).collect(HashMap::new, Map::putAll, Map::putAll);
     }
 
+    private static String canonicalComponentKey(String componentKey) {
+        String normalized = componentKey.toLowerCase(Locale.ROOT);
+        return normalized.startsWith("minecraft:") ? normalized.substring("minecraft:".length()) : normalized;
+    }
+
+    private static String registryComponentKey(String componentKey) {
+        String normalized = canonicalComponentKey(componentKey);
+        return normalized.contains(":") ? normalized : "minecraft:" + normalized;
+    }
+
     /**
-     * Sets a component on an item using the DataComponents registry
-     * 
-     * @param item         The ItemBuilder to modify
-     * @param componentKey The component key (e.g. "food", "tool", etc.)
-     * @param component    The component object
-     * @return true if the component was successfully set
+     * Sets a component on an item using the DataComponents registry.
+     * YAML-shaped input is decoded through the component's runtime codec.
      */
     @Override
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public boolean setComponent(ItemBuilder item, String componentKey, Object component) {
+        String canonicalKey = canonicalComponentKey(componentKey);
+        net.minecraft.core.component.DataComponentType<?> componentType;
         try {
-            net.minecraft.core.component.DataComponentType<?> componentType = NmsAccessors
-                    .dataComponentType("minecraft:" + componentKey.toLowerCase(java.util.Locale.ROOT)).orElse(null);
-            if (componentType == null)
-                return false;
-
-            if (component instanceof ConfigurationSection config) {
-                net.minecraft.nbt.CompoundTag nbt = new net.minecraft.nbt.CompoundTag();
-                convertConfigToNBT(config, nbt);
-
-                // Use Codec-based deserialization (works for all components including records)
-                com.mojang.serialization.Codec<?> codec = componentType.codecOrThrow();
-                var registryAccess = ((org.bukkit.craftbukkit.CraftServer) org.bukkit.Bukkit.getServer())
-                        .getServer().registryAccess();
-                var ops = net.minecraft.resources.RegistryOps.create(
-                        net.minecraft.nbt.NbtOps.INSTANCE, registryAccess);
-                var result = codec.parse(ops, nbt);
-
-                var parsedOptional = result.result();
-                if (parsedOptional.isPresent()) {
-                    item.setComponent(componentKey, parsedOptional.get());
-                    return true;
-                } else {
-                    Logs.logWarning("Failed to parse component '" + componentKey + "': " +
-                            result.error().map(e -> e.message()).orElse("unknown error"));
-                    return false;
-                }
-            } else {
-                item.setComponent(componentKey, component);
-                return true;
-            }
-        } catch (Exception e) {
-            Logs.logWarning("Failed to set component " + componentKey);
-            if (io.th0rgal.oraxen.configs.Settings.DEBUG.toBool())
-                Logs.debug(e);
+            componentType = NmsAccessors.dataComponentType(registryComponentKey(canonicalKey)).orElse(null);
+        } catch (RuntimeException exception) {
+            Logs.logWarning("Invalid component id '" + canonicalKey + "'");
+            Logs.debug(exception);
             return false;
         }
+        if (componentType == null)
+            return false;
+
+        try {
+            Tag input = componentTag(component);
+            var result = componentType.codecOrThrow().parse(
+                    RegistryOps.create(NbtOps.INSTANCE, ((CraftServer) Bukkit.getServer()).getServer().registryAccess()),
+                    input);
+            var parsed = result.result();
+            if (parsed.isPresent()) {
+                item.setComponent(canonicalKey, parsed.get());
+                return true;
+            }
+            Logs.logWarning("Failed to parse component '" + canonicalKey + "': "
+                    + result.error().map(error -> error.message()).orElse("unknown error"));
+        } catch (RuntimeException exception) {
+            Logs.logWarning("Malformed value for component '" + canonicalKey + "'");
+            Logs.debug(exception);
+        }
+        return false;
+    }
+
+    static Tag componentTag(Object value) {
+        if (value instanceof ConfigurationSection section)
+            return componentTag(section.getValues(false));
+        if (value instanceof Map<?, ?> map) {
+            CompoundTag tag = new CompoundTag();
+            for (var entry : map.entrySet()) {
+                if (!(entry.getKey() instanceof String key))
+                    throw new IllegalArgumentException("Component mapping keys must be strings");
+                tag.put(key, componentTag(entry.getValue()));
+            }
+            return tag;
+        }
+        if (value instanceof List<?> list)
+            return componentListTag(list);
+        if (value instanceof int[] ints)
+            return new IntArrayTag(ints);
+        if (value instanceof long[] longs)
+            return new LongArrayTag(longs);
+        if (value instanceof Boolean bool)
+            return NbtOps.INSTANCE.createBoolean(bool);
+        if (value instanceof Number number)
+            return componentNumberTag(number);
+        if (value instanceof String string)
+            return StringTag.valueOf(string);
+        throw new IllegalArgumentException("Unsupported component value: " + value);
+    }
+
+    private static Tag componentNumberTag(Number number) {
+        if (number instanceof Integer)
+            return NbtOps.INSTANCE.createInt(number.intValue());
+        if (number instanceof Long)
+            return NbtOps.INSTANCE.createLong(number.longValue());
+        if (number instanceof Double)
+            return NbtOps.INSTANCE.createDouble(number.doubleValue());
+        if (number instanceof Float)
+            return NbtOps.INSTANCE.createFloat(number.floatValue());
+        if (number instanceof Byte)
+            return NbtOps.INSTANCE.createByte(number.byteValue());
+        if (number instanceof Short)
+            return NbtOps.INSTANCE.createShort(number.shortValue());
+        double decimal = number.doubleValue();
+        long integral = number.longValue();
+        if (decimal == integral && integral >= Integer.MIN_VALUE && integral <= Integer.MAX_VALUE)
+            return NbtOps.INSTANCE.createInt((int) integral);
+        if (decimal == integral)
+            return NbtOps.INSTANCE.createLong(integral);
+        return NbtOps.INSTANCE.createDouble(decimal);
+    }
+
+    private static Tag componentListTag(List<?> list) {
+        if (list.isEmpty())
+            return NbtOps.INSTANCE.createList(java.util.stream.Stream.empty());
+        if (list.stream().allMatch(Number.class::isInstance)) {
+            List<Number> numbers = list.stream().map(Number.class::cast).toList();
+            boolean doubleWidth = numbers.stream().anyMatch(number -> number instanceof Double);
+            boolean floatWidth = numbers.stream().anyMatch(number -> number instanceof Float);
+            boolean longWidth = numbers.stream().anyMatch(number -> number instanceof Long
+                    || number.longValue() > Integer.MAX_VALUE || number.longValue() < Integer.MIN_VALUE);
+            List<Tag> tags = numbers.stream().map(number -> {
+                if (doubleWidth)
+                    return NbtOps.INSTANCE.createDouble(number.doubleValue());
+                if (floatWidth)
+                    return NbtOps.INSTANCE.createFloat(number.floatValue());
+                if (longWidth)
+                    return NbtOps.INSTANCE.createLong(number.longValue());
+                return NbtOps.INSTANCE.createInt(number.intValue());
+            }).map(Tag.class::cast).toList();
+            return NbtOps.INSTANCE.createList(tags.stream());
+        }
+        return NbtOps.INSTANCE.createList(list.stream().map(NMSHandler::componentTag));
     }
 
     @Override
@@ -484,98 +582,64 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
         net.minecraft.world.item.ItemStack nmsItem = CraftItemStack.asNMSCopy(itemStack);
         for (var entry : components.entrySet()) {
+            String componentKey = canonicalComponentKey(entry.getKey());
             try {
                 DataComponentType componentType = NmsAccessors
-                        .dataComponentType("minecraft:" + entry.getKey().toLowerCase(Locale.ROOT)).orElse(null);
+                        .dataComponentType(registryComponentKey(componentKey)).orElse(null);
                 if (componentType == null) continue;
 
-                nmsItem.set(componentType, entry.getValue());
-            } catch (Exception e) {
-                Logs.logWarning("Failed to apply component '" + entry.getKey() + "'");
-                if (io.th0rgal.oraxen.configs.Settings.DEBUG.toBool())
-                    Logs.debug(e);
+                if (componentKey.equals("custom_data") && entry.getValue() instanceof CustomData) {
+                    CustomData existing = nmsItem.get(DataComponents.CUSTOM_DATA);
+                    CompoundTag merged = existing == null ? new CompoundTag() : existing.copyTag();
+                    CompoundTag added = ((CustomData) entry.getValue()).copyTag();
+                    for (String key : NmsAccessors.tagKeys(added))
+                        if (!key.equals("PublicBukkitValues")) merged.put(key, added.get(key));
+                    nmsItem.set(DataComponents.CUSTOM_DATA, CustomData.of(merged));
+                } else {
+                    nmsItem.set(componentType, entry.getValue());
+                }
+            } catch (Exception exception) {
+                Logs.logWarning("Failed to apply component '" + componentKey + "'");
+                Logs.debug(exception);
             }
         }
         return NmsAccessors.asBukkitCopy(nmsItem);
     }
 
-    private void convertConfigToNBT(ConfigurationSection config, net.minecraft.nbt.CompoundTag nbt) {
-        for (String key : config.getKeys(false)) {
-            Object value = config.get(key);
-            if (value instanceof ConfigurationSection section) {
-                handleConfigSectionValue(nbt, key, section);
-            } else if (value instanceof Number number) {
-                handleNumberValue(nbt, key, number);
-            } else if (value instanceof Boolean boolValue) {
-                nbt.putBoolean(key, boolValue);
-            } else if (value instanceof String stringValue) {
-                nbt.putString(key, stringValue);
-            } else if (value instanceof List<?> list) {
-                handleListValue(nbt, key, list);
+    @Override
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public ItemStack removeGenericComponents(ItemStack itemStack, Set<String> removed) {
+        if (removed.isEmpty()) return itemStack;
+
+        net.minecraft.world.item.ItemStack nmsItem = CraftItemStack.asNMSCopy(itemStack);
+        for (String configuredKey : removed) {
+            String componentKey = canonicalComponentKey(configuredKey);
+            try {
+                DataComponentType componentType = NmsAccessors
+                        .dataComponentType(registryComponentKey(componentKey)).orElse(null);
+                if (componentType == null) continue;
+
+                if (componentKey.equals("custom_data")) {
+                    CustomData existing = nmsItem.get(DataComponents.CUSTOM_DATA);
+                    if (existing == null) continue;
+                    CompoundTag existingTag = existing.copyTag();
+                    Tag publicBukkitValues = existingTag.get("PublicBukkitValues");
+                    if (publicBukkitValues != null) {
+                        CompoundTag identityOnly = new CompoundTag();
+                        identityOnly.put("PublicBukkitValues", publicBukkitValues);
+                        nmsItem.set(DataComponents.CUSTOM_DATA, CustomData.of(identityOnly));
+                    } else {
+                        nmsItem.remove(DataComponents.CUSTOM_DATA);
+                    }
+                } else {
+                    nmsItem.remove(componentType);
+                }
+            } catch (Exception exception) {
+                Logs.logWarning("Failed to remove component '" + componentKey + "'");
+                Logs.debug(exception);
             }
         }
-    }
-
-    private void handleConfigSectionValue(net.minecraft.nbt.CompoundTag nbt, String key, ConfigurationSection section) {
-        net.minecraft.nbt.CompoundTag compound = new net.minecraft.nbt.CompoundTag();
-        convertConfigToNBT(section, compound);
-        nbt.put(key, compound);
-    }
-
-    private void handleNumberValue(net.minecraft.nbt.CompoundTag nbt, String key, Number number) {
-        if (number instanceof Integer)
-            nbt.putInt(key, number.intValue());
-        else if (number instanceof Double)
-            nbt.putDouble(key, number.doubleValue());
-        else if (number instanceof Float)
-            nbt.putFloat(key, number.floatValue());
-        else if (number instanceof Long)
-            nbt.putLong(key, number.longValue());
-        else if (number instanceof Byte)
-            nbt.putByte(key, number.byteValue());
-        else if (number instanceof Short)
-            nbt.putShort(key, number.shortValue());
-    }
-
-    private void handleListValue(net.minecraft.nbt.CompoundTag nbt, String key, List<?> list) {
-        if (list.isEmpty()) {
-            return;
-        }
-
-        Object first = list.get(0);
-        if (first instanceof String) {
-            net.minecraft.nbt.ListTag stringList = new net.minecraft.nbt.ListTag();
-            for (Object s : list) {
-                stringList.add(net.minecraft.nbt.StringTag.valueOf(s.toString()));
-            }
-            nbt.put(key, stringList);
-        } else if (first instanceof Number) {
-            if (list.stream().anyMatch(element -> !(element instanceof Number))) {
-                Logs.logWarning("Mixed-type numeric list in NBT config for key: " + key);
-                return;
-            }
-
-            List<? extends Number> numbers = list.stream()
-                    .map(element -> (Number) element)
-                    .toList();
-            boolean hasFractional = numbers.stream()
-                    .anyMatch(number -> number instanceof Float || number instanceof Double);
-
-            if (hasFractional) {
-                net.minecraft.nbt.ListTag decimalList = new net.minecraft.nbt.ListTag();
-                numbers.forEach(number -> decimalList.add(net.minecraft.nbt.DoubleTag.valueOf(number.doubleValue())));
-                nbt.put(key, decimalList);
-                return;
-            }
-
-            boolean requiresLong = numbers.stream()
-                    .anyMatch(number -> number.longValue() > Integer.MAX_VALUE || number.longValue() < Integer.MIN_VALUE);
-            if (requiresLong) {
-                nbt.putLongArray(key, numbers.stream().mapToLong(Number::longValue).toArray());
-            } else {
-                nbt.putIntArray(key, numbers.stream().mapToInt(Number::intValue).toArray());
-            }
-        }
+        return NmsAccessors.asBukkitCopy(nmsItem);
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -608,15 +672,15 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
         // Effects handling
         List<Map<?, ?>> effectsMap = section.getMapList("on_consume_effects");
-        if (effectsMap.isEmpty()) {
+        if (!section.contains("on_consume_effects")) {
             template.onConsumeEffects().forEach(consumable::onConsume);
-        } else {
+        } else if (!effectsMap.isEmpty()) {
             for (Map<?, ?> effectSection : effectsMap) {
                 String type = Optional.ofNullable(effectSection.get("type"))
                         .map(Object::toString)
                         .orElse("");
 
-                switch (type.toLowerCase(Locale.ROOT)) {
+                switch (legacyEffectType(type)) {
                     case "apply_effects" -> handleApplyEffects(consumable, effectSection);
                     case "remove_effects" -> handleRemoveEffects(consumable, effectSection);
                     case "clear_all_effects" -> consumable.onConsume(new ClearAllStatusEffectsConsumeEffect());
@@ -650,7 +714,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                     .map(Object::toString)
                     .orElse("");
 
-            switch (type.toLowerCase(Locale.ROOT)) {
+            switch (legacyEffectType(type)) {
                 case "apply_effects" -> addDeathProtectionStatusEffects(effects, effectSection);
                 case "remove_effects" -> addDeathProtectionRemoveEffects(effects, effectSection);
                 case "clear_all_effects" -> effects.add(new ClearAllStatusEffectsConsumeEffect());
@@ -677,6 +741,11 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         }
 
         return effects;
+    }
+
+    private static String legacyEffectType(String type) {
+        String normalized = type.toLowerCase(Locale.ROOT);
+        return normalized.startsWith("minecraft:") ? normalized.substring("minecraft:".length()) : normalized;
     }
 
     private void addDeathProtectionStatusEffects(List<ConsumeEffect> effects, Map<?, ?> effectSection) {

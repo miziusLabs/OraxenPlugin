@@ -76,6 +76,15 @@ public interface NMSHandler {
      */
     ItemStack copyItemNBTTags(@NotNull ItemStack oldItem, @NotNull ItemStack newItem);
 
+    default ItemStack copyItemNBTTags(@NotNull ItemStack oldItem, @NotNull ItemStack newItem,
+                                    @Nullable Object configuredCustomData) {
+        return copyItemNBTTags(oldItem, newItem);
+    }
+
+    default ItemStack preserveDamageResistance(ItemStack oldItem, ItemStack updatedItem) {
+        return updatedItem;
+    }
+
     /**
      * Corrects the BlockData of a placed block.
      * Mainly fired when placing a block against an OraxenNoteBlock due to vanilla
@@ -195,6 +204,18 @@ public interface NMSHandler {
      * @return The modified ItemStack
      */
     ItemStack applyGenericComponents(ItemStack itemStack, Map<String, Object> components);
+
+    /**
+     * Removes configured components from an item. Implementations may preserve implementation-owned
+     * identity data inside custom_data while removing every configured top-level key.
+     *
+     * @param itemStack the ItemStack to modify
+     * @param removed component ids to remove
+     * @return the modified ItemStack
+     */
+    default ItemStack removeGenericComponents(ItemStack itemStack, Set<String> removed) {
+        return itemStack;
+    }
 
     class EmptyNMSHandler implements NMSHandler {
 
