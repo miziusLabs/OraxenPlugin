@@ -16,6 +16,7 @@ import io.th0rgal.oraxen.configs.Message;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.*;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentLayer;
 import io.th0rgal.oraxen.utils.customarmor.ItemEquipment;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.oraxen.utils.AdventureUtils;
@@ -50,6 +51,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 @SuppressWarnings("ALL")
@@ -69,6 +71,8 @@ public class ItemBuilder {
     private Key trimPattern; // TrimPattern
     @Nullable
     private ItemEquipment equipment;
+    @Nullable
+    private Consumer<Collection<EquipmentLayer>> equipmentDefaults;
     private PotionType potionType;
     private List<PotionEffect> potionEffects;
     private OfflinePlayer owningPlayer; // SkullMeta
@@ -440,6 +444,18 @@ public class ItemBuilder {
     public ItemBuilder setEquipment(@Nullable final ItemEquipment equipment) {
         this.equipment = equipment;
         return this;
+    }
+
+    public void deferEquipmentDefaults(@Nullable Consumer<Collection<EquipmentLayer>> defaults) {
+        this.equipmentDefaults = defaults;
+    }
+
+    public void resolveEquipmentDefaults(Collection<EquipmentLayer> layers) {
+        Consumer<Collection<EquipmentLayer>> defaults = equipmentDefaults;
+        if (defaults == null) return;
+        equipmentDefaults = null;
+        defaults.accept(layers);
+        finalItemStack = null;
     }
 
     public boolean hasTrimPattern() {

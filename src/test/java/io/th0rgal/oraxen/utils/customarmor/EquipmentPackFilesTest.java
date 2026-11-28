@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,10 +50,10 @@ class EquipmentPackFilesTest {
     }
 
     @Test
-    void leavesExistingEquipmentJsonAndSkipsCopies() {
+    void leavesExistingEquipmentJsonAndSkipsCopies() throws Exception {
         List<VirtualFile> output = new ArrayList<>();
         output.add(new VirtualFile("assets/oraxen/equipment", "forest.json",
-                new ByteArrayInputStream("custom".getBytes(StandardCharsets.UTF_8))));
+                new ByteArrayInputStream("{\"layers\":{}}".getBytes(StandardCharsets.UTF_8))));
         output.add(new VirtualFile("assets/minecraft/textures/default/armors", "forest_armor_layer_1.png",
                 new ByteArrayInputStream("texture".getBytes(StandardCharsets.UTF_8))));
         Map<EquipmentLayer, String> layers = new EnumMap<>(EquipmentLayer.class);
@@ -64,26 +65,36 @@ class EquipmentPackFilesTest {
         EquipmentPackFiles.generateComponentFiles(output, Map.of("forest", set), SemanticServerVersion.parse("1.21.4"),
                 new ArrayList<>()::add, new ArrayList<>()::add, debug::add);
 
+        VirtualFile equipmentJson = file(output, "assets/oraxen/equipment/forest.json");
+        assertNotNull(equipmentJson);
+        assertEquals("{\"layers\":{}}", new String(equipmentJson.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
         assertNull(file(output, "assets/oraxen/textures/entity/equipment/humanoid/forest.png"));
         assertFalse(debug.isEmpty());
     }
 
     @Test
-    void legacyDetectionIgnoresReferencedTexturesAndEquipmentPrefixes() {
+    void explicitAmethystEquipmentAndLegacyTextureCoexist() throws Exception {
+        byte[] textureBytes = "amethyst-texture".getBytes(StandardCharsets.UTF_8);
         List<VirtualFile> output = new ArrayList<>();
-        output.add(new VirtualFile("assets/minecraft/textures/default/armors", "forest_armor_layer_1.png",
-                new ByteArrayInputStream(new byte[0])));
         output.add(new VirtualFile("assets/minecraft/textures/default/armors", "legacy_armor_layer_1.png",
-                new ByteArrayInputStream(new byte[0])));
-        output.add(new VirtualFile("assets/minecraft/textures/default/armors", "forest_armor_layer_2.png",
-                new ByteArrayInputStream(new byte[0])));
-        Set<String> referenced = Set.of("assets/minecraft/textures/default/armors/forest_armor_layer_1.png");
+                new ByteArrayInputStream(textureBytes)));
+        Map<EquipmentLayer, String> layers = new EnumMap<>(EquipmentLayer.class);
+        layers.put(EquipmentLayer.HUMANOID, "default/armors/legacy_armor_layer_1");
+        EquipmentSet set = new EquipmentSet("amethyst", layers, List.of("amethyst_helmet"),
+                Map.of(EquipmentLayer.HUMANOID, "amethyst_helmet"));
 
-        Set<String> prefixes = ComponentArmorModels.armorPrefixes(output, referenced, Set.of("other"));
+        new ComponentArmorModels().generatePackFiles(output, Map.of("amethyst", set), new HashSet<>(), new HashSet<>(),
+                SemanticServerVersion.parse("1.21.4"));
 
-        assertEquals(Set.of("legacy", "forest"), prefixes);
-        assertEquals(Set.of("legacy"), ComponentArmorModels.armorPrefixes(output, referenced, Set.of("forest")));
-        assertTrue(ComponentArmorModels.armorPrefixes(output, referenced, Set.of("legacy", "forest")).isEmpty());
+        assertNotNull(file(output, "assets/oraxen/equipment/amethyst.json"));
+        assertNotNull(file(output, "assets/oraxen/equipment/legacy.json"));
+        assertArrayEquals(textureBytes, file(output,
+                "assets/oraxen/textures/entity/equipment/humanoid/amethyst.png").getInputStream().readAllBytes());
+        assertArrayEquals(textureBytes, file(output,
+                "assets/oraxen/textures/entity/equipment/humanoid/legacy.png").getInputStream().readAllBytes());
+        VirtualFile original = file(output, "assets/minecraft/textures/default/armors/legacy_armor_layer_1.png");
+        assertNotNull(original);
+        assertArrayEquals(textureBytes, original.getInputStream().readAllBytes());
     }
 
     @Test
@@ -92,7 +103,7 @@ class EquipmentPackFilesTest {
         output.add(new VirtualFile("assets/oraxen/textures/entity/equipment/wings", "magic_elytra.png",
                 new ByteArrayInputStream(new byte[0])));
 
-        assertTrue(ComponentArmorModels.elytraPrefixes(output, Set.of(), Set.of("magic_elytra")).isEmpty());
+        assertTrue(ComponentArmorModels.elytraPrefixes(output, Set.of("magic_elytra")).isEmpty());
     }
 
     private static VirtualFile file(List<VirtualFile> output, String path) {

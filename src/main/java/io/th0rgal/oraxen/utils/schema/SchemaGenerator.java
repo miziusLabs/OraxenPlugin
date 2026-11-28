@@ -703,14 +703,14 @@ public class SchemaGenerator {
         JsonObject slotProp = new JsonObject();
         slotProp.addProperty("type", "enum");
         slotProp.addProperty("enum", "EquipmentSlot");
-        slotProp.addProperty("required", true);
-        slotProp.addProperty("description", "Equipment slot this item can be equipped to");
+        slotProp.addProperty("description", "Equipment slot. Required without equipment or when no slot can be inferred");
         equipProps.add("slot", slotProp);
         addComponentProp(equipProps, "model", "string", "Model to use when equipped", null, null);
         addComponentProp(equipProps, "equip_sound", "string", "Sound to play when equipped", null, null);
         addComponentProp(equipProps, "dispensable", "boolean", "Can be equipped by dispensers", null, true);
         addComponentProp(equipProps, "swappable", "boolean", "Can be swapped with other equipment", null, true);
         addComponentProp(equipProps, "damage_on_hurt", "boolean", "Takes damage when player is hurt", null, true);
+        addComponentProp(equipProps, "equip_on_interact", "boolean", "Can equip this item on an entity by interacting with it", null, null);
         addComponentProp(equipProps, "camera_overlay", "string", "Texture for camera overlay", null, null);
         equippable.add("properties", equipProps);
         components.add("equippable", equippable);

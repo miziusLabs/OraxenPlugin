@@ -17,8 +17,12 @@ public final class EquipmentSets {
     }
 
     public static Map<String, ItemEquipment> configuredEquipment() {
+        return configuredEquipment(OraxenItems.getEntriesAsMap());
+    }
+
+    public static Map<String, ItemEquipment> configuredEquipment(Map<String, ItemBuilder> items) {
         Map<String, ItemEquipment> equipmentByItem = new LinkedHashMap<>();
-        for (Map.Entry<String, ItemBuilder> entry : OraxenItems.getEntries())
+        for (Map.Entry<String, ItemBuilder> entry : items.entrySet())
             if (entry.getValue().hasEquipment())
                 equipmentByItem.put(entry.getKey(), entry.getValue().getEquipment());
         return equipmentByItem;

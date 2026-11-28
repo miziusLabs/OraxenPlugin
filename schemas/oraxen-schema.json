@@ -8123,8 +8123,7 @@
         "slot": {
           "type": "enum",
           "enum": "EquipmentSlot",
-          "required": true,
-          "description": "Equipment slot this item can be equipped to"
+          "description": "Equipment slot. Required without equipment or when no slot can be inferred"
         },
         "model": {
           "type": "string",
@@ -8148,6 +8147,10 @@
           "type": "boolean",
           "description": "Takes damage when player is hurt",
           "default": true
+        },
+        "equip_on_interact": {
+          "type": "boolean",
+          "description": "Can equip this item on an entity by interacting with it"
         },
         "camera_overlay": {
           "type": "string",

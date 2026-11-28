@@ -1,9 +1,7 @@
 package io.th0rgal.oraxen.utils.customarmor;
 
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.configs.Settings;
@@ -51,16 +49,25 @@ public class TrimArmorDatapack extends OraxenDatapack {
     public void generateAssets(List<VirtualFile> output) {
         Map<String, EquipmentSet> equipmentSets = EquipmentSets.collect(EquipmentSets.configuredEquipment(),
                 Logs::logWarning);
+        Set<String> armorPrefixes = generateResourceAssets(output, equipmentSets);
+        finishGeneration(armorPrefixes, equipmentSets);
+    }
+
+    public Set<String> generateResourceAssets(List<VirtualFile> output, Map<String, EquipmentSet> equipmentSets) {
         Set<String> equipmentTexturePaths = EquipmentPackFiles.referencedTexturePaths(equipmentSets);
-        Set<String> armorPrefixes = armorPrefixes(output, equipmentTexturePaths, equipmentSets.keySet());
+        Set<String> armorPrefixes = armorPrefixes(output, equipmentSets.keySet());
+        EquipmentPackFiles.copyTrimTextures(output, equipmentSets,
+                MinecraftVersion.getCurrentVersion().toSemanticVersion(), Logs::logInfo, Logs::logError);
+        writeTrimAtlas(output, armorPrefixes, equipmentSets);
+        copyArmorLayerTextures(output, equipmentTexturePaths, equipmentSets.keySet());
+        return armorPrefixes;
+    }
+
+    public void finishGeneration(Set<String> armorPrefixes, Map<String, EquipmentSet> equipmentSets) {
         datapackFolder.toPath().resolve("data").toFile().mkdirs();
         writeMCMeta();
         writeVanillaTrimPattern();
         writeCustomTrimPatterns(armorPrefixes, equipmentSets);
-        writeTrimAtlas(output, armorPrefixes, equipmentSets);
-        copyArmorLayerTextures(output, equipmentTexturePaths, equipmentSets.keySet());
-        EquipmentPackFiles.copyTrimTextures(output, equipmentSets,
-                MinecraftVersion.getCurrentVersion().toSemanticVersion(), Logs::logInfo, Logs::logError);
         logLegacySets(armorPrefixes);
 
         if (isFirstInstall || !datapackEnabled) {
@@ -126,58 +133,30 @@ public class TrimArmorDatapack extends OraxenDatapack {
             Map<String, EquipmentSet> equipmentSets) {
         Optional<VirtualFile> trimsAtlas = output.stream()
                 .filter(v -> v.getPath().equals("assets/minecraft/atlases/armor_trims.json")).findFirst();
+        JsonObject atlasJson = trimsAtlas.map(VirtualFile::toJsonObject).orElseGet(JsonObject::new);
+        JsonArray sourcesArray = atlasJson.has("sources") && atlasJson.get("sources").isJsonArray()
+                ? atlasJson.getAsJsonArray("sources")
+                : new JsonArray();
 
-        // If for some reason the atlas exists already, we append to it
+        JsonArray texturesArray = new JsonArray();
+        for (String armorPrefix : armorPrefixes) {
+            texturesArray.add("oraxen:trims/models/armor/" + armorPrefix);
+            texturesArray.add("oraxen:trims/models/armor/" + armorPrefix + "_leggings");
+        }
+        addEquipmentAtlasTextures(texturesArray, equipmentSets);
+        texturesArray.add("minecraft:trims/models/armor/"
+                + Settings.CUSTOM_ARMOR_TRIMS_MATERIAL.toString().toLowerCase(Locale.ROOT));
+        texturesArray.add("minecraft:trims/models/armor/"
+                + Settings.CUSTOM_ARMOR_TRIMS_MATERIAL.toString().toLowerCase(Locale.ROOT) + "_leggings");
+
+        JsonObject trimSource = sourcesObject.deepCopy();
+        trimSource.add("textures", texturesArray);
+        sourcesArray.add(trimSource);
+        atlasJson.add("sources", sourcesArray);
+
         if (trimsAtlas.isPresent()) {
-            try {
-                String trimsAtlasContent = IOUtils.toString(trimsAtlas.get().getInputStream(), StandardCharsets.UTF_8);
-                JsonObject atlasJson = (JsonObject) JsonParser.parseString(trimsAtlasContent);
-                JsonArray sourcesArray = atlasJson.getAsJsonArray("sources");
-                for (JsonElement element : sourcesArray) {
-                    JsonObject sourceObject = element.getAsJsonObject();
-
-                    // Get the textures array
-                    JsonArray texturesArray = sourceObject.getAsJsonArray("textures");
-                    for (String armorPrefix : armorPrefixes) {
-                        texturesArray.add("oraxen:trims/models/armor/" + armorPrefix);
-                        texturesArray.add("oraxen:trims/models/armor/" + armorPrefix + "_leggings");
-                    }
-                    addEquipmentAtlasTextures(texturesArray, equipmentSets);
-                    texturesArray.add("minecraft:trims/models/armor/"
-                            + Settings.CUSTOM_ARMOR_TRIMS_MATERIAL.toString().toLowerCase(Locale.ROOT));
-                    texturesArray.add("minecraft:trims/models/armor/"
-                            + Settings.CUSTOM_ARMOR_TRIMS_MATERIAL.toString().toLowerCase(Locale.ROOT) + "_leggings");
-
-                    sourceObject.remove("textures");
-                    sourceObject.add("textures", texturesArray);
-                }
-
-                atlasJson.remove("sources");
-                atlasJson.add("sources", sourcesArray);
-                trimsAtlas.get().setInputStream(IOUtils.toInputStream(atlasJson.toString(), StandardCharsets.UTF_8));
-            } catch (IOException e) {
-                Logs.logError("Failed to write the armor trim atlas.");
-                Logs.debug(e);
-            }
+            trimsAtlas.get().setInputStream(IOUtils.toInputStream(atlasJson.toString(), StandardCharsets.UTF_8));
         } else {
-            JsonObject atlasJson = new JsonObject();
-            JsonArray sourcesArray = new JsonArray();
-            JsonArray texturesArray = new JsonArray();
-
-            for (String armorPrefix : armorPrefixes) {
-                texturesArray.add("oraxen:trims/models/armor/" + armorPrefix);
-                texturesArray.add("oraxen:trims/models/armor/" + armorPrefix + "_leggings");
-            }
-            addEquipmentAtlasTextures(texturesArray, equipmentSets);
-            texturesArray.add("minecraft:trims/models/armor/"
-                    + Settings.CUSTOM_ARMOR_TRIMS_MATERIAL.toString().toLowerCase(Locale.ROOT));
-            texturesArray.add("minecraft:trims/models/armor/"
-                    + Settings.CUSTOM_ARMOR_TRIMS_MATERIAL.toString().toLowerCase(Locale.ROOT) + "_leggings");
-
-            sourcesObject.add("textures", texturesArray);
-            sourcesArray.add(sourcesObject);
-            atlasJson.add("sources", sourcesArray);
-
             output.add(new VirtualFile("assets/minecraft/atlases", "armor_trims.json",
                     IOUtils.toInputStream(atlasJson.toString(), StandardCharsets.UTF_8)));
         }
@@ -192,45 +171,65 @@ public class TrimArmorDatapack extends OraxenDatapack {
         }
     }
 
-    private void copyArmorLayerTextures(List<VirtualFile> output, Set<String> excludedTexturePaths,
+    private void copyArmorLayerTextures(List<VirtualFile> output, Set<String> equipmentTexturePaths,
             Set<String> equipmentIds) {
         String armorPath = "assets/minecraft/textures/models/armor/";
         String vanillaTrimPath = "assets/minecraft/textures/trims/models/armor/";
         String oraxenTrimPath = "assets/oraxen/textures/trims/models/armor/";
         String material = Settings.CUSTOM_ARMOR_TRIMS_MATERIAL.toString().toLowerCase(Locale.ROOT);
+        String resourcePath = LegacyArmorTextures.RESOURCE_DIRECTORY;
+        boolean hasImportedLayer1 = output.stream()
+                .anyMatch(file -> file.getPath().equals(vanillaTrimPath + material + ".png"));
+        boolean hasImportedLayer2 = output.stream()
+                .anyMatch(file -> file.getPath().equals(vanillaTrimPath + material + "_leggings.png"));
 
-        for (VirtualFile virtualFile : output) {
+        for (VirtualFile virtualFile : List.copyOf(output)) {
             String path = virtualFile.getPath();
-            if (excludedTexturePaths.contains(path) || path.startsWith(oraxenTrimPath))
+            if (path.startsWith(oraxenTrimPath))
                 continue;
             String armorPrefix = armorPrefix(virtualFile);
-            if (equipmentIds.contains(armorPrefix))
-                continue;
-            if (path.endsWith("_armor_layer_1.png")) {
-                virtualFile.setPath(oraxenTrimPath + armorPrefix + ".png");
-            } else if (path.endsWith("_armor_layer_2.png")) {
-                virtualFile.setPath(oraxenTrimPath + armorPrefix + "_leggings.png");
+            if (!equipmentIds.contains(armorPrefix)) {
+                if (path.endsWith("_armor_layer_1.png")) {
+                    EquipmentPackFiles.moveLegacyTexture(output, virtualFile, oraxenTrimPath + armorPrefix + ".png",
+                            equipmentTexturePaths.contains(path));
+                    continue;
+                } else if (path.endsWith("_armor_layer_2.png")) {
+                    EquipmentPackFiles.moveLegacyTexture(output, virtualFile,
+                            oraxenTrimPath + armorPrefix + "_leggings.png", equipmentTexturePaths.contains(path));
+                    continue;
+                }
             }
 
             if (path.equals(armorPath + material + "_layer_1.png")) {
-                virtualFile.setPath(vanillaTrimPath + material + ".png");
+                if (hasImportedLayer1) {
+                    virtualFile.setInputStream(
+                            OraxenPlugin.get().getResource(resourcePath + "transparent_layer_1.png"));
+                } else {
+                    virtualFile.setPath(vanillaTrimPath + material + ".png");
+                }
             } else if (path.equals(armorPath + material + "_layer_2.png")) {
-                virtualFile.setPath(vanillaTrimPath + material + "_leggings.png");
+                if (hasImportedLayer2) {
+                    virtualFile.setInputStream(
+                            OraxenPlugin.get().getResource(resourcePath + "transparent_layer_2.png"));
+                } else {
+                    virtualFile.setPath(vanillaTrimPath + material + "_leggings.png");
+                }
             }
         }
 
-        String resourcePath = LegacyArmorTextures.RESOURCE_DIRECTORY;
-        if (output.stream().noneMatch(v -> v.getPath().equals(vanillaTrimPath + material + ".png")))
+        if (!EquipmentPackFiles.hasFile(output, vanillaTrimPath + material + ".png"))
             output.add(new VirtualFile(vanillaTrimPath, material + ".png",
                     OraxenPlugin.get().getResource(resourcePath + material + "_layer_1.png")));
-        if (output.stream().noneMatch(v -> v.getPath().equals(vanillaTrimPath + material + "_leggings.png")))
+        if (!EquipmentPackFiles.hasFile(output, vanillaTrimPath + material + "_leggings.png"))
             output.add(new VirtualFile(vanillaTrimPath, material + "_leggings.png",
                     OraxenPlugin.get().getResource(resourcePath + material + "_layer_2.png")));
 
-        output.add(new VirtualFile(armorPath, material + "_layer_1.png",
-                OraxenPlugin.get().getResource(resourcePath + "transparent_layer_1.png")));
-        output.add(new VirtualFile(armorPath, material + "_layer_2.png",
-                OraxenPlugin.get().getResource(resourcePath + "transparent_layer_2.png")));
+        if (!EquipmentPackFiles.hasFile(output, armorPath + material + "_layer_1.png"))
+            output.add(new VirtualFile(armorPath, material + "_layer_1.png",
+                    OraxenPlugin.get().getResource(resourcePath + "transparent_layer_1.png")));
+        if (!EquipmentPackFiles.hasFile(output, armorPath + material + "_layer_2.png"))
+            output.add(new VirtualFile(armorPath, material + "_layer_2.png",
+                    OraxenPlugin.get().getResource(resourcePath + "transparent_layer_2.png")));
     }
 
     private void checkOraxenArmorItems() {
@@ -339,11 +338,9 @@ public class TrimArmorDatapack extends OraxenDatapack {
         sourcesObject.add("permutations", permutationObject);
     }
 
-    private Set<String> armorPrefixes(List<VirtualFile> output, Set<String> excludedTexturePaths,
-            Set<String> equipmentIds) {
+    private Set<String> armorPrefixes(List<VirtualFile> output, Set<String> equipmentIds) {
         return output.stream()
                 .filter(file -> !file.getPath().startsWith("assets/oraxen/textures/trims/models/armor/"))
-                .filter(file -> !excludedTexturePaths.contains(file.getPath()))
                 .map(this::armorPrefix)
                 .filter(StringUtils::isNotBlank)
                 .filter(prefix -> !equipmentIds.contains(prefix))

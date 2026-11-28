@@ -25,28 +25,55 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public final class ItemEquipmentFiller {
 
     private ItemEquipmentFiller() {
     }
 
-    public static void apply(ItemBuilder item, Material type, ConfigurationSection mergedSection) {
+    public static void prepare(ItemBuilder item, Material type, ConfigurationSection mergedSection) {
         ItemEquipment equipment = ItemEquipment.parse(mergedSection);
         item.setEquipment(equipment);
+        item.deferEquipmentDefaults(null);
         if (equipment == null)
             return;
 
         CustomArmorType armorType = CustomArmorType.getSetting();
+        Consumer<Collection<EquipmentLayer>> defaults;
         if (armorType == CustomArmorType.COMPONENT && VersionUtil.atOrAbove("1.21.2"))
-            applyComponent(item, type, mergedSection, equipment);
+            defaults = layers -> applyComponent(item, type, mergedSection, equipment, layers);
         else if (armorType == CustomArmorType.TRIMS)
-            applyTrims(item, type, mergedSection, equipment);
+            defaults = layers -> applyTrims(item, type, mergedSection, equipment, layers);
+        else
+            return;
+
+        if (equipment.layers().isEmpty())
+            item.deferEquipmentDefaults(defaults);
+        else
+            defaults.accept(equipment.layers().keySet());
+    }
+
+    public static void resolveSharedDefaults(Map<String, ItemBuilder> items) {
+        Map<String, EquipmentSet> sets = EquipmentSets.collect(EquipmentSets.configuredEquipment(items), ignored -> {
+        });
+        items.forEach((itemId, item) -> {
+            if (!item.hasEquipment())
+                return;
+            EquipmentSet set = sets.get(item.getEquipment().id());
+            try {
+                item.resolveEquipmentDefaults(set.layers().keySet());
+            } catch (Exception exception) {
+                Logs.logWarning("Failed to resolve equipment defaults for item \"" + itemId + "\".");
+                Logs.debug(exception);
+            }
+        });
     }
 
     private static void applyComponent(ItemBuilder item, Material type, ConfigurationSection mergedSection,
-            ItemEquipment equipment) {
+            ItemEquipment equipment, Collection<EquipmentLayer> layers) {
         ConfigurationSection componentsSection = mergedSection.getConfigurationSection("components");
         ConfigurationSection equippableSection = componentsSection != null
                 ? componentsSection.getConfigurationSection("equippable")
@@ -71,7 +98,7 @@ public final class ItemEquipmentFiller {
             return;
 
         String materialSlot = materialSlotName(type);
-        String slotName = inferSlotName(explicitSlot, materialSlot, equipment.layers().keySet());
+        String slotName = inferSlotName(explicitSlot, materialSlot, layers);
         if (slotName == null) {
             Logs.logError("Item \"" + mergedSection.getName()
                     + "\" has an equipment section but needs components.equippable.slot because no slot could be inferred.");
@@ -88,13 +115,13 @@ public final class ItemEquipmentFiller {
         boolean copiedVanillaDefaults = copyVanillaEquippableDefaults(component, type, equippableSection);
         if ((equippableSection == null || !equippableSection.contains("equip_on_interact")) && !copiedVanillaDefaults
                 && (slotName.equals("BODY") || slotName.equals("SADDLE")))
-            setEquipOnInteract(component, defaultEquipOnInteract(slotName, equipment.layers().keySet()));
+            setEquipOnInteract(component, defaultEquipOnInteract(slotName, layers));
         if (equippableSection == null || !equippableSection.contains("model"))
             component.setModel(NamespacedKey.fromString(equipmentAssetKey(equipment.id())));
         if ((equippableSection == null || !equippableSection.contains("allowed_entity_types"))
                 && (slotName.equals("BODY") || slotName.equals("SADDLE"))) {
             List<EntityType> entityTypes = new ArrayList<>();
-            for (String entityTypeName : allowedEntityTypeNames(slotName, equipment.layers().keySet())) {
+            for (String entityTypeName : allowedEntityTypeNames(slotName, layers)) {
                 EntityType entityType = EnumUtils.getEnum(EntityType.class, entityTypeName);
                 if (entityType != null)
                     entityTypes.add(entityType);
@@ -107,8 +134,8 @@ public final class ItemEquipmentFiller {
     }
 
     private static void applyTrims(ItemBuilder item, Material type, ConfigurationSection mergedSection,
-            ItemEquipment equipment) {
-        if (!usesTrimLayers(equipment.layers().keySet()))
+            ItemEquipment equipment, Collection<EquipmentLayer> layers) {
+        if (!usesTrimLayers(layers))
             return;
 
         if (!mergedSection.contains("trim_pattern"))
@@ -123,7 +150,7 @@ public final class ItemEquipmentFiller {
     }
 
     public static boolean usesTrimLayers(Collection<EquipmentLayer> layers) {
-        return layers.isEmpty() || layers.contains(EquipmentLayer.HUMANOID)
+        return layers.contains(EquipmentLayer.HUMANOID)
                 || layers.contains(EquipmentLayer.HUMANOID_LEGGINGS);
     }
 
@@ -264,7 +291,8 @@ public final class ItemEquipmentFiller {
             return List.of();
         Set<String> entityTypeNames = new LinkedHashSet<>();
         for (EquipmentLayer layer : layers)
-            entityTypeNames.addAll(layer.allowedEntityTypeNames());
+            if (slotName.equals(layer.impliedSlotName()))
+                entityTypeNames.addAll(layer.allowedEntityTypeNames());
         return List.copyOf(entityTypeNames);
     }
 }

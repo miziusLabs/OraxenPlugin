@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import io.th0rgal.oraxen.pack.generation.PackFileCollector;
 import io.th0rgal.oraxen.utils.SemanticServerVersion;
 import io.th0rgal.oraxen.utils.VirtualFile;
+import io.th0rgal.oraxen.utils.logs.Logs;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -136,7 +137,7 @@ public final class EquipmentPackFiles {
         }
     }
 
-    private static VirtualFile copyVirtualFile(VirtualFile source, String targetPath) throws IOException {
+    static VirtualFile copyVirtualFile(VirtualFile source, String targetPath) throws IOException {
         InputStream inputStream = source.getInputStream();
         if (inputStream == null)
             throw new IOException("Texture stream is unavailable");
@@ -152,8 +153,25 @@ public final class EquipmentPackFiles {
         return new VirtualFile(parent, name, new ByteArrayInputStream(bytes));
     }
 
-    private static boolean hasFile(List<VirtualFile> output, String path) {
+    static boolean hasFile(List<VirtualFile> output, String path) {
         return findFile(output, path) != null;
+    }
+
+
+    static void moveLegacyTexture(List<VirtualFile> output, VirtualFile source, String targetPath,
+            boolean retainSource) {
+        if (hasFile(output, targetPath))
+            return;
+        if (!retainSource) {
+            source.setPath(targetPath);
+            return;
+        }
+        try {
+            output.add(copyVirtualFile(source, targetPath));
+        } catch (IOException exception) {
+            Logs.logError("Failed to copy legacy armor texture " + source.getPath() + ".");
+            Logs.debug(exception);
+        }
     }
 
     private static VirtualFile findFile(List<VirtualFile> output, String path) {

@@ -34,7 +34,7 @@ public final class ItemValidator {
             new ItemComponents(section, type).apply(item, mergedSection);
             properties.applyMiscAndVanilla(item, mergedSection);
             new ItemMechanics(section, migrator).apply(item, mergedSection);
-            ItemEquipmentFiller.apply(item, type, mergedSection);
+            ItemEquipmentFiller.prepare(item, type, mergedSection);
             properties.applyAppearance(item);
             item.setOraxenMeta(oraxenMeta);
         } catch (final Exception e) {

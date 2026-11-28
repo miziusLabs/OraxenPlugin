@@ -31,8 +31,16 @@ class ItemEquipmentFillerTest {
     }
 
     @Test
+    void filtersAllowedEntitiesBySelectedSlotForMixedAmethystLayers() {
+        List<EquipmentLayer> layers = List.of(EquipmentLayer.HORSE_BODY, EquipmentLayer.PIG_SADDLE);
+
+        assertEquals(List.of("HORSE", "ZOMBIE_HORSE"), ItemEquipmentFiller.allowedEntityTypeNames("BODY", layers));
+        assertEquals(List.of("PIG"), ItemEquipmentFiller.allowedEntityTypeNames("SADDLE", layers));
+    }
+
+    @Test
     void usesTrimsOnlyForHumanoidLayersOrSetMembers() {
-        assertTrue(ItemEquipmentFiller.usesTrimLayers(Set.of()));
+        assertFalse(ItemEquipmentFiller.usesTrimLayers(Set.of()));
         assertTrue(ItemEquipmentFiller.usesTrimLayers(Set.of(EquipmentLayer.HUMANOID)));
         assertTrue(ItemEquipmentFiller.usesTrimLayers(Set.of(EquipmentLayer.HUMANOID_LEGGINGS)));
         assertTrue(ItemEquipmentFiller.usesTrimLayers(Set.of(EquipmentLayer.HUMANOID, EquipmentLayer.WINGS)));

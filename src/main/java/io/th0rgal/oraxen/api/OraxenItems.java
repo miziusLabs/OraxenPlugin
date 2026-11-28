@@ -13,6 +13,7 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.pack.generation.DuplicationHandler;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.VersionUtil;
+import io.th0rgal.oraxen.utils.customarmor.ItemEquipmentFiller;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.bukkit.Bukkit;
@@ -89,6 +90,7 @@ public class OraxenItems {
                 }
                 loadedItems.addAll(subMap.keySet());
             }
+            ItemEquipmentFiller.resolveSharedDefaults(loadedItemsById);
             ensureComponentDataHandled(loadedMap, loadedItemsById);
             // Allocate render model data during item loading, before Folia regions or async
             // pack generation can request furniture variants concurrently.
