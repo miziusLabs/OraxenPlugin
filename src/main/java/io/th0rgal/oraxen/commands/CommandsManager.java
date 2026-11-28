@@ -57,7 +57,8 @@ public class CommandsManager {
                         (new SchemaCommand()).getSchemaCommand(),
                         (new StudioCommand()).getStudioCommand(),
                         (new RemoveBrandingCommand()).getRemoveBrandingCommand(),
-                        (new RemoveDefaultsCommand()).getRemoveDefaultsCommand())
+                        (new RemoveDefaultsCommand()).getRemoveDefaultsCommand(),
+                        (new MigrateStringBlockCommand()).getMigrateStringBlockCommand())
                 .executes((sender, args) -> {
                     openInventoryOrHelp(sender);
                 });

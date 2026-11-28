@@ -6,8 +6,8 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanicListener;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
-import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicListener;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockState;
 import io.th0rgal.oraxen.protection.AntiGriefLib;
 import io.th0rgal.oraxen.utils.BlockDataListener;
 import io.th0rgal.oraxen.utils.BlockHelpers;
@@ -28,7 +28,6 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Slab;
-import org.bukkit.block.data.type.Tripwire;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -63,29 +62,29 @@ class AddedBlockPlacementTest extends MechanicTestSupport {
     void stackingHonorsPlacementEvents(String outcome) throws Exception {
         Block block = mock(Block.class);
         BlockState state = mock(BlockState.class);
-        Tripwire oldData = mock(Tripwire.class);
-        Tripwire nextData = mock(Tripwire.class);
         Player player = mock(Player.class);
         ItemStack item = mock(ItemStack.class);
         StringBlockMechanic mechanic = mock(StringBlockMechanic.class);
         when(block.getState()).thenReturn(state);
-        when(block.getBlockData()).thenReturn(oldData);
         when(mechanic.getNextStackVariation(0)).thenReturn(new StringBlockMechanic.StackVariation(2, "stack"));
         when(item.getAmount()).thenReturn(3);
         when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
         List<Object> events = placementEvents(outcome);
+        boolean success = outcome.equals("success");
 
         try (var protection = mockStatic(AntiGriefLib.class);
-             var factory = mockStatic(StringBlockMechanicFactory.class)) {
+             var stringState = mockStatic(StringBlockState.class)) {
             protection.when(() -> AntiGriefLib.canBuild(eq(player), any())).thenReturn(true);
-            factory.when(() -> StringBlockMechanicFactory.getCode(oldData)).thenReturn(0);
-            factory.when(() -> StringBlockMechanicFactory.createTripwireData(2)).thenReturn(nextData);
+            stringState.when(() -> StringBlockState.variation(block)).thenReturn(0);
             var method = StringBlockMechanicListener.class.getDeclaredMethod("handleStackInteraction",
                     StringBlockMechanic.class, Block.class, Player.class, ItemStack.class,
                     EquipmentSlot.class);
             method.setAccessible(true);
             assertEquals(true, method.invoke(new StringBlockMechanicListener(), mechanic, block,
                     player, item, EquipmentSlot.HAND));
+
+            stringState.verify(() -> StringBlockState.mark(block, 2), times(success ? 1 : 0));
+            stringState.verify(() -> StringBlockState.updateDisplay(block, 2), times(success ? 1 : 0));
         }
 
         BlockPlaceEvent place = (BlockPlaceEvent) events.getFirst();
@@ -93,12 +92,10 @@ class AddedBlockPlacementTest extends MechanicTestSupport {
         assertSame(block, place.getBlockAgainst());
         assertSame(EquipmentSlot.HAND, place.getHand());
         assertEquals(outcome.equals("cancel") || outcome.equals("denyBuild") ? 1 : 2, events.size());
-        if (outcome.equals("success")) {
+        if (success) {
             verify(item).setAmount(2);
             verify(mechanic).runPlaceEvents(player);
-            verify(block, never()).setBlockData(oldData, false);
         } else {
-            verify(block).setBlockData(oldData, false);
             verify(item, never()).setAmount(anyInt());
             verify(mechanic, never()).runPlaceEvents(any());
         }

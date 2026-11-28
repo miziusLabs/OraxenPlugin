@@ -11,12 +11,13 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.block.BlockStateCodec;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.block.CustomBlockService;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingListener;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingTask;
-import io.th0rgal.oraxen.nms.NMSHandlers;
-import io.th0rgal.oraxen.utils.PaperConfigUpdater;
+import io.th0rgal.oraxen.utils.BlockHelpers;
+import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.apache.commons.lang3.Range;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -27,10 +28,9 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class StringBlockMechanicFactory extends MechanicFactory {
@@ -38,16 +38,15 @@ public class StringBlockMechanicFactory extends MechanicFactory {
     // Repopulated on reload (a region/command thread on Folia) while every block
     // event handler reads it from other region threads.
     public static final Map<Integer, StringBlockMechanic> BLOCK_PER_VARIATION = new ConcurrentHashMap<>();
-    private static JsonObject variants;
     private static StringBlockMechanicFactory instance;
     public final List<String> toolTypes;
     private boolean sapling;
     private static SaplingTask saplingTask;
     private final int saplingGrowthCheckDelay;
     public final boolean customSounds;
-    public final boolean disableVanillaString;
     private final boolean registerListeners;
     private boolean enabled;
+    private final Map<Integer, String> models = new ConcurrentHashMap<>();
 
     public StringBlockMechanicFactory(ConfigurationSection section) {
         this(section, true);
@@ -58,13 +57,11 @@ public class StringBlockMechanicFactory extends MechanicFactory {
         instance = this;
         BLOCK_PER_VARIATION.clear();
         CustomBlockService.clearStringBlocks();
-        variants = new JsonObject();
-        variants.add("east=false,west=false,south=false,north=false,attached=false,disarmed=false,powered=false", getModelJson("block/barrier"));
+        models.clear();
         toolTypes = section.getStringList("tool_types");
         saplingGrowthCheckDelay = section.getInt("sapling_growth_check_delay");
         sapling = false;
         customSounds = areCustomSoundsEnabled();
-        disableVanillaString = section.getBoolean("disable_vanilla_strings", true);
         this.registerListeners = registerListeners;
         enabled = false;
     }
@@ -108,6 +105,10 @@ public class StringBlockMechanicFactory extends MechanicFactory {
         CustomBlockService.clearStringBlocks();
     }
 
+    public static @NotNull Map<Integer, String> getModels() {
+        StringBlockMechanicFactory factory = instance;
+        return factory != null && factory.enabled ? Map.copyOf(factory.models) : Map.of();
+    }
 
     /**
      * Attempts to set the block directly to the model and texture of an Oraxen item.
@@ -116,43 +117,69 @@ public class StringBlockMechanicFactory extends MechanicFactory {
      * @param itemId The Oraxen item ID.
      */
     public static void setBlockModel(Block block, String itemId) {
-        StringBlockMechanic stringBlockMechanic = getInstance().getMechanic(itemId);
-        block.setBlockData(createTripwireData(stringBlockMechanic.getCustomVariation()));
+        Location location = block.getLocation();
+        if (!Bukkit.isOwnedByCurrentRegion(location)) {
+            SchedulerUtil.runAtLocation(location, () -> setBlockModel(block, itemId));
+            return;
+        }
+
+        StringBlockMechanic mechanic = getInstance().getMechanic(itemId);
+        if (mechanic == null) return;
+
+        Block base = StringBlockState.base(block);
+        Block target = base != null ? base : block;
+        if (target.getType() == Material.TRIPWIRE) return;
+        if (base == null && !canUseCarrierPosition(target)) return;
+
+        boolean tall = mechanic.isTall();
+        if (tall) {
+            Block upper = target.getRelative(BlockFace.UP);
+            if (upper.getY() >= target.getWorld().getMaxHeight()) return;
+            boolean ownUpper = base != null && target.equals(StringBlockState.base(upper));
+            if (!ownUpper && (upper.getType() == Material.TRIPWIRE || StringBlockState.hasMarker(upper) || !canUseCarrierPosition(upper)))
+                return;
+        }
+        if (!tall && base != null) StringBlockState.clearUpper(target);
+        StringBlockState.place(target, mechanic.getCustomVariation(), tall);
     }
 
-    private String getBlockstateContent() {
-        JsonObject tripwire = new JsonObject();
-        tripwire.add("variants", variants);
-        return tripwire.toString();
+    private static boolean canUseCarrierPosition(Block block) {
+        return BlockHelpers.isReplaceable(block.getType()) || block.getType() == StringBlockState.MATERIAL;
+    }
+
+    private void writeItemModels() {
+        if (instance != this || !enabled) return;
+        for (Map.Entry<Integer, String> entry : models.entrySet()) {
+            JsonObject model = new JsonObject();
+            model.addProperty("type", "minecraft:model");
+            model.addProperty("model", entry.getValue());
+            JsonObject definition = new JsonObject();
+            definition.add("model", model);
+            OraxenPlugin.get().getResourcePack().writeStringToVirtual(
+                    "assets/oraxen_string_blocks/items", entry.getKey() + ".json", definition.toString());
+        }
+
+        if (!models.isEmpty()) {
+            JsonObject textures = new JsonObject();
+            textures.addProperty("layer0", "minecraft:item/structure_void");
+            JsonObject fallback = new JsonObject();
+            fallback.addProperty("parent", "minecraft:item/generated");
+            fallback.add("textures", textures);
+            OraxenPlugin.get().getResourcePack().writeStringToVirtual(
+                    "assets/oraxen_string_blocks/models", "legacy_fallback.json", fallback.toString());
+        }
     }
 
     private void enable() {
         if (enabled) return;
         enabled = true;
 
-        // this modifier should be executed when all the items have been parsed, just
-        // before zipping the pack
-        OraxenPlugin.get().getResourcePack().addModifiers(getMechanicID(),
-                packFolder ->
-                        OraxenPlugin.get().getResourcePack()
-                                .writeStringToVirtual("assets/minecraft/blockstates",
-                                        "tripwire.json", getBlockstateContent())
-        );
+        // This modifier runs after all items have been parsed, just before zipping the pack.
+        OraxenPlugin.get().getResourcePack().addModifiers(getMechanicID(), packFolder -> writeItemModels());
         if (!registerListeners) return;
 
         MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new StringBlockMechanicListener(), new SaplingListener());
         if (customSounds) MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new StringBlockSoundListener());
-
-        // Physics-related stuff
-        MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new StringBlockMechanicListener.StringBlockMechanicPaperListener());
-        boolean tripwireUpdatesDisabled = NMSHandlers.isTripwireUpdatesDisabled();
-        if (!tripwireUpdatesDisabled)
-            MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new StringBlockMechanicListener.StringBlockMechanicPhysicsListener());
-        // Warn if Paper config is not set (auto-update happens earlier in plugin enable)
-        if (!tripwireUpdatesDisabled
-                && PaperConfigUpdater.wasBlockUpdateSettingUpdated("disable-tripwire-updates")) {
-            Logs.logWarning("Paper block-updates.disable-tripwire-updates is not enabled, restart may be required");
-        }
     }
 
     @Override
@@ -164,14 +191,13 @@ public class StringBlockMechanicFactory extends MechanicFactory {
             Logs.logWarning("The item has failed to build for now to prevent bugs and issues.");
             return null;
         }
-        variants.add(getBlockstateVariantName(mechanic.getCustomVariation()),
-                getModelJson(mechanic.getModel(itemMechanicConfiguration.getParent()
-                        .getParent())));
+
+        String baseModel = Objects.requireNonNullElse(mechanic.getModel(itemMechanicConfiguration.getParent().getParent()), "minecraft:block/barrier");
+        models.put(mechanic.getCustomVariation(), baseModel);
         StringBlockMechanic previous = CustomBlockService.registerStringBlock(mechanic.getCustomVariation(), mechanic);
         BlockMechanicFactory.logDuplicateVariation(previous, mechanic, mechanic.getCustomVariation());
 
-        // Register stackable variations: each stack level gets its own blockstate entry
-        // but maps back to the parent mechanic for unified drop/interaction handling
+        // Register stackable variations. Each accepted stack level maps back to the parent mechanic.
         for (StringBlockMechanic.StackVariation sv : mechanic.getStackVariations()) {
             if (!Range.between(1, 127).contains(sv.customVariation())) {
                 Logs.logError("Stackable custom_variation " + sv.customVariation() + " of " + mechanic.getItemID() + " must be between 1 and 127!");
@@ -182,10 +208,8 @@ public class StringBlockMechanicFactory extends MechanicFactory {
                 Logs.logError("Stackable custom_variation " + sv.customVariation() + " of " + mechanic.getItemID() + " is already used by " + existing.getItemID() + "!");
                 continue;
             }
-            String stackModel = sv.model() != null ? sv.model()
-                    : mechanic.getModel(itemMechanicConfiguration.getParent().getParent());
-            variants.add(getBlockstateVariantName(sv.customVariation()), getModelJson(stackModel));
-            // Map stack variations back to the parent mechanic
+            String stackModel = sv.model() != null ? sv.model() : baseModel;
+            models.put(sv.customVariation(), stackModel);
             CustomBlockService.registerStringBlock(sv.customVariation(), mechanic);
         }
 
@@ -203,29 +227,30 @@ public class StringBlockMechanicFactory extends MechanicFactory {
         return (StringBlockMechanic) super.getMechanic(itemStack);
     }
 
+    /**
+     * Legacy codec used by migration and compatibility callers. Live string blocks do not
+     * read their identity from tripwire states.
+     */
     public static int getCode(final Tripwire blockData) {
         return BlockStateCodec.decodeTripwireVariation(blockData);
     }
 
     /**
-     * Generate a Tripwire blockdata from its id
+     * Legacy codec used by migration and compatibility callers. Live string blocks use
+     * STRUCTURE_VOID carriers with chunk-persistent identity instead.
      *
-     * @param code The block id.
+     * @param code The legacy variation id.
      */
     public static BlockData createTripwireData(final int code) {
         return BlockStateCodec.encodeTripwireVariation(code);
     }
 
     /**
-     * Generate a NoteBlock blockdata from an oraxen id
+     * Legacy codec used by migration and compatibility callers.
      *
-     * @param itemID The id of an item implementing NoteBlockMechanic
+     * @param itemID The id of an item implementing StringBlockMechanic
      */
     public BlockData createTripwireData(String itemID) {
-        /* We have 16 instruments with 25 notes. All of those blocks can be powered.
-         * That's: 16*25*2 = 800 variations. The first 25 variations of PIANO (not powered)
-         * will be reserved for the vanilla behavior. We still have 800-25 = 775 variations
-         */
         return createTripwireData(((StringBlockMechanic) getInstance().getMechanic(itemID)).getCustomVariation());
     }
 
@@ -245,7 +270,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 
     @Override
     public @Nullable String getMechanicDescription() {
-        return "Creates custom blocks using tripwire states (up to 127 variations)";
+        return "Creates pass-through custom blocks (up to 127 variations)";
     }
 
     @Override

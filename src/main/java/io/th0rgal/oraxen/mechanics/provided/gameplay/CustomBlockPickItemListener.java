@@ -10,7 +10,6 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
 import io.th0rgal.oraxen.utils.inventories.PickItemUtils;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
@@ -32,7 +31,7 @@ public class CustomBlockPickItemListener implements Listener {
     private ItemBuilder getPickedItem(Block block) {
         String itemId = switch (block.getType()) {
             case NOTE_BLOCK -> getNoteBlockItemId(block);
-            case TRIPWIRE -> getStringBlockItemId(block);
+            case STRUCTURE_VOID -> getStringBlockItemId(block);
             case CHORUS_PLANT -> getChorusBlockItemId(block);
             default -> getShapedBlockItemId(block);
         };
@@ -49,10 +48,7 @@ public class CustomBlockPickItemListener implements Listener {
 
     private String getStringBlockItemId(Block block) {
         StringBlockMechanic mechanic = OraxenBlocks.getStringMechanic(block);
-        if (mechanic != null) return mechanic.getItemID();
-
-        StringBlockMechanic mechanicBelow = OraxenBlocks.getStringMechanic(block.getRelative(BlockFace.DOWN));
-        return mechanicBelow != null && mechanicBelow.isTall() ? mechanicBelow.getItemID() : null;
+        return mechanic == null ? null : mechanic.getItemID();
     }
 
     private String getChorusBlockItemId(Block block) {

@@ -212,6 +212,11 @@ sounds:
 
 * Crafting, smelting, blasting, smoking, and stonecutting recipes, with an easy-to-use in-game GUI editor.
 
+
+## Upgrading legacy string blocks
+
+Back up the world before upgrading. Oraxen cannot distinguish legacy custom tripwire from vanilla tripwire automatically. Before setting `block-updates.disable-tripwire-updates` to `false`, look at each known legacy custom string block and run `/oraxen migrate-string-block`. The command only converts the exact targeted block and never scans the world or converts vanilla tripwire automatically. If the legacy block is tall, the command can also convert its old upper half. After migration, set the Paper option to `false` manually and restart the server.
+
 ## Building
 See https://docs.oraxen.com/developers/compiling.
 

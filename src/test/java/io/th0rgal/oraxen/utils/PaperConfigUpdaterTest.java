@@ -29,4 +29,39 @@ class PaperConfigUpdaterTest {
         assertNull(PaperConfigUpdater.tryUpdateSetting("    disable-tripwire-updates: false", SETTING, updated));
         assertEquals(List.of(), updated);
     }
+    @Test
+    void updatesNoteAndChorusWithoutTouchingTripwire() {
+        List<String> lines = new ArrayList<>(List.of(
+                "block-updates:",
+                "    disable-noteblock-updates: false",
+                "    disable-tripwire-updates: false",
+                "    disable-chorus-plant-updates: false # required",
+                "other:",
+                "    disable-noteblock-updates: false"
+        ));
+
+        assertEquals(List.of("disable-noteblock-updates", "disable-chorus-plant-updates"),
+                PaperConfigUpdater.updateBlockSettings(lines));
+        assertEquals(List.of(
+                "block-updates:",
+                "    disable-noteblock-updates: true",
+                "    disable-tripwire-updates: false",
+                "    disable-chorus-plant-updates: true # required",
+                "other:",
+                "    disable-noteblock-updates: false"
+        ), lines);
+    }
+
+    @Test
+    void leavesConfiguredTripwireValueUntouched() {
+        for (String value : List.of("false", "true")) {
+            List<String> lines = new ArrayList<>(List.of(
+                    "block-updates:",
+                    "    disable-tripwire-updates: " + value
+            ));
+            assertEquals(List.of(), PaperConfigUpdater.updateBlockSettings(lines));
+            assertEquals("    disable-tripwire-updates: " + value, lines.get(1));
+        }
+    }
+
 }

@@ -31,7 +31,7 @@ public final class PaperConfigUpdater {
 
     /**
      * Ensures all block update settings are disabled in paper-global.yml.
-     * Updates: disable-noteblock-updates, disable-tripwire-updates, disable-chorus-plant-updates
+     * Updates: disable-noteblock-updates and disable-chorus-plant-updates
      * <p>
      * Intended for Paper 1.20.1+ servers and compatible forks.
      *
@@ -58,41 +58,7 @@ public final class PaperConfigUpdater {
         try {
             List<String> lines = Files.readAllLines(configPath);
             List<String> updatedLines = new ArrayList<>(lines);
-
-            boolean inBlockUpdates = false;
-            int blockUpdatesIndent = -1;
-
-            for (int i = 0; i < updatedLines.size(); i++) {
-                String line = updatedLines.get(i);
-                String trimmed = line.trim();
-
-                // Track when we enter the block-updates section
-                if (trimmed.startsWith("block-updates:")) {
-                    inBlockUpdates = true;
-                    blockUpdatesIndent = getIndent(line);
-                    continue;
-                }
-
-                // Check if we've exited the block-updates section
-                if (inBlockUpdates && !trimmed.isEmpty() && !trimmed.startsWith("#")) {
-                    int currentIndent = getIndent(line);
-                    if (currentIndent <= blockUpdatesIndent) {
-                        inBlockUpdates = false;
-                    }
-                }
-
-                // Process settings within block-updates
-                if (inBlockUpdates) {
-                    String updated = tryUpdateSetting(line, "disable-noteblock-updates", updatedSettings);
-                    if (updated != null) { updatedLines.set(i, updated); continue; }
-
-                    updated = tryUpdateSetting(line, "disable-tripwire-updates", updatedSettings);
-                    if (updated != null) { updatedLines.set(i, updated); continue; }
-
-                    updated = tryUpdateSetting(line, "disable-chorus-plant-updates", updatedSettings);
-                    if (updated != null) { updatedLines.set(i, updated); }
-                }
-            }
+            updatedSettings = updateBlockSettings(updatedLines);
 
             // Only write if we made changes
             if (!updatedSettings.isEmpty()) {
@@ -105,6 +71,47 @@ public final class PaperConfigUpdater {
         }
 
         updatedBlockUpdateSettings = Set.copyOf(updatedSettings);
+        return updatedSettings;
+    }
+
+
+    /**
+     * Updates noteblock and chorus block-update settings in the supplied mutable lines.
+     * Tripwire settings are intentionally left untouched because stock tripwire behavior
+     * is required by vanilla string placement, redstone, shears, water, and visuals.
+     *
+     * @return names of settings changed from false to true
+     */
+    static List<String> updateBlockSettings(List<String> lines) {
+        List<String> updatedSettings = new ArrayList<>();
+        boolean inBlockUpdates = false;
+        int blockUpdatesIndent = -1;
+
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            String trimmed = line.trim();
+
+            if (trimmed.startsWith("block-updates:")) {
+                inBlockUpdates = true;
+                blockUpdatesIndent = getIndent(line);
+                continue;
+            }
+
+            if (inBlockUpdates && !trimmed.isEmpty() && !trimmed.startsWith("#")) {
+                int currentIndent = getIndent(line);
+                if (currentIndent <= blockUpdatesIndent) {
+                    inBlockUpdates = false;
+                }
+            }
+
+            if (inBlockUpdates) {
+                String updated = tryUpdateSetting(line, "disable-noteblock-updates", updatedSettings);
+                if (updated != null) { lines.set(i, updated); continue; }
+
+                updated = tryUpdateSetting(line, "disable-chorus-plant-updates", updatedSettings);
+                if (updated != null) lines.set(i, updated);
+            }
+        }
         return updatedSettings;
     }
 

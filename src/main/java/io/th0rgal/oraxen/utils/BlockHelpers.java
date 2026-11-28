@@ -163,7 +163,7 @@ public class BlockHelpers {
         markPDCDirty(block, plugin);
     }
 
-    static boolean hasPDC(Block block, Plugin plugin) {
+    public static boolean hasPDC(Block block, Plugin plugin) {
         return block.getChunk().getPersistentDataContainer().has(blockKey(plugin, block), PersistentDataType.TAG_CONTAINER);
     }
 

@@ -24,7 +24,7 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.storage.StorageMechanic;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
-import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicListener;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockState;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.togglelight.ToggleLightMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.togglelight.ToggleLightMechanicFactory;
@@ -42,7 +42,6 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.MultipleFacing;
 import org.bukkit.block.data.type.NoteBlock;
-import org.bukkit.block.data.type.Tripwire;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -116,7 +115,7 @@ public class OraxenBlocks {
         if (block == null) return false;
         return switch (block.getType()) {
             case NOTE_BLOCK -> getNoteBlockMechanic(block) != null;
-            case TRIPWIRE -> getStringMechanic(block) != null;
+            case STRUCTURE_VOID -> getStringMechanic(block) != null;
             case CHORUS_PLANT -> getChorusMechanic(block) != null;
             default -> getShapedMechanic(block) != null;
         };
@@ -166,7 +165,7 @@ public class OraxenBlocks {
      * @return true if the block is an instance of a StringBlock, otherwise false
      */
     public static boolean isOraxenStringBlock(Block block) {
-        return block.getType() == Material.TRIPWIRE && getStringMechanic(block) != null;
+        return getStringMechanic(block) != null;
     }
 
     /**
@@ -238,7 +237,9 @@ public class OraxenBlocks {
         if (isOraxenNoteBlock(itemID)) {
             return NoteBlockMechanicFactory.getInstance().createNoteBlockData(itemID);
         } else if (isOraxenStringBlock(itemID)) {
-            return StringBlockMechanicFactory.getInstance().createTripwireData(itemID);
+            // The carrier data only selects STRUCTURE_VOID. Use place() to assign the
+            // persistent identity of a configured string block variation.
+            return StringBlockState.MATERIAL.createBlockData();
         } else if (isOraxenChorusBlock(itemID)) {
             return ChorusBlockMechanicFactory.getInstance().createChorusData(itemID);
         } else {
@@ -277,22 +278,54 @@ public class OraxenBlocks {
     }
 
     private static void placeStringBlock(Location location, String itemID) {
-        Block block = location.getBlock();
-        Block blockAbove = block.getRelative(BlockFace.UP);
-        StringBlockMechanicFactory.setBlockModel(block, itemID);
-        StringBlockMechanic mechanic = getStringMechanic(location.getBlock());
+        StringBlockMechanic mechanic = getStringMechanic(itemID);
         if (mechanic == null) return;
-        if (mechanic.isTall()) {
-            if (!BlockHelpers.isReplaceable(blockAbove.getType())) return;
-            else blockAbove.setType(Material.TRIPWIRE);
+        placeStringBlock(location.getBlock(), mechanic, mechanic.getCustomVariation());
+    }
+
+    /**
+     * Places or completes a string block on the region thread owning {@code block}.
+     * The carrier position must be replaceable, an unmarked STRUCTURE_VOID, or the same
+     * marked base staged by custom placement. Vanilla tripwire and unrelated marked blocks
+     * are never overwritten.
+     */
+    public static boolean placeStringBlock(Block block, StringBlockMechanic mechanic, int variation) {
+        if (!Bukkit.isOwnedByCurrentRegion(block)) return false;
+        if (!mechanic.isStackVariation(variation)) return false;
+        if (!isHeightValid(block)) return false;
+
+        Block existingBase = StringBlockState.base(block);
+        boolean stagedSameBase = existingBase != null && existingBase.equals(block)
+                && StringBlockState.variation(block) == variation;
+        if (block.getType() == Material.TRIPWIRE) return false;
+        if (!stagedSameBase && (StringBlockState.hasMarker(block) || !canUseStringCarrierPosition(block))) return false;
+
+        Block upper = block.getRelative(BlockFace.UP);
+        boolean tall = mechanic.isTall();
+        if (tall) {
+            if (!isHeightValid(upper)) return false;
+            boolean stagedUpper = stagedSameBase && upper.getType() == StringBlockState.MATERIAL
+                    && StringBlockState.base(upper) != null && StringBlockState.base(upper).equals(block);
+            if (upper.getType() == Material.TRIPWIRE) return false;
+            if (!stagedUpper && (StringBlockState.hasMarker(upper) || !canUseStringCarrierPosition(upper))) return false;
         }
 
+        StringBlockState.place(block, variation, tall);
         createInitialLight(block, mechanic.getItemID());
         if (mechanic.isSapling()) {
             SaplingMechanic sapling = mechanic.getSaplingMechanic();
             if (sapling != null && sapling.canGrowNaturally())
                 BlockHelpers.getPDC(block).set(SAPLING_KEY, PersistentDataType.INTEGER, sapling.getNaturalGrowthTime());
         }
+        return true;
+    }
+
+    private static boolean canUseStringCarrierPosition(Block block) {
+        return BlockHelpers.isReplaceable(block.getType()) || block.getType() == StringBlockState.MATERIAL;
+    }
+
+    private static boolean isHeightValid(Block block) {
+        return block.getY() >= block.getWorld().getMinHeight() && block.getY() < block.getWorld().getMaxHeight();
     }
 
     private static void placeChorusBlock(Location location, String itemID) {
@@ -487,14 +520,16 @@ public class OraxenBlocks {
     }
 
     private static boolean removeStringBlock(Block block, @Nullable Player player, @Nullable Drop overrideDrop) {
-        StringBlockMechanic mechanic = getStringMechanic(block);
+        Block base = StringBlockState.base(block);
+        if (base == null) return false;
+        int variation = StringBlockState.variation(base);
+        StringBlockMechanic mechanic = getStringMechanic(base);
         if (mechanic == null) return false;
 
         // For stackable blocks, multiply drops by the stack level
         ItemStack tool = player != null ? player.getInventory().getItemInMainHand() : new ItemStack(Material.AIR);
         Drop effectiveDrop = mechanic.getDrop(tool);
-        if (mechanic.isStackable() && overrideDrop == null && block.getBlockData() instanceof org.bukkit.block.data.type.Tripwire tripwire) {
-            int variation = StringBlockMechanicFactory.getCode(tripwire);
+        if (mechanic.isStackable() && overrideDrop == null) {
             int multiplier = mechanic.getStackDropMultiplier(variation);
             if (multiplier > 1) {
                 List<Loot> multipliedLoots = new ArrayList<>();
@@ -507,23 +542,17 @@ public class OraxenBlocks {
             }
         }
 
-        final Block blockAbove = block.getRelative(BlockFace.UP);
         final Drop dropForEvent = effectiveDrop;
-        return removeCustomBlock(block, player, overrideDrop,
+        return removeCustomBlock(base, player, overrideDrop,
                 mechanic, mechanic.getItemID(), dropForEvent,
-                (m, p) -> new OraxenStringBlockBreakEvent(m, block, p),
+                (m, p) -> new OraxenStringBlockBreakEvent(m, base, p),
                 OraxenStringBlockBreakEvent::getDrop,
                 OraxenStringBlockBreakEvent::setDrop,
                 () -> {
-                    if (mechanic.isTall()) blockAbove.setType(Material.AIR);
+                    StringBlockState.clearDisplay(base);
+                    StringBlockState.clearUpper(base);
                 },
-                () -> {
-                    SchedulerUtil.runAtLocationLater(block.getLocation(), 1L, () -> {
-                        StringBlockMechanicListener.fixClientsideUpdate(block.getLocation());
-                        if (blockAbove.getType() == Material.TRIPWIRE)
-                            removeStringBlock(blockAbove, player, overrideDrop);
-                    });
-                });
+                null);
     }
 
     private static boolean removeChorusBlock(Block block, @Nullable Player player, @Nullable Drop overrideDrop) {
@@ -655,20 +684,18 @@ public class OraxenBlocks {
         return mechanic instanceof NoteBlockMechanic noteBlockMechanic ? noteBlockMechanic : null;
     }
 
+    /**
+     * Raw block data cannot carry string-block identity. A placed block is required because
+     * identity lives in the block's chunk-persistent data.
+     */
     @org.jetbrains.annotations.Nullable
     public static StringBlockMechanic getStringMechanic(BlockData blockData) {
-        if (!StringBlockMechanicFactory.isEnabled()) return null;
-        if (!(blockData instanceof Tripwire tripwire)) return null;
-        return StringBlockMechanicFactory.getBlockMechanic(BlockStateCodec.decodeTripwireVariation(tripwire));
+        return null;
     }
 
     @org.jetbrains.annotations.Nullable
     public static StringBlockMechanic getStringMechanic(Block block) {
-        if (!StringBlockMechanicFactory.isEnabled()) return null;
-        if (block.getType() == Material.TRIPWIRE) {
-            final Tripwire tripwire = (Tripwire) block.getBlockData();
-            return StringBlockMechanicFactory.getBlockMechanic(BlockStateCodec.decodeTripwireVariation(tripwire));
-        } else return null;
+        return CustomBlockService.getStringBlock(block);
     }
 
     @org.jetbrains.annotations.Nullable

@@ -18,7 +18,7 @@ public class StringBlockSoundListener implements Listener {
         if (!StringBlockMechanicFactory.isEnabled() || !StringBlockMechanicFactory.areCustomSoundsEnabled()) return;
         BlockAudioEngine.playPistonBreakSounds(
                 event,
-                Material.TRIPWIRE,
+                Material.STRUCTURE_VOID,
                 OraxenBlocks::getStringMechanic,
                 StringBlockMechanic::isImmovable,
                 StringBlockMechanic::getBlockSounds

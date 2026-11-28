@@ -49,7 +49,6 @@ block:
     - NETHERITE
   farmblock-check-delay: 1000
   sapling-growth-check-delay: 4000
-  disable-vanilla-strings: false
   remove-mineable-tag: false
   convert-vanilla-waxed: true
   handle-world-generation: true

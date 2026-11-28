@@ -116,7 +116,7 @@ public class CustomBlockMiningListener implements Listener {
                     mechanic.getAttributeSpeedMultiplier(tool, block.getType()), false) : null;
         }
 
-        if (block.getType() == Material.TRIPWIRE) {
+        if (block.getType() == Material.STRUCTURE_VOID) {
             final StringBlockMechanic mechanic = OraxenBlocks.getStringMechanic(block);
             return mechanic != null && mechanic.hasHardness(tool) ? new MiningProfile(block, mechanic.getHardness(tool),
                     mechanic.getAttributeSpeedMultiplier(tool, block.getType()), false) : null;

@@ -141,7 +141,7 @@ public class OraxenPlugin extends JavaPlugin {
         if (CustomPaintingRegistry.supportsCustomPaintings())
             reloadCustomPaintings();
 
-        // Auto-update Paper config for block updates (noteblock, tripwire, chorus)
+        // Auto-update Paper config for block updates (noteblock and chorus)
         var updatedSettings = PaperConfigUpdater.ensureAllBlockUpdatesDisabled();
         if (!updatedSettings.isEmpty()) {
             Logs.logSuccess("Auto-updated paper-global.yml: enabled " + String.join(", ", updatedSettings) + " (restart required)");

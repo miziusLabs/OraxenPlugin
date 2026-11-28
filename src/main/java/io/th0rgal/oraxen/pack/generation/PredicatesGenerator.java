@@ -6,6 +6,8 @@ import com.google.gson.JsonParser;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.items.OraxenMeta;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockState;
 import io.th0rgal.oraxen.utils.ItemUtils;
 import io.th0rgal.oraxen.utils.Utils;
 import org.apache.commons.io.FilenameUtils;
@@ -18,6 +20,7 @@ import org.bukkit.inventory.meta.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class PredicatesGenerator {
 
@@ -201,6 +204,15 @@ public class PredicatesGenerator {
                 }
             }
 
+        }
+
+        if (material == Material.STRUCTURE_VOID && !StringBlockMechanicFactory.getModels().isEmpty()) {
+            StringBlockMechanicFactory.getModels().entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> overrides.add(getOverride("custom_model_data",
+                            StringBlockState.LEGACY_MODEL_DATA_BASE + entry.getKey(), entry.getValue())));
+            overrides.add(getOverride("custom_model_data",
+                    StringBlockState.LEGACY_MODEL_DATA_BASE + 128, "oraxen_string_blocks:legacy_fallback"));
         }
         json.add("overrides", overrides);
     }

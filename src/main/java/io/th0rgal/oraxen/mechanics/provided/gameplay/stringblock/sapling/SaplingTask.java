@@ -4,6 +4,7 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.compatibilities.provided.worldedit.WrappedWorldEdit;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockState;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.BlockHelpers;
 import io.th0rgal.oraxen.utils.PluginUtils;
@@ -60,7 +61,7 @@ public class SaplingTask implements Runnable {
 
     private void processSapling(Block block) {
         PersistentDataContainer pdc = BlockHelpers.getPDC(block);
-        if (pdc.has(SAPLING_KEY, PersistentDataType.INTEGER) && block.getType() == Material.TRIPWIRE) {
+        if (pdc.has(SAPLING_KEY, PersistentDataType.INTEGER) && block.getType() == StringBlockState.MATERIAL) {
             StringBlockMechanic string = OraxenBlocks.getStringMechanic(block);
             if (string == null || !string.isSapling()) return;
 
@@ -73,14 +74,14 @@ public class SaplingTask implements Runnable {
 
             int growthTimeRemains = pdc.getOrDefault(SAPLING_KEY, PersistentDataType.INTEGER, 0) - delay;
             if (growthTimeRemains <= 0) {
-                block.setType(Material.AIR, false);
+                if (!OraxenBlocks.remove(block.getLocation(), null)) return;
                 if (sapling.hasGrowSound())
                     AdventureUtils.playSound(block.getLocation(), sapling.getGrowSound(), Sound.Source.MASTER, 1.0f, 0.8f);
                 WrappedWorldEdit.pasteSchematic(block.getLocation(), sapling.getSchematic(), sapling.replaceBlocks(), sapling.copyBiomes(), sapling.copyEntities());
             } else {
                 pdc.set(SAPLING_KEY, PersistentDataType.INTEGER, growthTimeRemains);
             }
-        } else if (pdc.has(SAPLING_KEY, PersistentDataType.INTEGER) && block.getType() != Material.TRIPWIRE) {
+        } else if (pdc.has(SAPLING_KEY, PersistentDataType.INTEGER) && block.getType() != StringBlockState.MATERIAL && block.getType() != Material.TRIPWIRE) {
             pdc.remove(SAPLING_KEY);
         }
     }

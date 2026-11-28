@@ -233,7 +233,7 @@ public class StorageMechanic {
 
     public void openStorage(Block block, Player player) {
         Material blockType = block.getType();
-        if (blockType != Material.NOTE_BLOCK && blockType != Material.TRIPWIRE && blockType != Material.CHORUS_PLANT) return;
+        if (blockType != Material.NOTE_BLOCK && blockType != Material.STRUCTURE_VOID && blockType != Material.CHORUS_PLANT) return;
         if (isBlockStorageLocked(block)) return;
         StorageGui storageGui = blockStorages.computeIfAbsent(block, b -> createGui(b, null));
         if (storageGui == null) return;

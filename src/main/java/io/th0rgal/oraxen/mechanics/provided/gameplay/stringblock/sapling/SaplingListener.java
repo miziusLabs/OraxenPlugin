@@ -4,6 +4,7 @@ import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.compatibilities.provided.worldedit.WrappedWorldEdit;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockState;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.BlockHelpers;
 import io.th0rgal.oraxen.utils.PluginUtils;
@@ -36,7 +37,9 @@ public class SaplingListener implements Listener {
         ItemStack item = event.getItem();
 
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getHand() != EquipmentSlot.HAND) return;
-        if (block == null  || block.getType() != Material.TRIPWIRE) return;
+        if (block == null || block.getType() != StringBlockState.MATERIAL) return;
+        block = StringBlockState.base(block);
+        if (block == null) return;
         if (item == null || item.getType() != Material.BONE_MEAL) return;
 
         Location loc = block.getLocation();
@@ -57,7 +60,7 @@ public class SaplingListener implements Listener {
         PersistentDataContainer pdc = BlockHelpers.getPDC(block);
         int growthTimeRemains = pdc.getOrDefault(SAPLING_KEY, PersistentDataType.INTEGER, 0) - sapling.getBoneMealGrowthSpeedup();
         if (growthTimeRemains <= 0) {
-            block.setType(Material.AIR, false);
+            if (!OraxenBlocks.remove(block.getLocation(), null)) return;
             if (sapling.hasGrowSound())
                 AdventureUtils.playSound(player, loc, sapling.getGrowSound(), Sound.Source.MASTER, 1.0f, 0.8f);
             WrappedWorldEdit.pasteSchematic(loc, sapling.getSchematic(), sapling.replaceBlocks(), sapling.copyBiomes(), sapling.copyEntities());

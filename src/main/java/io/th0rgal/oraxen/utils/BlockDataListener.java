@@ -2,6 +2,7 @@ package io.th0rgal.oraxen.utils;
 
 import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.api.OraxenFurniture;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockState;
 import org.bukkit.ExplosionResult;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -15,6 +16,7 @@ import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockFadeEvent;
 import org.bukkit.event.block.BlockFertilizeEvent;
+import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPistonEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
@@ -42,10 +44,34 @@ public final class BlockDataListener implements Listener {
         remove(event.getBlock());
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void protectMarkedStringBlock(BlockPlaceEvent event) {
+        List<BlockState> replacedStates = event instanceof BlockMultiPlaceEvent multiPlaceEvent
+                ? multiPlaceEvent.getReplacedBlockStates()
+                : List.of(event.getBlockReplacedState());
+        for (BlockState replacedState : replacedStates) {
+            if (replacedState.getType() != StringBlockState.MATERIAL
+                    || event.getBlockPlaced().getType() == StringBlockState.MATERIAL) continue;
+            if (!StringBlockState.hasMarker(replacedState.getBlock())) continue;
+            event.setCancelled(true);
+            return;
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        if (!BlockHelpers.isPDCDirty(event.getBlock()) && hasData(event.getBlock()))
+        // Restaging the same marked carrier must not erase its identity. Foreign block
+        // placement still falls through and removes the now-stale block data below.
+        if (event.getBlockReplacedState().getType() == StringBlockState.MATERIAL
+                && event.getBlockPlaced().getType() == StringBlockState.MATERIAL
+                && StringBlockState.hasMarker(event.getBlockPlaced())) return;
+        if (!BlockHelpers.isPDCDirty(event.getBlock()) && hasData(event.getBlock())) {
+            if (event.getBlockPlaced().getType() != StringBlockState.MATERIAL && StringBlockState.hasMarker(event.getBlockPlaced())) {
+                StringBlockState.clearDisplay(event.getBlockPlaced());
+                StringBlockState.clearOrphanedUpper(event.getBlockPlaced());
+            }
             BlockHelpers.removePDC(event.getBlock(), plugin);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -140,10 +166,14 @@ public final class BlockDataListener implements Listener {
     private void remove(Block block) {
         // Run furniture cleanup while the barrier marker can still resolve its base
         // entity. Removing the PDC first would strand the entity and its other blocks.
-        if (OraxenFurniture.hasFurnitureBlockMarker(block))
+        if (OraxenFurniture.hasFurnitureBlockMarker(block)) {
             OraxenFurniture.remove(block.getLocation(), null);
-        else if (OraxenBlocks.getOraxenBlock(block.getLocation()) != null)
+        } else if (OraxenBlocks.getOraxenBlock(block.getLocation()) != null) {
             OraxenBlocks.remove(block.getLocation(), null);
+        } else if (block.getType() != StringBlockState.MATERIAL && StringBlockState.hasMarker(block)) {
+            StringBlockState.clearDisplay(block);
+            StringBlockState.clearOrphanedUpper(block);
+        }
         if (hasData(block)) BlockHelpers.removePDC(block, plugin);
     }
 

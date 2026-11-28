@@ -142,8 +142,13 @@ public class LimitedPlacing {
     private String checkIfOraxenItem(Block block) {
 
         return switch (block.getType()) {
-            case NOTE_BLOCK, TRIPWIRE -> {
-                Mechanic mechanic = OraxenBlocks.getOraxenBlock(block.getBlockData());
+            case NOTE_BLOCK -> {
+                Mechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
+                if (mechanic == null) yield null;
+                else yield mechanic.getItemID();
+            }
+            case STRUCTURE_VOID -> {
+                Mechanic mechanic = OraxenBlocks.getStringMechanic(block);
                 if (mechanic == null) yield null;
                 else yield mechanic.getItemID();
             }

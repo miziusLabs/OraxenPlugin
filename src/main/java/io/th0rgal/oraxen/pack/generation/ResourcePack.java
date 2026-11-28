@@ -5,6 +5,7 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.api.OraxenFurniture;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
 import io.th0rgal.oraxen.api.events.OraxenPackGeneratedEvent;
 import io.th0rgal.oraxen.configs.AppearanceMode;
 import io.th0rgal.oraxen.configs.ResourcesManager;
@@ -1066,7 +1067,12 @@ public class ResourcePack {
     }
 
     private void generatePredicates(final Map<Material, Map<String, ItemBuilder>> texturedItems) {
-        for (final Map.Entry<Material, Map<String, ItemBuilder>> texturedItemsEntry : texturedItems.entrySet()) {
+        Map<Material, Map<String, ItemBuilder>> predicateItems = texturedItems;
+        if (!StringBlockMechanicFactory.getModels().isEmpty() && !predicateItems.containsKey(Material.STRUCTURE_VOID)) {
+            predicateItems = new LinkedHashMap<>(texturedItems);
+            predicateItems.put(Material.STRUCTURE_VOID, Map.of());
+        }
+        for (final Map.Entry<Material, Map<String, ItemBuilder>> texturedItemsEntry : predicateItems.entrySet()) {
             final Material entryMaterial = texturedItemsEntry.getKey();
             final PredicatesGenerator predicatesGenerator = new PredicatesGenerator(entryMaterial,
                     new ArrayList<>(texturedItemsEntry.getValue().values()));

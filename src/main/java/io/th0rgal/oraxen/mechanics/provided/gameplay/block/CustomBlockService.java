@@ -10,12 +10,12 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanicF
 import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockType;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockState;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.MultipleFacing;
 import org.bukkit.block.data.type.NoteBlock;
-import org.bukkit.block.data.type.Tripwire;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,8 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
- * Central lock-free O(1) lookup and registration service for all custom block substrates
- * ({@code NOTE_BLOCK}, {@code TRIPWIRE}, {@code CHORUS_PLANT}, and {@code ShapedBlock} copper variants).
+ * Central lock-free O(1) lookup and registration service for all custom block carriers
+ * ({@code NOTE_BLOCK}, {@code STRUCTURE_VOID}, {@code CHORUS_PLANT}, and {@code ShapedBlock} copper variants).
  */
 public final class CustomBlockService {
 
@@ -118,18 +118,18 @@ public final class CustomBlockService {
         return StringBlockMechanicFactory.BLOCK_PER_VARIATION.get(variation);
     }
 
+    /**
+     * Raw block data cannot carry string-block identity. A placed block is required because
+     * identity lives in the block's chunk-persistent data.
+     */
     public static @Nullable StringBlockMechanic getStringBlock(@Nullable BlockData data) {
-        if (!StringBlockMechanicFactory.isEnabled() || !(data instanceof Tripwire tripwire)) {
-            return null;
-        }
-        return getStringBlock(BlockStateCodec.decodeTripwireVariation(tripwire));
+        return null;
     }
 
     public static @Nullable StringBlockMechanic getStringBlock(@Nullable Block block) {
-        if (block == null || !StringBlockMechanicFactory.isEnabled() || block.getType() != Material.TRIPWIRE) {
-            return null;
-        }
-        return getStringBlock(block.getBlockData());
+        if (block == null || !StringBlockMechanicFactory.isEnabled()) return null;
+        Block base = StringBlockState.base(block);
+        return base == null ? null : getStringBlock(StringBlockState.variation(base));
     }
 
     public static @Nullable ChorusBlockMechanic getChorusBlock(int variation) {
@@ -173,7 +173,7 @@ public final class CustomBlockService {
         if (block == null) return null;
         return switch (block.getType()) {
             case NOTE_BLOCK -> getNoteBlock(block);
-            case TRIPWIRE -> getStringBlock(block);
+            case STRUCTURE_VOID -> getStringBlock(block);
             case CHORUS_PLANT -> getChorusBlock(block);
             default -> getShapedBlock(block);
         };
@@ -183,7 +183,6 @@ public final class CustomBlockService {
         if (blockData == null) return null;
         return switch (blockData.getMaterial()) {
             case NOTE_BLOCK -> getNoteBlock(blockData);
-            case TRIPWIRE -> getStringBlock(blockData);
             case CHORUS_PLANT -> getChorusBlock(blockData);
             // Shaped blocks require a placed Block's chunk PDC marker to distinguish from vanilla waxed copper
             default -> null;

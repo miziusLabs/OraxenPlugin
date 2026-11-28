@@ -158,7 +158,7 @@ public class BreakerSystem implements Listener {
         ShapedBlockMechanic shapedMechanic = OraxenBlocks.getShapedMechanic(block);
         FurnitureMechanic furnitureMechanic = OraxenFurniture.getFurnitureMechanic(block);
         if (block.getType() == Material.NOTE_BLOCK && noteMechanic == null) return;
-        if (block.getType() == Material.TRIPWIRE && stringMechanic == null) return;
+        if (block.getType() == Material.STRUCTURE_VOID && stringMechanic == null) return;
         if (block.getType() == Material.BARRIER && furnitureMechanic == null) return;
 
         // A vanilla client predicts the removal of a mined note block and immediately runs
@@ -379,7 +379,7 @@ public class BreakerSystem implements Listener {
                 event.callEvent();
                 return event.isCancelled();
             }
-            case TRIPWIRE -> {
+            case STRUCTURE_VOID -> {
                 StringBlockMechanic mechanic = OraxenBlocks.getStringMechanic(block);
                 if (mechanic == null) return true;
                 OraxenStringBlockDamageEvent event = new OraxenStringBlockDamageEvent(mechanic, block, player);
@@ -542,7 +542,7 @@ public class BreakerSystem implements Listener {
                 if (!toggles.blocks()) return null;
                 else return mechanic.getBlockSounds();
             }
-            case TRIPWIRE -> {
+            case STRUCTURE_VOID -> {
                 StringBlockMechanic mechanic = OraxenBlocks.getStringMechanic(block);
                 if (mechanic == null || !mechanic.hasBlockSounds()) return null;
                 if (!toggles.stringBlocks()) return null;
@@ -568,7 +568,7 @@ public class BreakerSystem implements Listener {
         if (sounds == null) return null;
         return switch (block.getType()) {
             case NOTE_BLOCK -> sounds.hasHitSound() ? sounds.getHitSound() : "required.wood.hit";
-            case TRIPWIRE -> sounds.hasHitSound() ? sounds.getHitSound() : "block.tripwire.detach";
+            case STRUCTURE_VOID -> sounds.hasHitSound() ? sounds.getHitSound() : "block.tripwire.detach";
             case BARRIER -> sounds.hasHitSound() ? sounds.getHitSound() : "required.stone.hit";
             default -> sounds.hasHitSound() ? sounds.getHitSound() : block.getBlockData().getSoundGroup().getHitSound().getKey().toString();
         };

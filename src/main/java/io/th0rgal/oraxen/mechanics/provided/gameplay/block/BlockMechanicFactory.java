@@ -116,7 +116,6 @@ public class BlockMechanicFactory extends MechanicFactory {
         copyIfPresent(section, "tool-types", "tool_types");
         copyIfPresent(section, "farmblock-check-delay", "farmblock_check_delay");
         copyIfPresent(section, "sapling-growth-check-delay", "sapling_growth_check_delay");
-        copyIfPresent(section, "disable-vanilla-strings", "disable_vanilla_strings");
         copyIfPresent(section, "remove-mineable-tag", "remove_mineable_tag");
         copyIfPresent(section, "convert-vanilla-waxed", "convert_vanilla_waxed");
         copyIfPresent(section, "handle-world-generation", "handle_world_generation");
