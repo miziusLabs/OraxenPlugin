@@ -118,6 +118,11 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     @Override
+    public boolean scheduleFurnitureBedCleanup(org.bukkit.entity.Entity entity, Runnable cleanup, Runnable retired) {
+        return FurnitureBedPackets.scheduleCleanup(entity, cleanup, retired);
+    }
+
+    @Override
     public boolean advanceTimeWithoutEvent(World world, long amount) {
         return NmsAccessors.advanceTimeWithoutEvent(world, amount);
     }

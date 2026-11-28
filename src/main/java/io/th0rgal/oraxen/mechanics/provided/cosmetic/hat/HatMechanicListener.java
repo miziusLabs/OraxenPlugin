@@ -72,7 +72,7 @@ public class HatMechanicListener implements Listener {
         if (item == null || factory.isNotImplementedIn(itemID)) return;
         if (!ItemUtils.isEmpty(inventory.getHelmet())) return;
         if (!player.isSneaking() && BlockHelpers.isInteractable(event.getClickedBlock())
-                && event.useInteractedBlock() == Event.Result.ALLOW) return;
+                && event.useInteractedBlock() != Event.Result.DENY) return;
 
         event.setCancelled(true);
         if (!ArmorEquipEvent.OraxenHatEquipEvent(player, null, item).callEvent()) return;

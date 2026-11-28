@@ -2,6 +2,7 @@ package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.nms.NMSHandler;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.BlockHelpers;
 import io.th0rgal.oraxen.utils.EntityUtils;
@@ -216,30 +217,28 @@ final class FurnitureBeds implements Listener {
     }
 
     static void leave(Player player) {
-        leave(player, false, false);
+        leave(player, sleepers.get(player.getUniqueId()), false);
     }
 
-    private static void leave(Player player, boolean dismounting, boolean immediate) {
-        leave(player, sleepers.get(player.getUniqueId()), dismounting, immediate);
-    }
-
-    private static void leave(Player player, Sleeper sleeper, boolean dismounting, boolean immediate) {
-        if (sleeper == null || !sleepers.remove(player.getUniqueId(), sleeper)) return;
+    private static boolean removeSleeper(UUID playerId, Sleeper sleeper) {
+        if (sleeper == null || !sleepers.remove(playerId, sleeper)) return false;
         if (sleeper.task != null) sleeper.task.cancel();
+        return true;
+    }
+
+    private static void leave(Player player, Sleeper sleeper, boolean dismounting) {
+        if (!removeSleeper(player.getUniqueId(), sleeper)) return;
         NMSHandlers.getHandler().hideFurnitureBed(player);
+        restorePlayer(player, sleeper, dismounting);
+        SchedulerUtil.runOnOwningThread(sleeper.carrier, sleeper.carrier::remove);
+        SchedulerUtil.runForEntityLater(player, 1L, () -> standUp(player, sleeper));
+    }
+
+    private static void restorePlayer(Player player, Sleeper sleeper, boolean dismounting) {
         player.setPose(sleeper.previousPose, sleeper.wasFixedPose);
         if (sleeper.bed.skipNight()) player.setSleepingIgnored(sleeper.wasSleepingIgnored);
         if (sleeper.bed.resetPhantoms()) player.setStatistic(Statistic.TIME_SINCE_REST, 0);
-
-        Entity carrier = sleeper.carrier;
-        if (!dismounting && carrier.equals(player.getVehicle())) player.leaveVehicle();
-        if (immediate) {
-            if (Bukkit.isOwnedByCurrentRegion(carrier)) carrier.remove();
-            standUp(player, sleeper);
-        } else {
-            SchedulerUtil.runOnOwningThread(carrier, carrier::remove);
-            SchedulerUtil.runForEntityLater(player, 1L, () -> standUp(player, sleeper));
-        }
+        if (!dismounting && sleeper.carrier.equals(player.getVehicle())) player.leaveVehicle();
     }
 
     private static void standUp(Player player, Sleeper sleeper) {
@@ -263,13 +262,31 @@ final class FurnitureBeds implements Listener {
     }
 
     static void shutdown() {
+        // On server stop, players disconnect and the non-persistent carriers are dropped.
+        if (Bukkit.isStopping()) {
+            sleepers.clear();
+            return;
+        }
+        if (sleepers.isEmpty()) return;
+        NMSHandler handler = NMSHandlers.getHandler();
         sleepers.forEach((playerId, sleeper) -> {
             Player player = Bukkit.getPlayer(playerId);
-            if (player != null && Bukkit.isOwnedByCurrentRegion(player)) leave(player, false, true);
-            else {
-                sleepers.remove(playerId, sleeper);
-                if (Bukkit.isOwnedByCurrentRegion(sleeper.carrier)) sleeper.carrier.remove();
-            }
+            Entity carrier = sleeper.carrier;
+            Runnable retired = () -> {
+                if (removeSleeper(playerId, sleeper))
+                    handler.scheduleFurnitureBedCleanup(carrier, carrier::remove, null);
+            };
+            Runnable wake = () -> {
+                if (!removeSleeper(playerId, sleeper)) return;
+                handler.hideFurnitureBed(player);
+                restorePlayer(player, sleeper, false);
+                if (Bukkit.isOwnedByCurrentRegion(carrier)) carrier.remove();
+                else handler.scheduleFurnitureBedCleanup(carrier, carrier::remove, null);
+                if (Bukkit.isOwnedByCurrentRegion(sleeper.head)) standUp(player, sleeper);
+            };
+            if (player == null) retired.run();
+            else if (Bukkit.isOwnedByCurrentRegion(player)) wake.run();
+            else if (!handler.scheduleFurnitureBedCleanup(player, wake, retired)) retired.run();
         });
     }
 
@@ -285,13 +302,12 @@ final class FurnitureBeds implements Listener {
 
     private static void leaveLater(UUID playerId, Sleeper sleeper) {
         Player player = Bukkit.getPlayer(playerId);
-        if (player == null || SchedulerUtil.runForEntity(player, () -> leave(player, sleeper, false, false),
+        if (player == null || SchedulerUtil.runForEntity(player, () -> leave(player, sleeper, false),
                 () -> discard(playerId, sleeper)) == null) discard(playerId, sleeper);
     }
 
     private static void discard(UUID playerId, Sleeper sleeper) {
-        if (!sleepers.remove(playerId, sleeper)) return;
-        if (sleeper.task != null) sleeper.task.cancel();
+        if (!removeSleeper(playerId, sleeper)) return;
         NMSHandlers.getHandler().forgetFurnitureBed(sleeper.playerEntityId);
         // A retired callback cannot remove entities directly.
         SchedulerUtil.runForEntity(sleeper.carrier, sleeper.carrier::remove);
@@ -407,7 +423,8 @@ final class FurnitureBeds implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDismount(EntityDismountEvent event) {
         if (event.getEntity() instanceof Player player
-                && event.getDismounted().getPersistentDataContainer().has(CARRIER_KEY)) leave(player, true, false);
+                && event.getDismounted().getPersistentDataContainer().has(CARRIER_KEY))
+            leave(player, sleepers.get(player.getUniqueId()), true);
     }
 
     @EventHandler

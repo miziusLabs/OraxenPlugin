@@ -36,6 +36,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
@@ -81,7 +82,22 @@ final class FurnitureBedPackets {
     }
 
     void clear() {
-        for (Integer entityId : new ArrayList<>(beds.keySet())) forget(entityId);
+        if (Bukkit.isStopping()) {
+            beds.clear();
+            return;
+        }
+        for (Bed bed : beds.values()) {
+            Player player = bed.sleeper().getBukkitEntity();
+            Runnable forget = () -> forget(bed.sleeper().getId());
+            if (Bukkit.isOwnedByCurrentRegion(player)) hide(player);
+            else if (!scheduleCleanup(player, () -> hide(player), forget)) forget.run();
+        }
+    }
+
+    static boolean scheduleCleanup(org.bukkit.entity.Entity entity, Runnable cleanup, Runnable retired) {
+        // Paper cancels plugin tasks at disable. Queue the final cleanup directly on the entity.
+        return ((CraftEntity) entity).taskScheduler.schedule(
+                target -> cleanup.run(), retired == null ? null : target -> retired.run(), 1L);
     }
 
     void forget(int playerEntityId) {
@@ -254,10 +270,11 @@ final class FurnitureBedPackets {
             Packet<? super ClientGamePacketListener> fallback = new ClientboundBlockUpdatePacket(bed.bedPos(), bed.originalBedState());
             for (UUID viewerId : viewerIds) {
                 Player viewer = Bukkit.getPlayer(viewerId);
-                if (viewer == null || !Bukkit.isOwnedByCurrentRegion(viewer)) continue;
-                if (viewer.isOnline() && viewer.getWorld().getUID().equals(bed.worldId())
-                        && !isBedPosUsed(bed.worldId(), bed.bedPos(), -1))
-                    ((CraftPlayer) viewer).getHandle().connection.send(fallback);
+                if (viewer == null) continue;
+                runOnViewerThread(viewer, bed.worldId(), () -> {
+                    if (!isBedPosUsed(bed.worldId(), bed.bedPos(), -1))
+                        ((CraftPlayer) viewer).getHandle().connection.send(fallback);
+                });
             }
         }
     }
@@ -271,8 +288,8 @@ final class FurnitureBedPackets {
             guarded.run();
             return;
         }
-        if (!isPluginEnabled()) return;
-        SchedulerUtil.runForEntity(viewer, guarded);
+        if (isPluginEnabled()) SchedulerUtil.runForEntity(viewer, guarded);
+        else if (!Bukkit.isStopping()) scheduleCleanup(viewer, guarded, null);
     }
 
     private static boolean isPluginEnabled() {

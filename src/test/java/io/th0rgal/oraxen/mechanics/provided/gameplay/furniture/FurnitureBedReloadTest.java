@@ -16,7 +16,7 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 
@@ -28,9 +28,11 @@ import static org.mockito.Mockito.*;
 
 class FurnitureBedReloadTest {
 
+    private enum Cleanup { RELOAD, DISCONNECTED, DISABLE }
+
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void unregisterCleansUpAnOccupiedBedEvenIfThePlayerDisconnects(boolean disconnected) {
+    @EnumSource(Cleanup.class)
+    void cleansUpAnOccupiedBed(Cleanup cleanup) {
         OraxenPlugin plugin = mock(OraxenPlugin.class);
         when(plugin.namespace()).thenReturn("oraxen");
         when(plugin.isEnabled()).thenReturn(true);
@@ -82,13 +84,19 @@ class FurnitureBedReloadTest {
                 verify(player).setSleepingIgnored(true);
                 verify(player).setPose(Pose.SLEEPING, true);
             } finally {
+                if (cleanup == Cleanup.DISABLE) when(plugin.isEnabled()).thenReturn(false);
                 MechanicsManager.unregisterMechanicFactory("furniture");
             }
             try {
+                if (cleanup == Cleanup.DISABLE) {
+                    verifyDisableCleanup(player, carrier, packets, timer);
+                    return;
+                }
+
                 var wake = ArgumentCaptor.<Consumer<ScheduledTask>>captor();
                 var retired = ArgumentCaptor.forClass(Runnable.class);
                 verify(playerScheduler).run(same(plugin), wake.capture(), retired.capture());
-                if (disconnected) {
+                if (cleanup == Cleanup.DISCONNECTED) {
                     retired.getValue().run();
                     verify(packets).forgetFurnitureBed(42);
                 } else {
@@ -109,5 +117,27 @@ class FurnitureBedReloadTest {
                 FurnitureBeds.leave(player);
             }
         }
+    }
+
+    private void verifyDisableCleanup(Player player, ItemDisplay carrier, NMSHandler packets, ScheduledTask timer) {
+        when(packets.scheduleFurnitureBedCleanup(any(), any(), nullable(Runnable.class))).thenReturn(true);
+        FurnitureBeds.shutdown();
+
+        var wake = ArgumentCaptor.forClass(Runnable.class);
+        verify(packets).scheduleFurnitureBedCleanup(same(player), wake.capture(), any());
+        verify(player, never()).setPose(Pose.STANDING, false);
+        verify(carrier, never()).remove();
+        wake.getValue().run();
+        verify(timer).cancel();
+        verify(packets).hideFurnitureBed(player);
+        verify(player).setPose(Pose.STANDING, false);
+        verify(player).setSleepingIgnored(false);
+        verify(player).leaveVehicle();
+
+        var removeCarrier = ArgumentCaptor.forClass(Runnable.class);
+        verify(packets).scheduleFurnitureBedCleanup(same(carrier), removeCarrier.capture(), isNull());
+        verify(carrier, never()).remove();
+        removeCarrier.getValue().run();
+        verify(carrier).remove();
     }
 }
