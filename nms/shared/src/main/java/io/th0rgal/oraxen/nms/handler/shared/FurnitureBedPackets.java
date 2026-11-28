@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.nms.handler.shared;
 
+import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.utils.SchedulerUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -80,12 +81,10 @@ final class FurnitureBedPackets {
     void forget(int playerEntityId) {
         Bed bed = beds.remove(playerEntityId);
         if (bed == null || bed.viewers().isEmpty()) return;
-        Packet<? super ClientGamePacketListener> restore = new ClientboundBlockUpdatePacket(bed.bedPos(), bed.originalBedState());
-        for (UUID viewerId : bed.viewers()) {
-            Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer == null || !viewer.isOnline() || !viewer.getWorld().getUID().equals(bed.worldId())) continue;
-            ((CraftPlayer) viewer).getHandle().connection.send(restore);
-        }
+        World world = Bukkit.getWorld(bed.worldId());
+        if (world == null) return;
+        Location bedLocation = new Location(world, bed.bedPos().getX(), bed.bedPos().getY(), bed.bedPos().getZ());
+        restoreBedBlocksOnOwningRegion(bed, world, bedLocation, new HashSet<>(bed.viewers()), null);
     }
 
     boolean show(Player player, Location head, float feetYaw) {
@@ -114,10 +113,14 @@ final class FurnitureBedPackets {
         // The carrier entity is hidden from clients, so tracking viewers need an explicit sync to the bed position and orientation.
         // Send the teleport after sleepingPos because LivingEntity#onSyncedDataUpdated snaps the entity to bedPos on the client.
         Packet<? super ClientGamePacketListener> viewerSync = viewerSyncPacket(bed);
+        UUID sleeperId = player.getUniqueId();
         for (Player viewer : player.getTrackedBy()) {
-            if (viewer.getUniqueId().equals(player.getUniqueId()) || !viewer.getWorld().equals(world)) continue;
+            if (viewer.getUniqueId().equals(sleeperId)) continue;
             bed.viewers().add(viewer.getUniqueId());
-            ((CraftPlayer) viewer).getHandle().connection.send(viewerSync);
+            runOnViewerThread(viewer, bed.worldId(), () -> {
+                if (beds.get(sleeper.getId()) == bed)
+                    ((CraftPlayer) viewer).getHandle().connection.send(viewerSync);
+            });
         }
         return true;
     }
@@ -136,30 +139,140 @@ final class FurnitureBedPackets {
         ServerPlayer sleeper = ((CraftPlayer) player).getHandle();
         Bed bed = beds.remove(sleeper.getId());
         if (bed == null) return;
-        restoreBlock(player, bed.bedPos());
-        restoreBlock(player, bed.headPos());
         sleeper.connection.send(new ClientboundSetEntityDataPacket(sleeper.getId(), List.of(
                 SynchedEntityData.DataValue.create(noGravity, sleeper.isNoGravity()),
                 SynchedEntityData.DataValue.create(sleepingPos, sleeper.getSleepingPos()))));
-        Location bedLocation = blockLocation(player, bed.bedPos());
-        BlockState currentBedState = Bukkit.isOwnedByCurrentRegion(bedLocation)
-                ? ((CraftBlockData) player.getWorld().getBlockData(bedLocation)).getState()
-                : bed.originalBedState();
-        Packet<? super ClientGamePacketListener> viewerReset = bundle(
-                new ClientboundBlockUpdatePacket(bed.bedPos(), currentBedState),
-                new ClientboundSetEntityDataPacket(sleeper.getId(), List.of(
-                        SynchedEntityData.DataValue.create(sleepingPos, sleeper.getSleepingPos()))),
-                new ClientboundTeleportEntityPacket(sleeper.getId(),
-                        new PositionMoveRotation(sleeper.position(), Vec3.ZERO, sleeper.getYRot(), sleeper.getXRot()),
-                        Set.of(), sleeper.onGround()));
-        Set<UUID> recipients = new HashSet<>(bed.viewers());
-        for (Player tracker : player.getTrackedBy()) recipients.add(tracker.getUniqueId());
-        recipients.remove(player.getUniqueId());
-        for (UUID viewerId : recipients) {
-            Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer == null || !viewer.isOnline() || !viewer.getWorld().getUID().equals(bed.worldId())) continue;
-            ((CraftPlayer) viewer).getHandle().connection.send(viewerReset);
+
+        Set<UUID> viewers = new HashSet<>(bed.viewers());
+        for (Player tracker : player.getTrackedBy()) viewers.add(tracker.getUniqueId());
+        viewers.remove(player.getUniqueId());
+
+        Packet<? super ClientGamePacketListener> sleepingPosReset = new ClientboundSetEntityDataPacket(sleeper.getId(), List.of(
+                SynchedEntityData.DataValue.create(sleepingPos, sleeper.getSleepingPos())));
+        Packet<? super ClientGamePacketListener> teleportReset = new ClientboundTeleportEntityPacket(sleeper.getId(),
+                new PositionMoveRotation(sleeper.position(), Vec3.ZERO, sleeper.getYRot(), sleeper.getXRot()),
+                Set.of(), sleeper.onGround());
+
+        World world = Bukkit.getWorld(bed.worldId());
+        if (world != null) {
+            Location bedLocation = new Location(world, bed.bedPos().getX(), bed.bedPos().getY(), bed.bedPos().getZ());
+            if (Bukkit.isOwnedByCurrentRegion(bedLocation)) {
+                BlockState currentBedState = ((CraftBlockData) world.getBlockData(bedLocation)).getState();
+                if (player.getWorld().getUID().equals(bed.worldId())) {
+                    if (!isBedPosUsed(bed.worldId(), bed.bedPos(), -1))
+                        sleeper.connection.send(new ClientboundBlockUpdatePacket(bed.bedPos(), currentBedState));
+                    if (bed.headBarrier())
+                        restoreBlock(player, bed.headPos());
+                }
+                sendViewerHide(bed, viewers, currentBedState, sleepingPosReset, teleportReset);
+                return;
+            }
+            sendViewerEntityReset(bed, viewers, sleepingPosReset, teleportReset);
+            restoreBedBlocksOnOwningRegion(bed, world, bedLocation, viewers, player);
+            return;
         }
+        sendViewerEntityReset(bed, viewers, sleepingPosReset, teleportReset);
+    }
+
+    private void sendViewerHide(Bed bed, Set<UUID> viewerIds, BlockState currentBedState,
+                                Packet<? super ClientGamePacketListener> sleepingPosReset,
+                                Packet<? super ClientGamePacketListener> teleportReset) {
+        Packet<? super ClientGamePacketListener> blockRestore = new ClientboundBlockUpdatePacket(bed.bedPos(), currentBedState);
+        int sleeperId = bed.sleeper().getId();
+        for (UUID viewerId : viewerIds) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer == null) continue;
+            runOnViewerThread(viewer, bed.worldId(), () -> {
+                boolean restoreBlock = !isBedPosUsed(bed.worldId(), bed.bedPos(), -1);
+                boolean resetEntity = !beds.containsKey(sleeperId);
+                if (restoreBlock && resetEntity)
+                    ((CraftPlayer) viewer).getHandle().connection.send(bundle(blockRestore, sleepingPosReset, teleportReset));
+                else if (restoreBlock)
+                    ((CraftPlayer) viewer).getHandle().connection.send(blockRestore);
+                else if (resetEntity)
+                    ((CraftPlayer) viewer).getHandle().connection.send(bundle(sleepingPosReset, teleportReset));
+            });
+        }
+    }
+
+    private void sendViewerEntityReset(Bed bed, Set<UUID> viewerIds,
+                                       Packet<? super ClientGamePacketListener> sleepingPosReset,
+                                       Packet<? super ClientGamePacketListener> teleportReset) {
+        int sleeperId = bed.sleeper().getId();
+        Packet<? super ClientGamePacketListener> entityReset = bundle(sleepingPosReset, teleportReset);
+        for (UUID viewerId : viewerIds) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer == null) continue;
+            runOnViewerThread(viewer, bed.worldId(), () -> {
+                if (!beds.containsKey(sleeperId))
+                    ((CraftPlayer) viewer).getHandle().connection.send(entityReset);
+            });
+        }
+    }
+
+    private void restoreBedBlocksOnOwningRegion(Bed bed, World world, Location bedLocation,
+                                                Set<UUID> viewerIds, Player sleeper) {
+        Runnable readAndSend = () -> {
+            if (!world.isChunkLoaded(bed.bedPos().getX() >> 4, bed.bedPos().getZ() >> 4)) return;
+            BlockState currentBedState = ((CraftBlockData) world.getBlockData(bedLocation)).getState();
+            Packet<? super ClientGamePacketListener> bedRestore = new ClientboundBlockUpdatePacket(bed.bedPos(), currentBedState);
+            if (sleeper != null) {
+                BlockState currentHeadState = bed.headBarrier()
+                        ? ((CraftBlockData) world.getBlockData(new Location(world, bed.headPos().getX(), bed.headPos().getY(), bed.headPos().getZ()))).getState()
+                        : null;
+                runOnViewerThread(sleeper, bed.worldId(), () -> {
+                    boolean restoreBed = !isBedPosUsed(bed.worldId(), bed.bedPos(), -1);
+                    if (restoreBed && currentHeadState != null)
+                        ((CraftPlayer) sleeper).getHandle().connection.send(bundle(
+                                bedRestore, new ClientboundBlockUpdatePacket(bed.headPos(), currentHeadState)));
+                    else if (restoreBed)
+                        ((CraftPlayer) sleeper).getHandle().connection.send(bedRestore);
+                    else if (currentHeadState != null)
+                        ((CraftPlayer) sleeper).getHandle().connection.send(
+                                new ClientboundBlockUpdatePacket(bed.headPos(), currentHeadState));
+                });
+            }
+            for (UUID viewerId : viewerIds) {
+                Player viewer = Bukkit.getPlayer(viewerId);
+                if (viewer == null) continue;
+                runOnViewerThread(viewer, bed.worldId(), () -> {
+                    if (!isBedPosUsed(bed.worldId(), bed.bedPos(), -1))
+                        ((CraftPlayer) viewer).getHandle().connection.send(bedRestore);
+                });
+            }
+        };
+        if (Bukkit.isOwnedByCurrentRegion(bedLocation)) {
+            readAndSend.run();
+        } else if (isPluginEnabled()) {
+            SchedulerUtil.runAtLocation(bedLocation, readAndSend);
+        } else {
+            Packet<? super ClientGamePacketListener> fallback = new ClientboundBlockUpdatePacket(bed.bedPos(), bed.originalBedState());
+            for (UUID viewerId : viewerIds) {
+                Player viewer = Bukkit.getPlayer(viewerId);
+                if (viewer == null || !Bukkit.isOwnedByCurrentRegion(viewer)) continue;
+                if (viewer.isOnline() && viewer.getWorld().getUID().equals(bed.worldId())
+                        && !isBedPosUsed(bed.worldId(), bed.bedPos(), -1))
+                    ((CraftPlayer) viewer).getHandle().connection.send(fallback);
+            }
+        }
+    }
+
+    private static void runOnViewerThread(Player viewer, UUID worldId, Runnable action) {
+        Runnable guarded = () -> {
+            if (!viewer.isOnline() || !viewer.getWorld().getUID().equals(worldId)) return;
+            action.run();
+        };
+        if (Bukkit.isOwnedByCurrentRegion(viewer)) {
+            guarded.run();
+            return;
+        }
+        if (!isPluginEnabled()) return;
+        SchedulerUtil.runForEntity(viewer, guarded);
+    }
+
+    private static boolean isPluginEnabled() {
+        OraxenPlugin plugin = OraxenPlugin.get();
+        return plugin != null && plugin.isEnabled();
     }
 
     private BlockPos findBedPos(World world, Location head, int sleeperId) {
@@ -230,7 +343,8 @@ final class FurnitureBedPackets {
 
     private Bed viewedBed(int entityId, ServerPlayer receiver) {
         Bed bed = beds.get(entityId);
-        return bed == null || bed.sleeper() == receiver ? null : bed;
+        return bed == null || bed.sleeper() == receiver
+                || !bed.worldId().equals(receiver.level().getWorld().getUID()) ? null : bed;
     }
 
     private static PositionMoveRotation position(Bed bed) {
@@ -268,14 +382,15 @@ final class FurnitureBedPackets {
     private Object transformBlockUpdate(ClientboundBlockUpdatePacket update, ServerPlayer receiver) {
         BlockPos pos = update.getPos();
         BlockState state = update.getBlockState();
+        UUID worldId = receiver.level().getWorld().getUID();
         Bed selfBed = beds.get(receiver.getId());
-        if (selfBed != null) {
+        if (selfBed != null && selfBed.worldId().equals(worldId)) {
             BlockState adjusted = selfBed.clientState(pos, state, true);
             if (adjusted != state) return new ClientboundBlockUpdatePacket(pos, adjusted);
         }
         UUID receiverId = receiver.getUUID();
         for (Bed bed : beds.values()) {
-            if (bed.sleeper() == receiver || !bed.viewers().contains(receiverId)) continue;
+            if (bed.sleeper() == receiver || !bed.worldId().equals(worldId) || !bed.viewers().contains(receiverId)) continue;
             BlockState adjusted = bed.clientState(pos, state, false);
             if (adjusted != state) return new ClientboundBlockUpdatePacket(pos, adjusted);
         }
@@ -313,11 +428,13 @@ final class FurnitureBedPackets {
         Vec3 head = bed.head();
         // LivingEntity#baseTick snaps a newly spawned entity to sleepingPos on its first tick, after this bundle runs.
         // Applying sleepingPos + teleport once firstTick has cleared avoids leaving the sleeper at bedPos.
-        Player viewer = receiver.getBukkitEntity();
-        SchedulerUtil.runForEntityLater(viewer, 2L, () -> {
-            if (beds.get(spawn.getId()) != bed || !viewer.isOnline() || !viewer.getWorld().getUID().equals(bed.worldId())) return;
-            ((CraftPlayer) viewer).getHandle().connection.send(viewerSyncPacket(bed));
-        });
+        if (isPluginEnabled()) {
+            Player viewer = receiver.getBukkitEntity();
+            SchedulerUtil.runForEntityLater(viewer, 2L, () -> {
+                if (beds.get(spawn.getId()) != bed || !viewer.isOnline() || !viewer.getWorld().getUID().equals(bed.worldId())) return;
+                ((CraftPlayer) viewer).getHandle().connection.send(viewerSyncPacket(bed));
+            });
+        }
         return new ClientboundBundlePacket(List.of(
                 new ClientboundBlockUpdatePacket(bed.bedPos(), bed.bedState()),
                 new ClientboundAddEntityPacket(spawn.getId(), spawn.getUUID(), head.x, head.y, head.z, 0f,
