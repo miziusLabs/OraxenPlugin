@@ -22,6 +22,9 @@ import io.th0rgal.oraxen.pack.upload.UploadManager;
 import io.th0rgal.oraxen.utils.*;
 import io.th0rgal.oraxen.utils.customarmor.ComponentArmorModels;
 import io.th0rgal.oraxen.utils.customarmor.CustomArmorType;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentPackFiles;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentSet;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentSets;
 import io.th0rgal.oraxen.utils.customarmor.LegacyArmorTextures;
 import io.th0rgal.oraxen.utils.customarmor.TrimArmorDatapack;
 import io.th0rgal.oraxen.utils.logs.Logs;
@@ -229,21 +232,50 @@ public class ResourcePack {
             return;
         }
         try {
-            handleCustomArmor(output);
             applyArmorStandModelOverrides(output);
             Collections.sort(output);
-            submitAsyncPostProcessing(packWorker, output, resolveModelEngineFolder());
+            submitAsyncPackMerge(packWorker, output, resolveModelEngineFolder());
+        } catch (Exception exception) {
+            handleGenerationFailure(packWorker, "sync armor stand model generation", exception);
+        }
+    }
+
+    private void submitAsyncPackMerge(ExecutorService packWorker, List<VirtualFile> output, File modelEngineFolder) {
+        try {
+            packWorker.submit(() -> {
+                try {
+                    if (shutdownRequested) return;
+                    mergeUploadedPacks(output, modelEngineFolder);
+                    if (shutdownRequested) return;
+                    SchedulerUtil.runTask(() -> continuePostMergeOnMain(packWorker, output));
+                } catch (Exception exception) {
+                    handleGenerationFailure(packWorker, "async pack merge", exception);
+                }
+            });
+        } catch (RuntimeException exception) {
+            handleGenerationFailure(packWorker, "async pack merge scheduling", exception);
+        }
+    }
+
+    private void continuePostMergeOnMain(ExecutorService packWorker, List<VirtualFile> output) {
+        if (shutdownRequested) {
+            finishGeneration();
+            return;
+        }
+        try {
+            handleCustomArmor(output);
+            submitAsyncPostProcessing(packWorker, output);
         } catch (Exception exception) {
             handleGenerationFailure(packWorker, "sync custom armor generation", exception);
         }
     }
 
-    private void submitAsyncPostProcessing(ExecutorService packWorker, List<VirtualFile> output, File modelEngineFolder) {
+    private void submitAsyncPostProcessing(ExecutorService packWorker, List<VirtualFile> output) {
         try {
             packWorker.submit(() -> {
                 try {
                     if (shutdownRequested) return;
-                    postProcessOutputAsyncSafe(output, modelEngineFolder);
+                    postProcessOutputAsyncSafe(output);
                     if (shutdownRequested) return;
                     SchedulerUtil.runTask(() -> finishSinglePackOutputOnMain(packWorker, output));
                 } catch (Exception exception) {
@@ -459,6 +491,8 @@ public class ResourcePack {
         List<VirtualFile> output = new ArrayList<>(outputFiles.values());
         collectPackFiles(output);
         applyArmorStandModelOverrides(output);
+        mergeUploadedPacks(output, resolveModelEngineFolder());
+        handleCustomArmor(output);
         postProcessOutput(output);
 
         return output;
@@ -596,7 +630,6 @@ public class ResourcePack {
     private void collectPackFiles(List<VirtualFile> output) {
         try {
             collectPackFilesAsyncSafe(output);
-            handleCustomArmor(output);
             Collections.sort(output);
         } catch (IOException e) {
             Logs.logError("Failed to collect resource pack files; generated output may be incomplete.");
@@ -623,12 +656,11 @@ public class ResourcePack {
      * merges duplicates, filters excluded extensions, and generates sounds.
      */
     private void postProcessOutput(List<VirtualFile> output) {
-        postProcessOutputAsyncSafe(output, resolveModelEngineFolder());
+        postProcessOutputAsyncSafe(output);
         PackPipeline.processSnapshots(output, soundGenerator::generateSound);
     }
 
-    private void postProcessOutputAsyncSafe(List<VirtualFile> output, File modelEngineFolder) {
-        mergeUploadedPacks(output, modelEngineFolder);
+    private void postProcessOutputAsyncSafe(List<VirtualFile> output) {
         JsonObject globalLang = loadGlobalLang();
         PackPipeline.processSnapshots(output, snapshot -> convertGlobalLang(snapshot, globalLang));
         Map<String, Set<String>> malformedFilesByLayer = Settings.VERIFY_PACK_FILES.toBool()
@@ -1492,17 +1524,39 @@ public class ResourcePack {
 
     private void handleCustomArmor(List<VirtualFile> output) {
         CustomArmorType customArmorType = CustomArmorType.getSetting();
+        if (customArmorType == CustomArmorType.NONE)
+            return;
+
+        Map<String, EquipmentSet> equipmentSets = EquipmentSets.collect(EquipmentSets.configuredEquipment(), Logs::logWarning);
+        Set<String> armorPrefixes = new TreeSet<>();
+        Set<String> elytraPrefixes = new TreeSet<>();
+        Set<String> importPrefixes = new TreeSet<>();
+        for (JsonElement entry : mergedImportOverlayEntries)
+            if (entry.isJsonObject() && entry.getAsJsonObject().has("directory"))
+                importPrefixes.add(entry.getAsJsonObject().get("directory").getAsString() + "/");
 
         switch (customArmorType) {
-            case COMPONENT -> componentArmorModels.generatePackFiles(output);
+            case COMPONENT -> {
+                if (componentArmorModels == null)
+                    componentArmorModels = new ComponentArmorModels();
+                PackPipeline.processSnapshots(output, (prefix, snapshot) -> {
+                    if (prefix.isEmpty() || importPrefixes.contains(prefix))
+                        componentArmorModels.generatePackFiles(snapshot, equipmentSets, armorPrefixes, elytraPrefixes);
+                });
+                componentArmorModels.finishGeneration(armorPrefixes, elytraPrefixes, equipmentSets.keySet());
+            }
             case TRIMS -> {
                 if (trimArmorDatapack == null)
                     trimArmorDatapack = new TrimArmorDatapack();
                 trimArmorDatapack.clearOldDataPack();
-                trimArmorDatapack.generateAssets(output);
+                PackPipeline.processSnapshots(output, (prefix, snapshot) -> {
+                    if (prefix.isEmpty() || importPrefixes.contains(prefix))
+                        armorPrefixes.addAll(trimArmorDatapack.generateResourceAssets(snapshot, equipmentSets));
+                });
+                trimArmorDatapack.finishGeneration(armorPrefixes, equipmentSets);
             }
             default -> {
-            } // Handle NONE
+            }
         }
     }
 
@@ -1529,6 +1583,10 @@ public class ResourcePack {
             }
         }
         PackPipeline.mergeNativeFiles(output, !Boolean.FALSE.equals(Settings.MERGE_DUPLICATE_FONTS.getValue()));
+        if (componentArmorModels != null)
+            EquipmentPackFiles.copyLegacyComponentTextures(output);
+        else if (trimArmorDatapack != null)
+            EquipmentPackFiles.copyLegacyTrimTextures(output);
         List<VirtualFile> resolvedFiles = packMerger.mergeWithHigherPriorityFiles(output, preserveNativeOverlays);
         mergedImportOverlayEntries = packMerger.getMergedOverlayEntries();
         output.removeIf(file -> file.getPath().startsWith("assets/") || file.getPath().contains("/assets/")

@@ -49,7 +49,7 @@ public final class ItemComponents {
             applyItemName(item, section, "custom-name");
 
         final ConfigurationSection components = section.getConfigurationSection("components");
-        applyRemainingComponents(item, components);
+        applyRemainingComponents(item, components, section.contains("equipment"));
     }
 
     /**
@@ -69,12 +69,13 @@ public final class ItemComponents {
             item.setDisplayName(name);
     }
 
-    private void applyRemainingComponents(final ItemBuilder item, final ConfigurationSection components) {
+    private void applyRemainingComponents(final ItemBuilder item, final ConfigurationSection components,
+            final boolean hasEquipmentSection) {
         if (components == null || !VersionUtil.atOrAbove("1.20.5"))
             return;
 
         // Handle legacy components for backward compatibility
-        handleLegacyComponents(item, components);
+        handleLegacyComponents(item, components, hasEquipmentSection);
 
         // Handle generic components
         if (VersionUtil.atOrAbove("1.21.3")) {
@@ -103,7 +104,8 @@ public final class ItemComponents {
         return List.of(normalizedKey);
     }
 
-    private void handleLegacyComponents(final ItemBuilder item, final ConfigurationSection components) {
+    private void handleLegacyComponents(final ItemBuilder item, final ConfigurationSection components,
+            final boolean hasEquipmentSection) {
 
         if (OraxenYaml.contains(components, "durability")) {
             item.setDamagedOnBlockBreak(OraxenYaml.getBoolean(components, "durability.damage_block_break"));
@@ -169,7 +171,7 @@ public final class ItemComponents {
                 .ifPresent(deathProtection -> NMSHandlers.getHandler().deathProtectionComponent(item, deathProtection));
 
         Optional.ofNullable(OraxenYaml.getConfigurationSection(components, "equippable"))
-                .ifPresent(equippable -> parseEquippableComponent(item, equippable));
+                .ifPresent(equippable -> parseEquippableComponent(item, equippable, hasEquipmentSection));
 
         Optional.ofNullable(OraxenYaml.getConfigurationSection(components, "use_cooldown")).ifPresent((cooldownSection) -> {
             try {
@@ -338,17 +340,20 @@ public final class ItemComponents {
         item.setToolComponent(toolComponent);
     }
 
-    private void parseEquippableComponent(final ItemBuilder item, final ConfigurationSection equippableSection) {
+    private void parseEquippableComponent(final ItemBuilder item, final ConfigurationSection equippableSection,
+            final boolean hasEquipmentSection) {
         final EquippableComponent equippableComponent = new ItemStack(type).getItemMeta().getEquippable();
 
         final String slot = equippableSection.getString("slot");
-        try {
-            equippableComponent.setSlot(EquipmentSlot.valueOf(slot));
-        } catch (final Exception e) {
-            Logs.logWarning("Error parsing equippable-component in %s...".formatted(section.getName()));
-            Logs.logWarning("Invalid \"slot\"-value %s".formatted(slot));
-            Logs.logWarning("Valid values are: %s".formatted(StringUtils.join(EquipmentSlot.values())));
-            return;
+        if (slot != null || !hasEquipmentSection) {
+            try {
+                equippableComponent.setSlot(EquipmentSlot.valueOf(slot));
+            } catch (final Exception e) {
+                Logs.logWarning("Error parsing equippable-component in %s...".formatted(section.getName()));
+                Logs.logWarning("Invalid \"slot\"-value %s".formatted(slot));
+                Logs.logWarning("Valid values are: %s".formatted(StringUtils.join(EquipmentSlot.values())));
+                return;
+            }
         }
 
         final List<EntityType> entityTypes = equippableSection.getStringList("allowed_entity_types").stream()
@@ -361,6 +366,14 @@ public final class ItemComponents {
             equippableComponent.setDispensable(equippableSection.getBoolean("dispensable", true));
         if (equippableSection.contains("swappable"))
             equippableComponent.setSwappable(equippableSection.getBoolean("swappable", true));
+        if (equippableSection.contains("equip_on_interact")) {
+            try {
+                equippableComponent.setEquipOnInteract(equippableSection.getBoolean("equip_on_interact", true));
+            } catch (final NoSuchMethodError e) {
+                Logs.logWarning("Error setting equip_on_interact: Your server version doesn't support this feature.");
+                Logs.debug(e);
+            }
+        }
 
         Optional.ofNullable(equippableSection.getString("model", null)).map(NamespacedKey::fromString)
                 .ifPresent(equippableComponent::setModel);

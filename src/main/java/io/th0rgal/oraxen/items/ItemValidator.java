@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.items;
 
+import io.th0rgal.oraxen.utils.customarmor.ItemEquipmentFiller;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -33,6 +34,7 @@ public final class ItemValidator {
             new ItemComponents(section, type).apply(item, mergedSection);
             properties.applyMiscAndVanilla(item, mergedSection);
             new ItemMechanics(section, migrator).apply(item, mergedSection);
+            ItemEquipmentFiller.prepare(item, type, mergedSection);
             properties.applyAppearance(item);
             item.setOraxenMeta(oraxenMeta);
         } catch (final Exception e) {

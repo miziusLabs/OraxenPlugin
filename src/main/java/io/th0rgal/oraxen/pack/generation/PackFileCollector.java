@@ -26,7 +26,7 @@ import java.util.*;
  * static pack verification utilities.
  * Extracted from ResourcePack to reduce class size.
  */
-class PackFileCollector {
+public class PackFileCollector {
 
     private final File packFolder;
     private final PackExclusions exclusions;
@@ -240,7 +240,7 @@ class PackFileCollector {
         malformedFiles.computeIfAbsent(assetPath.prefix(), ignored -> new HashSet<>()).add(path);
     }
 
-    static String modelPathToPackPath(String modelPath) {
+    public static String modelPathToPackPath(String modelPath) {
         int separator = modelPath.indexOf(':');
         String namespace = separator < 0 ? "minecraft" : modelPath.substring(0, separator);
         String texturePath = separator < 0 ? modelPath : modelPath.substring(separator + 1);

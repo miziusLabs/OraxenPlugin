@@ -7,6 +7,7 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.MechanicConfigProperty;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentLayer;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -518,6 +519,26 @@ public class SchemaGenerator {
         glowing.addProperty("minecraftVersion", "1.21.4+");
         properties.add("glowing", glowing);
 
+        // equipment
+        JsonObject equipment = new JsonObject();
+        equipment.addProperty("type", "object");
+        equipment.addProperty("description", "Custom equipment textures shared by items with the same equipment id");
+        JsonObject equipmentProperties = new JsonObject();
+        JsonObject equipmentId = new JsonObject();
+        equipmentId.addProperty("type", "string");
+        equipmentId.addProperty("pattern", "^[a-z0-9_.-]+$");
+        equipmentId.addProperty("description", "Shared equipment asset id, defaults to the item id");
+        equipmentProperties.add("id", equipmentId);
+        for (EquipmentLayer layer : EquipmentLayer.values()) {
+            JsonObject layerProperty = new JsonObject();
+            layerProperty.addProperty("type", "string");
+            layerProperty.addProperty("description", "Texture reference for the " + layer.configKey() + " equipment layer");
+            layerProperty.addProperty("minecraftVersion", layer.minimumVersion() + "+");
+            equipmentProperties.add(layer.configKey(), layerProperty);
+        }
+        equipment.add("properties", equipmentProperties);
+        properties.add("equipment", equipment);
+
         // trim_pattern
         addProperty(properties, "trim_pattern", "string", "Armor trim pattern key", false, "namespacedKey", "1.20+");
 
@@ -682,14 +703,14 @@ public class SchemaGenerator {
         JsonObject slotProp = new JsonObject();
         slotProp.addProperty("type", "enum");
         slotProp.addProperty("enum", "EquipmentSlot");
-        slotProp.addProperty("required", true);
-        slotProp.addProperty("description", "Equipment slot this item can be equipped to");
+        slotProp.addProperty("description", "Equipment slot. Required without equipment or when no slot can be inferred");
         equipProps.add("slot", slotProp);
         addComponentProp(equipProps, "model", "string", "Model to use when equipped", null, null);
         addComponentProp(equipProps, "equip_sound", "string", "Sound to play when equipped", null, null);
         addComponentProp(equipProps, "dispensable", "boolean", "Can be equipped by dispensers", null, true);
         addComponentProp(equipProps, "swappable", "boolean", "Can be swapped with other equipment", null, true);
         addComponentProp(equipProps, "damage_on_hurt", "boolean", "Takes damage when player is hurt", null, true);
+        addComponentProp(equipProps, "equip_on_interact", "boolean", "Can equip this item on an entity by interacting with it", null, null);
         addComponentProp(equipProps, "camera_overlay", "string", "Texture for camera overlay", null, null);
         equippable.add("properties", equipProps);
         components.add("equippable", equippable);
