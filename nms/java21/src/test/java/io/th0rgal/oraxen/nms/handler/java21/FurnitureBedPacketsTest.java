@@ -6,8 +6,10 @@ import io.th0rgal.oraxen.utils.SchedulerUtil;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,6 +39,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -288,6 +291,63 @@ class FurnitureBedPacketsTest {
 
             f.packets().hide(f.sleeper());
             verify(f.sleeper()).sendBlockChange(headBlockLoc, barrierData);
+        }
+    }
+
+    @Test
+    void initialFakeHeadAirDoesNotClearHeadBarrierForChunkResends() throws Exception {
+        Fixture f = createFixture(Blocks.AIR.defaultBlockState());
+        Block barrierBlock = mock(Block.class);
+        when(barrierBlock.getType()).thenReturn(Material.BARRIER);
+        when(f.bedWorld().getBlockAt(f.headLocation())).thenReturn(barrierBlock);
+
+        OraxenPlugin plugin = mock(OraxenPlugin.class);
+        when(plugin.isEnabled()).thenReturn(true);
+
+        try (var oraxen = mockStatic(OraxenPlugin.class);
+             var bukkit = mockStatic(Bukkit.class)) {
+            oraxen.when(OraxenPlugin::get).thenReturn(plugin);
+            bukkit.when(() -> Bukkit.createBlockData(Material.RED_BED)).thenReturn(f.fakeBedData());
+            bukkit.when(() -> Bukkit.isOwnedByCurrentRegion(any(Entity.class))).thenReturn(true);
+
+            f.packets().show(f.sleeper(), f.headLocation(), 0f);
+
+            ArgumentCaptor<Packet<?>> sent = ArgumentCaptor.forClass(Packet.class);
+            verify(f.sleeperConnection()).send(sent.capture());
+            ClientboundBundlePacket initialBundle = assertInstanceOf(ClientboundBundlePacket.class, sent.getValue());
+            // Simulate the outgoing show() bundle passing through PacketHandler.transformBundle.
+            for (Packet<? super ClientGamePacketListener> sub : initialBundle.subPackets()) {
+                f.packets().transform(sub, f.sleeperHandle());
+            }
+
+            // A later chunk resend must still append fake air for the barrier at headPos.
+            ClientboundLevelChunkWithLightPacket chunk = mock(ClientboundLevelChunkWithLightPacket.class);
+            when(chunk.getX()).thenReturn(0);
+            when(chunk.getZ()).thenReturn(0);
+            Object transformedChunk = f.packets().transform(chunk, f.sleeperHandle());
+            ClientboundBundlePacket chunkBundle = assertInstanceOf(ClientboundBundlePacket.class, transformedChunk);
+            BlockPos headPos = BlockPos.containing(f.headLocation().getX(), f.headLocation().getY(), f.headLocation().getZ());
+            boolean rehidHeadBarrier = false;
+            for (Packet<? super ClientGamePacketListener> sub : chunkBundle.subPackets()) {
+                if (sub instanceof ClientboundBlockUpdatePacket update
+                        && update.getPos().equals(headPos)
+                        && update.getBlockState().is(Blocks.AIR)) {
+                    rehidHeadBarrier = true;
+                }
+            }
+            assertTrue(rehidHeadBarrier);
+
+            // A real block update replacing the barrier with stone clears headBarrier, so a later chunk resend omits headPos.
+            f.packets().transform(new ClientboundBlockUpdatePacket(headPos, Blocks.STONE.defaultBlockState()), f.sleeperHandle());
+            ClientboundBundlePacket afterRemoval = assertInstanceOf(
+                    ClientboundBundlePacket.class, f.packets().transform(chunk, f.sleeperHandle()));
+            boolean stillHidesHead = false;
+            for (Packet<? super ClientGamePacketListener> sub : afterRemoval.subPackets()) {
+                if (sub instanceof ClientboundBlockUpdatePacket update && update.getPos().equals(headPos)) {
+                    stillHidesHead = true;
+                }
+            }
+            assertEquals(false, stillHidesHead);
         }
     }
 }
