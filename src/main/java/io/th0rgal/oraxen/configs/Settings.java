@@ -83,6 +83,7 @@ public enum Settings {
     EXCLUDED_FILE_EXTENSIONS("pack.excluded-file-extensions"),
     FIX_FORCE_UNICODE_GLYPHS("pack.generation.fix-force-unicode-glyphs"),
     VERIFY_PACK_FILES("pack.verification"),
+    EXCLUDE_UNREFERENCED_ATLAS("pack.atlas.exclude-unreferenced-from-atlas"),
     GENERATE_ATLAS_FILE("pack.generation.atlas.generate"),
     EXCLUDE_MALFORMED_ATLAS("pack.generation.atlas.exclude-malformed-from-atlas"),
     ATLAS_GENERATION_TYPE("pack.generation.atlas.type"),
