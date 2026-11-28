@@ -585,10 +585,7 @@ public class ItemUpdater implements Listener {
                     itemMeta.addEnchant(entry.getKey(), entry.getValue(), true);
             }
 
-            Integer cmd = CustomModelDataHelper.getCustomModelData(newMeta);
-            if (cmd == null)
-                cmd = CustomModelDataHelper.getCustomModelData(oldMeta);
-            CustomModelDataHelper.setCustomModelData(itemMeta, cmd);
+            updateCustomModelData(itemMeta, newMeta, oldMeta);
 
             // If OraxenItem has no lore, we should assume that 3rd-party plugin has added lore
             if (Settings.OVERRIDE_ITEM_LORE.toBool()) {
@@ -717,6 +714,18 @@ public class ItemUpdater implements Listener {
                         ? nmsHandler.deathProtectionComponent(preserved, deathProtectionComponent)
                         : preserved;
         return newItemBuilder.removeConfiguredComponents(updated);
+    }
+
+    static void updateCustomModelData(ItemMeta target, ItemMeta configured, ItemMeta old) {
+        if (VersionUtil.atOrAbove("1.21.4") && CustomModelDataHelper.supportsComponentData()) {
+            if (!CustomModelDataHelper.hasComponentData(configured))
+                CustomModelDataHelper.copyComponentData(old, target);
+            return;
+        }
+        Integer cmd = CustomModelDataHelper.getCustomModelData(configured);
+        if (cmd == null)
+            cmd = CustomModelDataHelper.getCustomModelData(old);
+        CustomModelDataHelper.setCustomModelData(target, cmd);
     }
 
 }

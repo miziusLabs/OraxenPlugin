@@ -18,9 +18,7 @@ import java.util.List;
  * internally, so the integer is represented by the first float on modern Paper.</p>
  */
 public final class CustomModelDataHelper {
-    private static final ModernApi MODERN_API = VersionUtil.atOrAbove("1.21.4")
-            ? ModernApi.create()
-            : null;
+    private static final ModernApi MODERN_API = ModernApi.create();
 
     private CustomModelDataHelper() {
     }
@@ -75,6 +73,21 @@ public final class CustomModelDataHelper {
         return component == null ? null : MODERN_API.read(component);
     }
 
+    public static boolean hasComponentData(@NotNull ItemMeta itemMeta) {
+        return MODERN_API != null && MODERN_API.hasComponent(itemMeta);
+    }
+
+    public static boolean supportsComponentData() {
+        return MODERN_API != null;
+    }
+
+    public static boolean copyComponentData(@NotNull ItemMeta source, @NotNull ItemMeta target) {
+        if (MODERN_API == null || !MODERN_API.hasComponent(source))
+            return false;
+        MODERN_API.setComponent(target, MODERN_API.getComponent(source));
+        return true;
+    }
+
     /**
      * Updates the supplied modern fields while retaining fields represented by
      * {@code null}, as well as the component's flags and colors.
@@ -116,6 +129,7 @@ public final class CustomModelDataHelper {
     }
 
     private static final class ModernApi {
+        private final @Nullable Method hasComponent;
         private final Method getComponent;
         private final Method setComponent;
         private final Method setComponentFloats;
@@ -127,11 +141,12 @@ public final class CustomModelDataHelper {
         private final Method setComponentColors;
         private final Method getComponentColors;
 
-        private ModernApi(Method getComponent, Method setComponent,
+        private ModernApi(@Nullable Method hasComponent, Method getComponent, Method setComponent,
                           Method setComponentFloats, Method getComponentFloats,
                           Method setComponentStrings, Method getComponentStrings,
                           Method setComponentFlags, Method getComponentFlags,
                           Method setComponentColors, Method getComponentColors) {
+            this.hasComponent = hasComponent;
             this.getComponent = getComponent;
             this.setComponent = setComponent;
             this.setComponentFloats = setComponentFloats;
@@ -148,7 +163,14 @@ public final class CustomModelDataHelper {
             try {
                 Class<?> componentType = Class.forName(
                         "org.bukkit.inventory.meta.components.CustomModelDataComponent");
+                Method hasComponent;
+                try {
+                    hasComponent = ItemMeta.class.getMethod("hasCustomModelDataComponent");
+                } catch (NoSuchMethodException ignored) {
+                    hasComponent = null;
+                }
                 return new ModernApi(
+                        hasComponent,
                         ItemMeta.class.getMethod("getCustomModelDataComponent"),
                         ItemMeta.class.getMethod("setCustomModelDataComponent", componentType),
                         componentType.getMethod("setFloats", List.class),
@@ -175,6 +197,12 @@ public final class CustomModelDataHelper {
 
         private Object getComponent(ItemMeta itemMeta) {
             return invoke(getComponent, itemMeta);
+        }
+
+        private boolean hasComponent(ItemMeta itemMeta) {
+            if (hasComponent != null)
+                return (boolean) invoke(hasComponent, itemMeta);
+            return itemMeta.hasCustomModelData() || !read(getComponent(itemMeta)).isEmpty();
         }
 
         private void setComponent(ItemMeta itemMeta, @Nullable Object component) {
