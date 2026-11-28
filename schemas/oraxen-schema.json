@@ -7846,6 +7846,112 @@
       "description": "Outline color while the item is dropped (1.21.4+)",
       "minecraftVersion": "1.21.4+"
     },
+    "equipment": {
+      "type": "object",
+      "description": "Custom equipment textures shared by items with the same equipment id",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+$",
+          "description": "Shared equipment asset id, defaults to the item id"
+        },
+        "humanoid": {
+          "type": "string",
+          "description": "Texture reference for the humanoid equipment layer",
+          "minecraftVersion": "1.21.2+"
+        },
+        "humanoid_leggings": {
+          "type": "string",
+          "description": "Texture reference for the humanoid_leggings equipment layer",
+          "minecraftVersion": "1.21.2+"
+        },
+        "humanoid_baby": {
+          "type": "string",
+          "description": "Texture reference for the humanoid_baby equipment layer",
+          "minecraftVersion": "26.1+"
+        },
+        "wings": {
+          "type": "string",
+          "description": "Texture reference for the wings equipment layer",
+          "minecraftVersion": "1.21.2+"
+        },
+        "wolf_body": {
+          "type": "string",
+          "description": "Texture reference for the wolf_body equipment layer",
+          "minecraftVersion": "1.21.2+"
+        },
+        "horse_body": {
+          "type": "string",
+          "description": "Texture reference for the horse_body equipment layer",
+          "minecraftVersion": "1.21.2+"
+        },
+        "llama_body": {
+          "type": "string",
+          "description": "Texture reference for the llama_body equipment layer",
+          "minecraftVersion": "1.21.2+"
+        },
+        "pig_saddle": {
+          "type": "string",
+          "description": "Texture reference for the pig_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "strider_saddle": {
+          "type": "string",
+          "description": "Texture reference for the strider_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "camel_saddle": {
+          "type": "string",
+          "description": "Texture reference for the camel_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "horse_saddle": {
+          "type": "string",
+          "description": "Texture reference for the horse_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "donkey_saddle": {
+          "type": "string",
+          "description": "Texture reference for the donkey_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "mule_saddle": {
+          "type": "string",
+          "description": "Texture reference for the mule_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "skeleton_horse_saddle": {
+          "type": "string",
+          "description": "Texture reference for the skeleton_horse_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "zombie_horse_saddle": {
+          "type": "string",
+          "description": "Texture reference for the zombie_horse_saddle equipment layer",
+          "minecraftVersion": "1.21.5+"
+        },
+        "happy_ghast_body": {
+          "type": "string",
+          "description": "Texture reference for the happy_ghast_body equipment layer",
+          "minecraftVersion": "1.21.6+"
+        },
+        "nautilus_body": {
+          "type": "string",
+          "description": "Texture reference for the nautilus_body equipment layer",
+          "minecraftVersion": "1.21.11+"
+        },
+        "nautilus_saddle": {
+          "type": "string",
+          "description": "Texture reference for the nautilus_saddle equipment layer",
+          "minecraftVersion": "1.21.11+"
+        },
+        "camel_husk_saddle": {
+          "type": "string",
+          "description": "Texture reference for the camel_husk_saddle equipment layer",
+          "minecraftVersion": "1.21.11+"
+        }
+      }
+    },
     "trim_pattern": {
       "type": "string",
       "description": "Armor trim pattern key",

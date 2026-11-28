@@ -51,11 +51,11 @@ custom-armor:
   disable-leather-repair: true # Require copies of the custom armor instead of leather for repairs.
 
   component:
-    auto-assign-component: true # Assign the equippable-model component unless explicitly specified.
+    auto-assign-component: true # Assign the equippable-model component for armor detected by texture file names. Items with equipment are always filled in memory.
 
   trims:
     material-replacement: CHAINMAIL # Valid options: CHAINMAIL, IRON, GOLD, DIAMOND, NETHERITE, and LEATHER.
-    auto-assign-settings: true # Assign the trim and item flag unless explicitly specified.
+    auto-assign-settings: true # Assign the trim and item flag for armor detected by texture file names. Items with equipment are always filled in memory.
 
 updater:
   items:

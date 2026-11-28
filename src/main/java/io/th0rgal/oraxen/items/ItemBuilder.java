@@ -16,6 +16,7 @@ import io.th0rgal.oraxen.configs.Message;
 import io.th0rgal.oraxen.configs.Settings;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.*;
+import io.th0rgal.oraxen.utils.customarmor.ItemEquipment;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.VersionUtil;
@@ -66,6 +67,8 @@ public class ItemBuilder {
     private int amount;
     private Color color; // LeatherArmorMeta, PotionMeta, MapMeta & FireWorkEffectMeta
     private Key trimPattern; // TrimPattern
+    @Nullable
+    private ItemEquipment equipment;
     private PotionType potionType;
     private List<PotionEffect> potionEffects;
     private OfflinePlayer owningPlayer; // SkullMeta
@@ -422,6 +425,20 @@ public class ItemBuilder {
 
     public ItemBuilder setColor(final Color color) {
         this.color = color;
+        return this;
+    }
+
+    public boolean hasEquipment() {
+        return equipment != null;
+    }
+
+    @Nullable
+    public ItemEquipment getEquipment() {
+        return equipment;
+    }
+
+    public ItemBuilder setEquipment(@Nullable final ItemEquipment equipment) {
+        this.equipment = equipment;
         return this;
     }
 
@@ -923,6 +940,7 @@ public class ItemBuilder {
         }
         clonedBuilder.color = color;
         clonedBuilder.trimPattern = trimPattern;
+        clonedBuilder.equipment = equipment;
         clonedBuilder.potionType = potionType;
         clonedBuilder.potionEffects = potionEffects != null ? new ArrayList<>(potionEffects) : null;
         clonedBuilder.owningPlayer = owningPlayer;

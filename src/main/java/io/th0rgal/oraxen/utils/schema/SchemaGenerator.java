@@ -7,6 +7,7 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.MechanicConfigProperty;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.utils.customarmor.EquipmentLayer;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -517,6 +518,26 @@ public class SchemaGenerator {
         glowing.addProperty("description", "Outline color while the item is dropped (1.21.4+)");
         glowing.addProperty("minecraftVersion", "1.21.4+");
         properties.add("glowing", glowing);
+
+        // equipment
+        JsonObject equipment = new JsonObject();
+        equipment.addProperty("type", "object");
+        equipment.addProperty("description", "Custom equipment textures shared by items with the same equipment id");
+        JsonObject equipmentProperties = new JsonObject();
+        JsonObject equipmentId = new JsonObject();
+        equipmentId.addProperty("type", "string");
+        equipmentId.addProperty("pattern", "^[a-z0-9_.-]+$");
+        equipmentId.addProperty("description", "Shared equipment asset id, defaults to the item id");
+        equipmentProperties.add("id", equipmentId);
+        for (EquipmentLayer layer : EquipmentLayer.values()) {
+            JsonObject layerProperty = new JsonObject();
+            layerProperty.addProperty("type", "string");
+            layerProperty.addProperty("description", "Texture reference for the " + layer.configKey() + " equipment layer");
+            layerProperty.addProperty("minecraftVersion", layer.minimumVersion() + "+");
+            equipmentProperties.add(layer.configKey(), layerProperty);
+        }
+        equipment.add("properties", equipmentProperties);
+        properties.add("equipment", equipment);
 
         // trim_pattern
         addProperty(properties, "trim_pattern", "string", "Armor trim pattern key", false, "namespacedKey", "1.20+");

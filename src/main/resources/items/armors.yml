@@ -10,11 +10,10 @@ magic_elytra:
   material: ELYTRA
   components:
     max_stack_size: 1
-    equippable:
-      slot: CHEST
-      model: oraxen:magic_elytra
     durability:
       value: 320
+  equipment:
+    wings: default/armors/magic_elytra
   pack:
     generate_model: true
     parent_model: item/generated
@@ -23,7 +22,7 @@ magic_elytra:
 
 emerald_helmet:
   name: "<gradient:#89E59D:#37C6BA>Emerald Helmet"
-  material: PAPER
+  material: CHAINMAIL_HELMET
   lore:
     - "<#6f737d>» <#D5D6D8>Gives 1 extra <glyph:heart>"
   components:
@@ -31,9 +30,10 @@ emerald_helmet:
     durability:
       value: 437
       damage_entity_hit: true
-    equippable:
-      slot: HEAD
-      model: oraxen:emerald
+  equipment:
+    id: emerald
+    humanoid: default/armors/emerald_armor_layer_1
+    humanoid_leggings: default/armors/emerald_armor_layer_2
   AttributeModifiers:
     # - name: You don't really care about the name but it can be useful for some developers
     # - attribute: Get the list here: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/attribute/Attribute.html
@@ -55,7 +55,7 @@ emerald_helmet:
 
 emerald_chestplate:
   name: "<gradient:#89E59D:#37C6BA>Emerald Chestplate"
-  material: PAPER
+  material: CHAINMAIL_CHESTPLATE
   lore:
     - "<#6f737d>» <#D5D6D8>Gives 1.5 extra <glyph:heart>"
   components:
@@ -63,9 +63,8 @@ emerald_chestplate:
     durability:
       value: 635
       damage_entity_hit: true
-    equippable:
-      slot: CHEST
-      model: oraxen:emerald
+  equipment:
+    id: emerald
   AttributeModifiers:
     - { attribute: MAX_HEALTH, amount: 3, operation: 0, slot: CHEST }
     - { attribute: ARMOR, amount: 8, operation: 0, slot: CHEST }
@@ -83,7 +82,7 @@ emerald_chestplate:
 
 emerald_leggings:
   name: "<gradient:#89E59D:#37C6BA>Emerald Leggings"
-  material: PAPER
+  material: CHAINMAIL_LEGGINGS
   lore:
     - "<#6f737d>» <#D5D6D8>Gives 1.5 extra <glyph:heart>"
   components:
@@ -91,9 +90,8 @@ emerald_leggings:
     durability:
       value: 595
       damage_entity_hit: true
-    equippable:
-      slot: LEGS
-      model: oraxen:emerald
+  equipment:
+    id: emerald
   AttributeModifiers:
     - { attribute: MAX_HEALTH, amount: 3, operation: 0, slot: LEGS }
     - { attribute: ARMOR, amount: 6, operation: 0, slot: LEGS }
@@ -111,7 +109,7 @@ emerald_leggings:
 
 emerald_boots:
   name: "<gradient:#89E59D:#37C6BA>Emerald Boots"
-  material: PAPER
+  material: CHAINMAIL_BOOTS
   lore:
     - "<#6f737d>» <#D5D6D8>Gives 1 extra <glyph:heart>"
   components:
@@ -119,9 +117,8 @@ emerald_boots:
     durability:
       value: 516
       damage_entity_hit: true
-    equippable:
-      slot: FEET
-      model: oraxen:emerald
+  equipment:
+    id: emerald
   AttributeModifiers:
     - { attribute: MAX_HEALTH, amount: 2, operation: 0, slot: FEET }
     - { attribute: ARMOR, amount: 3, operation: 0, slot: FEET }
@@ -139,7 +136,7 @@ emerald_boots:
 
 obsidian_helmet:
   name: "<gradient:#4B36B1:#6699FF>Obsidian Helmet"
-  material: PAPER
+  material: CHAINMAIL_HELMET
   lore:
     - "<#6f737d>» <#D5D6D8>Ludicrous durability"
   components:
@@ -147,9 +144,10 @@ obsidian_helmet:
     durability:
       value: 4370
       damage_entity_hit: true
-    equippable:
-      slot: HEAD
-      model: oraxen:obsidian
+  equipment:
+    id: obsidian
+    humanoid: default/armors/obsidian_armor_layer_1
+    humanoid_leggings: default/armors/obsidian_armor_layer_2
   AttributeModifiers:
     - { attribute: ARMOR, amount: 2, operation: 0, slot: HEAD }
   pack:
@@ -161,7 +159,7 @@ obsidian_helmet:
 obsidian_chestplate:
   custom_model_data: 2
   name: "<gradient:#4B36B1:#6699FF>Obsidian Chestplate"
-  material: PAPER
+  material: CHAINMAIL_CHESTPLATE
   lore:
     - "<#6f737d>» <#D5D6D8>Ludicrous durability"
   components:
@@ -169,9 +167,8 @@ obsidian_chestplate:
     durability:
       value: 6350
       damage_entity_hit: true
-    equippable:
-      slot: CHEST
-      model: oraxen:obsidian
+  equipment:
+    id: obsidian
   AttributeModifiers:
     - { attribute: ARMOR, amount: 6, operation: 0, slot: CHEST }
   pack:
@@ -182,7 +179,7 @@ obsidian_chestplate:
 
 obsidian_leggings:
   name: "<gradient:#4B36B1:#6699FF>Obsidian Leggings"
-  material: PAPER
+  material: CHAINMAIL_LEGGINGS
   lore:
     - "<#6f737d>» <#D5D6D8>Ludicrous durability"
   components:
@@ -190,9 +187,8 @@ obsidian_leggings:
     durability:
       value: 5950
       damage_entity_hit: true
-    equippable:
-      slot: LEGS
-      model: oraxen:obsidian
+  equipment:
+    id: obsidian
   AttributeModifiers:
     - { attribute: ARMOR, amount: 5, operation: 0, slot: LEGS }
   pack:
@@ -203,7 +199,7 @@ obsidian_leggings:
 
 obsidian_boots:
   name: "<gradient:#4B36B1:#6699FF>Boots Boots"
-  material: PAPER
+  material: CHAINMAIL_BOOTS
   lore:
     - "<#6f737d>» <#D5D6D8>Ludicrous durability"
   components:
@@ -211,9 +207,8 @@ obsidian_boots:
     durability:
       value: 5160
       damage_entity_hit: true
-    equippable:
-      slot: FEET
-      model: oraxen:obsidian
+  equipment:
+    id: obsidian
   AttributeModifiers:
     - { attribute: ARMOR, amount: 2, operation: 0, slot: FEET }
   pack:
@@ -224,15 +219,16 @@ obsidian_boots:
 
 ruby_helmet:
   name: "<gradient:#FA7CBB:#F14658>Ruby Helmet"
-  material: PAPER
+  material: CHAINMAIL_HELMET
   components:
     max_stack_size: 1
     durability:
       value: 547
       damage_entity_hit: true
-    equippable:
-      slot: HEAD
-      model: oraxen:ruby
+  equipment:
+    id: ruby
+    humanoid: default/armors/ruby_armor_layer_1
+    humanoid_leggings: default/armors/ruby_armor_layer_2
   AttributeModifiers:
     - { attribute: ARMOR, amount: 3, operation: 0, slot: HEAD }
     - {
@@ -249,15 +245,14 @@ ruby_helmet:
 
 ruby_chestplate:
   name: "<gradient:#FA7CBB:#F14658>Ruby Chestplate"
-  material: PAPER
+  material: CHAINMAIL_CHESTPLATE
   components:
     max_stack_size: 1
     durability:
       value: 792
       damage_entity_hit: true
-    equippable:
-      slot: CHEST
-      model: oraxen:ruby
+  equipment:
+    id: ruby
   AttributeModifiers:
     - { attribute: ARMOR, amount: 8, operation: 0, slot: CHEST }
     - {
@@ -274,15 +269,14 @@ ruby_chestplate:
 
 ruby_leggings:
   name: "<gradient:#FA7CBB:#F14658>Ruby Leggings"
-  material: PAPER
+  material: CHAINMAIL_LEGGINGS
   components:
     max_stack_size: 1
     durability:
       value: 742
       damage_entity_hit: true
-    equippable:
-      slot: LEGS
-      model: oraxen:ruby
+  equipment:
+    id: ruby
   AttributeModifiers:
     - { attribute: ARMOR, amount: 6, operation: 0, slot: LEGS }
     - {
@@ -299,15 +293,14 @@ ruby_leggings:
 
 ruby_boots:
   name: "<gradient:#FA7CBB:#F14658>Ruby Boots"
-  material: PAPER
+  material: CHAINMAIL_BOOTS
   components:
     max_stack_size: 1
     durability:
       value: 643
       damage_entity_hit: true
-    equippable:
-      slot: FEET
-      model: oraxen:ruby
+  equipment:
+    id: ruby
   AttributeModifiers:
     - { attribute: ARMOR, amount: 3, operation: 0, slot: FEET }
     - {
