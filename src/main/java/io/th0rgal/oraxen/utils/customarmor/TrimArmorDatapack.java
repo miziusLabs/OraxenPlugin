@@ -54,12 +54,11 @@ public class TrimArmorDatapack extends OraxenDatapack {
     }
 
     public Set<String> generateResourceAssets(List<VirtualFile> output, Map<String, EquipmentSet> equipmentSets) {
-        Set<String> equipmentTexturePaths = EquipmentPackFiles.referencedTexturePaths(equipmentSets);
         Set<String> armorPrefixes = armorPrefixes(output, equipmentSets.keySet());
         EquipmentPackFiles.copyTrimTextures(output, equipmentSets,
                 MinecraftVersion.getCurrentVersion().toSemanticVersion(), Logs::logInfo, Logs::logError);
         writeTrimAtlas(output, armorPrefixes, equipmentSets);
-        copyArmorLayerTextures(output, equipmentTexturePaths, equipmentSets.keySet());
+        copyArmorLayerTextures(output, equipmentSets.keySet());
         return armorPrefixes;
     }
 
@@ -171,8 +170,7 @@ public class TrimArmorDatapack extends OraxenDatapack {
         }
     }
 
-    private void copyArmorLayerTextures(List<VirtualFile> output, Set<String> equipmentTexturePaths,
-            Set<String> equipmentIds) {
+    private void copyArmorLayerTextures(List<VirtualFile> output, Set<String> equipmentIds) {
         String armorPath = "assets/minecraft/textures/models/armor/";
         String vanillaTrimPath = "assets/minecraft/textures/trims/models/armor/";
         String oraxenTrimPath = "assets/oraxen/textures/trims/models/armor/";
@@ -190,12 +188,10 @@ public class TrimArmorDatapack extends OraxenDatapack {
             String armorPrefix = armorPrefix(virtualFile);
             if (!equipmentIds.contains(armorPrefix)) {
                 if (path.endsWith("_armor_layer_1.png")) {
-                    EquipmentPackFiles.moveLegacyTexture(output, virtualFile, oraxenTrimPath + armorPrefix + ".png",
-                            equipmentTexturePaths.contains(path));
+                    EquipmentPackFiles.copyLegacyTexture(output, virtualFile, oraxenTrimPath + armorPrefix + ".png");
                     continue;
                 } else if (path.endsWith("_armor_layer_2.png")) {
-                    EquipmentPackFiles.moveLegacyTexture(output, virtualFile,
-                            oraxenTrimPath + armorPrefix + "_leggings.png", equipmentTexturePaths.contains(path));
+                    EquipmentPackFiles.copyLegacyTexture(output, virtualFile, oraxenTrimPath + armorPrefix + "_leggings.png");
                     continue;
                 }
             }

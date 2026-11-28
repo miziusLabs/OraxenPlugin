@@ -12,23 +12,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 
 public final class EquipmentPackFiles {
 
     private EquipmentPackFiles() {
-    }
-
-    public static Set<String> referencedTexturePaths(Map<String, EquipmentSet> equipmentSets) {
-        Set<String> texturePaths = new LinkedHashSet<>();
-        for (EquipmentSet equipmentSet : equipmentSets.values())
-            for (String texture : equipmentSet.layers().values())
-                texturePaths.add(PackFileCollector.modelPathToPackPath(texture));
-        return texturePaths;
     }
 
     public static void generateComponentFiles(List<VirtualFile> output, Map<String, EquipmentSet> equipmentSets,
@@ -137,7 +127,7 @@ public final class EquipmentPackFiles {
         }
     }
 
-    static VirtualFile copyVirtualFile(VirtualFile source, String targetPath) throws IOException {
+    private static VirtualFile copyVirtualFile(VirtualFile source, String targetPath) throws IOException {
         InputStream inputStream = source.getInputStream();
         if (inputStream == null)
             throw new IOException("Texture stream is unavailable");
@@ -157,15 +147,9 @@ public final class EquipmentPackFiles {
         return findFile(output, path) != null;
     }
 
-
-    static void moveLegacyTexture(List<VirtualFile> output, VirtualFile source, String targetPath,
-            boolean retainSource) {
+    static void copyLegacyTexture(List<VirtualFile> output, VirtualFile source, String targetPath) {
         if (hasFile(output, targetPath))
             return;
-        if (!retainSource) {
-            source.setPath(targetPath);
-            return;
-        }
         try {
             output.add(copyVirtualFile(source, targetPath));
         } catch (IOException exception) {

@@ -51,14 +51,13 @@ public class ComponentArmorModels {
         EquipmentPackFiles.generateComponentFiles(output, equipmentSets, serverVersion,
                 Logs::logWarning, Logs::logError, Logs::debug);
 
-        Set<String> equipmentTexturePaths = EquipmentPackFiles.referencedTexturePaths(equipmentSets);
         Set<String> equipmentIds = equipmentSets.keySet();
         Set<String> snapshotArmorPrefixes = armorPrefixes(output, equipmentIds);
         Set<String> snapshotElytraPrefixes = elytraPrefixes(output, equipmentIds);
         armorPrefixes.addAll(snapshotArmorPrefixes);
         elytraPrefixes.addAll(snapshotElytraPrefixes);
         writeArmorModels(output, snapshotArmorPrefixes, snapshotElytraPrefixes, serverVersion);
-        copyArmorLayerTextures(output, equipmentTexturePaths, equipmentIds);
+        copyArmorLayerTextures(output, equipmentIds);
     }
 
     public void finishGeneration(Set<String> armorPrefixes, Set<String> elytraPrefixes) {
@@ -105,8 +104,7 @@ public class ComponentArmorModels {
         output.add(new VirtualFile(folder, id + ".json", equipmentStream));
     }
 
-    private void copyArmorLayerTextures(List<VirtualFile> output, Set<String> equipmentTexturePaths,
-            Set<String> equipmentIds) {
+    private void copyArmorLayerTextures(List<VirtualFile> output, Set<String> equipmentIds) {
         for (VirtualFile virtualFile : List.copyOf(output)) {
             String path = virtualFile.getPath();
             String armorFolder = path.endsWith("_armor_layer_1.png") ? "humanoid"
@@ -119,7 +117,7 @@ public class ComponentArmorModels {
                 continue;
 
             String targetPath = "assets/oraxen/textures/entity/equipment/%s/%s.png".formatted(armorFolder, armorPrefix);
-            EquipmentPackFiles.moveLegacyTexture(output, virtualFile, targetPath, equipmentTexturePaths.contains(path));
+            EquipmentPackFiles.copyLegacyTexture(output, virtualFile, targetPath);
         }
     }
 

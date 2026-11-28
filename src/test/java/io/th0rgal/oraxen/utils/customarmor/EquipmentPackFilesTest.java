@@ -98,6 +98,28 @@ class EquipmentPackFilesTest {
     }
 
     @Test
+    void preservesImportedTextureReferencedByEquipmentJson() throws Exception {
+        byte[] texture = "knight-texture".getBytes(StandardCharsets.UTF_8);
+        byte[] definition = "{\"layers\":{\"humanoid\":[{\"texture\":\"demo:knight_armor_layer_1\"}]}}"
+                .getBytes(StandardCharsets.UTF_8);
+        List<VirtualFile> output = new ArrayList<>();
+        String folder = "assets/demo/textures/entity/equipment/humanoid";
+        String name = "knight_armor_layer_1.png";
+        output.add(new VirtualFile(folder, name, new ByteArrayInputStream(texture)));
+        output.add(new VirtualFile("assets/demo/equipment", "knight.json", new ByteArrayInputStream(definition)));
+
+        new ComponentArmorModels().generatePackFiles(output, Map.of(), new HashSet<>(), new HashSet<>(),
+                SemanticServerVersion.parse("1.21.4"));
+
+        VirtualFile original = file(output, folder + "/" + name);
+        assertNotNull(original);
+        assertArrayEquals(texture, original.getInputStream().readAllBytes());
+        assertArrayEquals(definition, file(output, "assets/demo/equipment/knight.json").getInputStream().readAllBytes());
+        assertArrayEquals(texture, file(output,
+                "assets/oraxen/textures/entity/equipment/humanoid/knight.png").getInputStream().readAllBytes());
+    }
+
+    @Test
     void legacyDetectionIgnoresGeneratedEquipmentCopies() {
         List<VirtualFile> output = new ArrayList<>();
         output.add(new VirtualFile("assets/oraxen/textures/entity/equipment/wings", "magic_elytra.png",
